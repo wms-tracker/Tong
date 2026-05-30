@@ -153,16 +153,30 @@ input:focus{outline:none;border-color:var(--primary)}
     <button class="mode-btn" id="m-ord" onclick="setMode('order')">🔖 Order ID</button>
   </div>
 
-  <!-- Step 1 -->
+  <!-- Step 1: Scan input -->
   <div class="card">
-    <div class="card-t" id="s1-lbl">สแกน Tracking</div>
-    <input type="search" class="input-big" id="in1" placeholder="สแกนหรือพิมพ์..."
+    <div class="card-t" id="s1-lbl">📦 สแกน Tracking Number</div>
+    <input type="search" class="input-big" id="in1" placeholder="สแกนหรือพิมพ์ Tracking..."
       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
       oninput="onIn1(this.value)"
       onkeydown="if(event.key==='Enter'){event.preventDefault();confirm1()}">
     <div class="hint" id="h1"></div>
     <div class="sr-list" id="sr-list"></div>
     <div class="cancel-ban" id="cancel-ban">🚫 Order นี้ถูก Cancel</div>
+    <!-- Preview order ใต้ช่อง scan -->
+    <div id="scan-preview" style="display:none;margin-top:10px;padding:10px;background:var(--bg3);border-radius:var(--rx);border:1.5px solid var(--border2)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:11px;color:var(--text2)">Order ID</div>
+          <div style="font-size:18px;font-weight:700" id="preview-oid">—</div>
+          <div style="font-size:11px;color:var(--text2)" id="preview-con">—</div>
+        </div>
+        <div style="text-align:right">
+          <span class="badge b-new" id="preview-badge">new</span>
+          <div style="font-size:10px;color:var(--teal);font-family:monospace;margin-top:4px" id="preview-trk"></div>
+        </div>
+      </div>
+    </div>
     <div style="margin-top:10px">
       <button class="btn btn-p" onclick="confirm1()">ยืนยัน →</button>
     </div>
@@ -280,6 +294,7 @@ var API='', DEV='PDA-01', USR='user01', FB='';
 var ALERTED_CANCEL={}; // ป้องกันแจ้งซ้ำ
 var MODE='tracking', CUR_OID='', CUR_TRK='', CUR_ITEMS=[];
 var SL={new:'🆕 รับแล้ว',pick:'🔍 Pick',qc:'✅ QC ผ่าน',ship:'🚚 Ship',done:'✔ Done',cancel:'🚫 Cancel'};
+var SB2={new:'b-new',pick:'b-pick',qc:'b-qc',ship:'b-ship',done:'b-done',cancel:'b-cancel'};
 var SB={new:'b-new',qc:'b-qc',pack:'b-pack',done:'b-done',cancel:'b-cancel'};
 
 /* ===== INIT ===== */
@@ -585,6 +600,7 @@ function onIn1(val){
   var res=document.getElementById('sr-list');
   document.getElementById('cancel-ban').style.display='none';
   CUR_OID='';CUR_TRK='';CUR_ITEMS=[];
+  var prev=document.getElementById('scan-preview');if(prev)prev.style.display='none';
   if(!val.trim()){h.className='hint';h.textContent='';res.style.display='none';return;}
   var v=val.trim().toLowerCase();
 
@@ -616,6 +632,16 @@ function onIn1(val){
     }
     if(found){
       CUR_OID=found.id;CUR_TRK=foundT;CUR_ITEMS=foundItems;
+      // แสดง preview ใต้ช่อง scan
+      var prev=document.getElementById('scan-preview');
+      if(prev){
+        prev.style.display='block';
+        document.getElementById('preview-oid').textContent=found.id;
+        document.getElementById('preview-con').textContent=found.consign||'—';
+        document.getElementById('preview-trk').textContent=foundT||found.tracking||'';
+        var pb=document.getElementById('preview-badge');
+        if(pb){pb.textContent=SL[found.status]||found.status;pb.className='badge '+(SB2[found.status]||'b-new');}
+      }
       if(found.status==='cancel'){h.className='hint h-err';h.textContent='🚫 Order '+found.id+' ถูก Cancel';}
       else{h.className='hint h-ok';h.textContent='✓ '+found.id+' · '+foundItems.length+' รายการ'+(DRAFTS[found.id]?' [Draft]':'');}
     }else{h.className='hint h-err';h.textContent='ไม่พบ Tracking หรือ Order ID นี้';}
@@ -796,41 +822,58 @@ function syncOrdersFromFirebase(){
     showAl('ใส่ Firebase URL ในตั้งค่าก่อนครับ','err');
     goPage('settings');return;
   }
-  setSyncOk('⏳ กำลังดึง Firebase...');
-  fbGet('/orders',function(err,data){
-    if(err||!data){
-      setSyncErr('Firebase error');
-      return;
-    }
-    var keys=Object.keys(data);
-    var added=0,updated=0;
-    // Merge: อัปเดต/เพิ่ม orders จาก Firebase
-    keys.forEach(function(rawOid){
-      var o=data[rawOid];
-      if(!o||!o.id)return;
-      var oid=o.id;
-      var existSt=ORDERS[oid]?ORDERS[oid].status:'';
-      // ถ้ากำลังทำอยู่ (pick/qc/ship/done) ให้ keep status ของ local
-      var keepSt=['pick','qc','ship','done'].indexOf(existSt)>=0;
-      if(ORDERS[oid]) updated++; else added++;
-      ORDERS[oid]={
-        id:oid,
-        consign:o.consign||'',
-        tracking:o.tracking||'',
-        trackings:o.trackings||[],
-        items:o.items||[],
-        status:keepSt?existSt:(o.status||'new'),
-        date:o.date||new Date().toLocaleDateString('th-TH')
-      };
-    });
-    // ลบ cancel orders ที่ไม่อยู่ใน Firebase
-    Object.keys(ORDERS).forEach(function(oid){
-      if(!data[oid.replace(/\./g,'_')] && ORDERS[oid].status==='new'){
-        // ไม่ลบ เผื่อ key encoding ต่างกัน
-      }
-    });
+  setSyncOk('⏳ ดึงรายชื่อ orders...');
+  // Step 1: shallow=true ดึงแค่ keys ก่อน
+  var xhr=new XMLHttpRequest();
+  xhr.open('GET',FB+'/orders.json?shallow=true');
+  xhr.timeout=15000;
+  xhr.onload=function(){
+    try{
+      var data=JSON.parse(xhr.responseText)||{};
+      var keys=Object.keys(data);
+      if(!keys.length){setSyncErr('ไม่มีข้อมูลใน Firebase');return;}
+      setSyncOk('⏳ ดึง '+keys.length+' orders...');
+      pdaFetchBatch(keys,0,40,0);
+    }catch(e){setSyncErr('Firebase error');}
+  };
+  xhr.onerror=function(){setSyncErr('Firebase เชื่อมต่อไม่ได้');};
+  xhr.ontimeout=function(){setSyncErr('Firebase timeout');};
+  xhr.send();
+}
+
+function pdaFetchBatch(keys,offset,size,done){
+  var batch=keys.slice(offset,offset+size);
+  if(!batch.length){
     save();refreshStats();renderDashboard();
-    setSyncOk('🔥 '+keys.length+' orders (เพิ่ม '+added+', อัปเดต '+updated+')');
+    setSyncOk('🔥 '+done+' orders พร้อมแล้ว');
+    return;
+  }
+  setSyncOk('⏳ ดึง '+(offset+1)+'-'+(Math.min(offset+size,keys.length))+'/'+keys.length);
+  var left=batch.length;
+  batch.forEach(function(key){
+    var x=new XMLHttpRequest();
+    x.open('GET',FB+'/orders/'+key+'.json');
+    x.timeout=8000;
+    x.onload=function(){
+      try{
+        var o=JSON.parse(x.responseText);
+        if(o&&o.id){
+          var oid=o.id;
+          var existSt=ORDERS[oid]?ORDERS[oid].status:'';
+          var keepSt=['pick','qc','ship','done'].indexOf(existSt)>=0;
+          ORDERS[oid]={
+            id:oid,consign:o.consign||'',tracking:o.tracking||'',
+            trackings:o.trackings||[],items:o.items||[],
+            status:keepSt?existSt:(o.status||'new'),
+            date:o.date||new Date().toLocaleDateString('th-TH')
+          };
+          done++;
+        }
+      }catch(e){}
+      if(--left===0) pdaFetchBatch(keys,offset+size,size,done);
+    };
+    x.onerror=x.ontimeout=function(){if(--left===0) pdaFetchBatch(keys,offset+size,size,done);};
+    x.send();
   });
 }
 
