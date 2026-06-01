@@ -6,63 +6,54 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PDA Scan">
 <meta name="theme-color" content="#0F172A">
-<meta name="apple-mobile-web-app-title" content="PDA QC Scan">
 <title>PDA QC Scan</title>
-<link rel="manifest" href="data:application/json,{%22name%22:%22PDA+QC+Scan%22,%22short_name%22:%22QC+Scan%22,%22display%22:%22standalone%22,%22background_color%22:%22%230F172A%22,%22theme_color%22:%22%230F172A%22,%22start_url%22:%22.%22,%22icons%22:[{%22src%22:%22data:image/svg+xml,%253Csvg+xmlns='http://www.w3.org/2000/svg'+viewBox='0+0+100+100'%253E%253Ctext+y='.9em'+font-size='90'%253E%F0%9F%94%8D%253C/text%253E%253C/svg%253E%22,%22sizes%22:%22any%22,%22type%22:%22image/svg+xml%22}]}">
+<link rel="manifest" href="data:application/json,{%22name%22:%22PDA+QC+Scan%22,%22short_name%22:%22PDA+Scan%22,%22display%22:%22standalone%22,%22background_color%22:%22%230F172A%22,%22theme_color%22:%22%230F172A%22,%22start_url%22:%22/Tong/wms_pda.html%22,%22scope%22:%22/Tong/wms_pda.html%22,%22icons%22:[{%22src%22:%22data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A//www.w3.org/2000/svg'%20viewBox%3D'0%200%20192%20192'%3E%3Crect%20width%3D'192'%20height%3D'192'%20rx%3D'32'%20fill%3D'%230F172A'/%3E%3Ctext%20x%3D'96'%20y%3D'130'%20font-size%3D'120'%20text-anchor%3D'middle'%3E%F0%9F%94%8D%3C/text%3E%3C/svg%3E%22,%22sizes%22:%22192x192%22,%22type%22:%22image/svg+xml%22}]}">
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
 <style>
-:root{
-  --bg:#F8FAFC;--bg2:#fff;--bg3:#F1F5F9;
-  --text:#0F172A;--text2:#64748B;--text3:#94A3B8;
-  --border:#E2E8F0;--border2:#CBD5E1;
-  --primary:#2563EB;--pd:#1D4ED8;--pl:#EFF6FF;
-  --green:#16A34A;--gb:#F0FDF4;--gbr:#86EFAC;
-  --orange:#D97706;--ob:#FFFBEB;--obr:#FCD34D;
-  --red:#DC2626;--rb:#FEF2F2;--rbr:#FECACA;
-  --purple:#7C3AED;--pb:#F5F3FF;--pbr:#C4B5FD;
-  --teal:#0D9488;--tb:#F0FDFA;--tbr:#5EEAD4;
-  --r:12px;--rs:8px;--rx:6px;
-}
+:root{--bg:#F8FAFC;--bg2:#fff;--bg3:#F1F5F9;--text:#0F172A;--text2:#64748B;--text3:#94A3B8;--border:#E2E8F0;--border2:#CBD5E1;--primary:#2563EB;--pd:#1D4ED8;--pl:#EFF6FF;--green:#16A34A;--gb:#F0FDF4;--gbr:#86EFAC;--orange:#D97706;--ob:#FFFBEB;--obr:#FCD34D;--red:#DC2626;--rb:#FEF2F2;--rbr:#FECACA;--purple:#7C3AED;--pb:#F5F3FF;--pbr:#C4B5FD;--teal:#0D9488;--r:12px;--rs:8px;--rx:6px}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:15px;line-height:1.5;padding-bottom:72px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:15px;padding-bottom:72px}
 .topnav{background:#0F172A;color:#fff;padding:11px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
 .topnav-title{font-size:15px;font-weight:700}
-.sync-status{font-size:11px;color:rgba(255,255,255,.55);display:flex;align-items:center;gap:5px}
-.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);flex-shrink:0}
-.s-ok .sync-dot{background:#22C55E}.s-err .sync-dot{background:#EF4444}
-.s-spin .sync-dot{background:#F59E0B;animation:pulse 1s infinite}
+.sync-bar{font-size:11px;color:rgba(255,255,255,.55);display:flex;align-items:center;gap:5px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--text3);flex-shrink:0}
+.s-ok .dot{background:#22C55E}.s-err .dot{background:#EF4444}.s-spin .dot{background:#F59E0B;animation:pulse 1s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes spin{to{transform:rotate(360deg)}}
 .botnav{position:fixed;bottom:0;left:0;right:0;background:#0F172A;display:flex;border-top:1px solid rgba(255,255,255,.08);z-index:50}
 .bn{flex:1;padding:9px 4px 11px;text-align:center;cursor:pointer;color:rgba(255,255,255,.5);font-size:10px;font-weight:700;position:relative}
-.bn.active{color:#fff}.bn .bi{font-size:21px;display:block;margin-bottom:2px}
-.bn-badge{position:absolute;top:5px;right:20%;background:#EF4444;color:#fff;font-size:9px;padding:1px 5px;border-radius:99px;font-weight:700;display:none}
+.bn.act{color:#fff}.bn .bi{font-size:21px;display:block;margin-bottom:2px}
+.bnb{position:absolute;top:5px;right:18%;background:#EF4444;color:#fff;font-size:9px;padding:1px 5px;border-radius:99px;font-weight:700;display:none}
 .app{max-width:480px;margin:0 auto;padding:12px}
-.page{display:none}.page.active{display:block}
+.page{display:none}.page.act{display:block}
 .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
 .card-t{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px}
-.btn{width:100%;padding:13px;font-size:15px;font-weight:700;border:none;border-radius:var(--rx);cursor:pointer;transition:opacity .15s;display:flex;align-items:center;justify-content:center;gap:6px}
-.btn:active{opacity:.8}
+.btn{width:100%;padding:13px;font-size:15px;font-weight:700;border:none;border-radius:var(--rx);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.btn:active{opacity:.82;transform:scale(.99)}
 .btn-p{background:linear-gradient(135deg,var(--primary),var(--pd));color:#fff}
 .btn-g{background:linear-gradient(135deg,#16A34A,#15803D);color:#fff}
-.btn-teal{background:linear-gradient(135deg,var(--teal),#0f766e);color:#fff}
 .btn-o{background:none;border:1.5px solid var(--border2);color:var(--text2);padding:11px}
-.btn-sm{font-size:13px;padding:9px 14px;width:auto}
-.brow{display:flex;gap:8px;flex-wrap:wrap}
-.input-big{width:100%;padding:14px;font-size:20px;font-weight:700;border:2px solid var(--border);border-radius:var(--rs);background:var(--bg2);color:var(--text);-webkit-appearance:none;transition:border .15s;font-family:inherit}
-.input-big:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.btn-fb{background:#F57C00;color:#fff;font-weight:700}
+.btn-red{background:var(--rb);border:1.5px solid var(--rbr);color:var(--red);padding:11px}
+.brow{display:flex;gap:8px}.brow>.btn{flex:1}
+.big-inp{width:100%;padding:14px;font-size:20px;font-weight:700;border:2px solid var(--border);border-radius:var(--rs);background:var(--bg2);color:var(--text);-webkit-appearance:none}
+.big-inp:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
 input[type=text],input[type=search],input[type=url]{width:100%;padding:10px 12px;font-size:14px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text);-webkit-appearance:none;font-family:inherit}
 input:focus{outline:none;border-color:var(--primary)}
 .fg{margin-bottom:10px}.fl{font-size:11px;font-weight:700;color:var(--text2);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
-.hint{font-size:12px;min-height:16px;margin-top:4px;font-weight:600}
+.hint{font-size:12px;min-height:16px;margin-top:4px}
 .h-ok{color:var(--green)}.h-err{color:var(--red)}.h-warn{color:var(--orange)}
 .badge{font-size:11px;padding:2px 8px;border-radius:99px;font-weight:700;display:inline-block}
 .b-new{background:var(--pl);color:var(--primary);border:1px solid #BFDBFE}
+.b-pick{background:#E0F2FE;color:#0369A1;border:1px solid #BAE6FD}
 .b-qc{background:var(--ob);color:var(--orange);border:1px solid var(--obr)}
-.b-pick{background:#E0F2FE;color:#0369A1;border:1px solid #BAE6FD}.b-pack{background:var(--pb);color:var(--purple);border:1px solid var(--pbr)}.b-ship{background:#F3E8FF;color:#7C3AED;border:1px solid #DDD6FE}
+.b-ship{background:var(--pb);color:var(--purple);border:1px solid var(--pbr)}
 .b-done{background:var(--gb);color:var(--green);border:1px solid var(--gbr)}
 .b-cancel{background:var(--rb);color:var(--red);border:1px solid var(--rbr)}
 .prod-list{display:flex;flex-direction:column;gap:6px;margin-top:10px}
-.pi{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--bg);transition:all .2s}
+.pi{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--bg)}
 .pi.ok{background:var(--gb);border-color:var(--gbr)}
 .pi.act{background:var(--pl);border-color:#BFDBFE}
 .pi.ov{background:var(--rb);border-color:var(--rbr)}
@@ -87,32 +78,31 @@ input:focus{outline:none;border-color:var(--primary)}
 .sr-list{border:1px solid var(--border);border-radius:var(--rs);overflow:hidden;margin-top:6px;max-height:200px;overflow-y:auto;display:none}
 .sr-item{padding:10px 13px;border-bottom:1px solid var(--border);cursor:pointer}
 .sr-item:last-child{border-bottom:none}
-.sr-item:active{background:var(--bg3)}
 .cancel-ban{display:none;padding:12px 14px;background:var(--rb);border:2px solid var(--rbr);border-radius:var(--rx);margin-top:8px;text-align:center;font-weight:700;color:var(--red);font-size:14px}
-.mode-toggle{display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--bg3);border-radius:var(--rs);padding:3px;margin-bottom:12px;border:1px solid var(--border)}
-.mode-btn{padding:10px;font-size:13px;border:none;background:none;border-radius:6px;cursor:pointer;color:var(--text2);font-weight:700}
-.mode-btn.active{background:var(--bg2);color:var(--primary);box-shadow:0 1px 3px rgba(0,0,0,.1);border:1px solid var(--primary)}
+.pov{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.pov.show{display:flex}
+.pov-box{background:var(--bg2);border-radius:16px;padding:28px 22px;text-align:center;width:100%;max-width:340px}
 .draft-item{display:flex;justify-content:space-between;align-items:center;padding:11px 12px;border-bottom:1px solid var(--border)}
 .draft-item:last-child{border-bottom:none}
-.empty{text-align:center;padding:24px;color:var(--text3);font-size:13px}
-.lov{position:fixed;inset:0;background:rgba(255,255,255,.9);display:none;align-items:center;justify-content:center;z-index:200;flex-direction:column;gap:10px}
+.lov{position:fixed;inset:0;background:rgba(255,255,255,.85);display:none;align-items:center;justify-content:center;z-index:200;flex-direction:column;gap:10px}
 .lov.show{display:flex}
 .spin{width:30px;height:30px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
 .lov-t{font-size:13px;color:var(--text2)}
+.mode-toggle{display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--bg3);border-radius:var(--rs);padding:3px;margin-bottom:12px;border:1px solid var(--border)}
+.mode-btn{padding:10px;font-size:13px;border:none;background:none;border-radius:6px;cursor:pointer;color:var(--text2);font-weight:700}
+.mode-btn.act{background:var(--bg2);color:var(--primary);box-shadow:0 1px 3px rgba(0,0,0,.1);border:1px solid var(--primary)}
+.empty{text-align:center;padding:24px;color:var(--text3);font-size:13px}
+.ord-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rs);padding:12px;margin-bottom:8px}
 </style>
 </head>
 <body>
-
 <div class="topnav">
   <div>
     <div class="topnav-title">🔍 PDA QC Scan</div>
-    <div class="sync-status s-off" id="sync-bar">
-      <span class="sync-dot"></span><span id="sync-txt">ออฟไลน์</span>
-    </div>
+    <div class="sync-bar" id="sync-bar"><span class="dot"></span><span id="sync-txt">กำลังโหลด...</span></div>
   </div>
   <div style="display:flex;gap:8px;align-items:center">
-    <span id="dev-badge" style="font-size:11px;padding:2px 8px;border-radius:99px;background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);font-weight:600">PDA-01</span>
+    <span id="dev-badge" style="font-size:11px;padding:2px 8px;border-radius:99px;background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);font-weight:600">PDA</span>
     <button onclick="goPage('settings')" style="background:none;border:none;color:rgba(255,255,255,.6);font-size:18px;cursor:pointer">⚙️</button>
   </div>
 </div>
@@ -120,10 +110,10 @@ input:focus{outline:none;border-color:var(--primary)}
 <div class="app">
 
 <!-- DASHBOARD -->
-<div id="page-dashboard" class="page active">
+<div id="page-dashboard" class="page act">
   <div class="stat-row">
-    <div class="stat"><div class="stat-v" style="color:var(--orange)" id="d-new">0</div><div class="stat-l">🔍 รอ QC</div></div>
-    <div class="stat"><div class="stat-v" style="color:var(--purple)" id="d-pack">0</div><div class="stat-l">📦 Pack</div></div>
+    <div class="stat"><div class="stat-v" style="color:var(--orange)" id="d-qc">0</div><div class="stat-l">🔍 รอ QC</div></div>
+    <div class="stat"><div class="stat-v" style="color:var(--purple)" id="d-draft">0</div><div class="stat-l">💾 Draft</div></div>
     <div class="stat"><div class="stat-v" style="color:var(--green)" id="d-done">0</div><div class="stat-l">✅ ส่งแล้ว</div></div>
   </div>
   <div class="card">
@@ -138,51 +128,50 @@ input:focus{outline:none;border-color:var(--primary)}
     <div id="d-urgent"><div class="empty">✅ ไม่มีงานค้าง</div></div>
   </div>
   <div class="card">
-    <div class="card-t">Sync</div>
+    <div class="card-t">Sync ข้อมูล</div>
     <div style="display:flex;flex-direction:column;gap:8px">
-      <button class="btn" style="background:#F57C00;color:#fff;font-weight:700;font-size:15px" onclick="syncOrdersFromFirebase()">🔥 ดึงออเดอร์จาก Firebase</button>
-      <button class="btn btn-o btn-sm" onclick="syncStatus()" style="font-size:12px">↻ Sync Status</button>
+      <button class="btn btn-fb" onclick="syncOrdersFromFirebase()">🔥 ดึงออเดอร์จาก Firebase</button>
+      <div id="sync-debug" style="font-size:11px;color:var(--text2);padding:6px;background:var(--bg3);border-radius:6px;word-break:break-all"></div>
     </div>
   </div>
 </div>
 
-<!-- QC SCAN -->
+<!-- SCAN -->
 <div id="page-scan" class="page">
   <div class="mode-toggle">
-    <button class="mode-btn active" id="m-trk" onclick="setMode('tracking')">📦 Tracking</button>
+    <button class="mode-btn act" id="m-trk" onclick="setMode('tracking')">📦 Tracking</button>
     <button class="mode-btn" id="m-ord" onclick="setMode('order')">🔖 Order ID</button>
   </div>
-
-  <!-- Step 1: Scan input -->
   <div class="card">
-    <div class="card-t" id="s1-lbl">📦 สแกน Tracking Number</div>
-    <input type="search" class="input-big" id="in1" placeholder="สแกนหรือพิมพ์ Tracking..."
+    <div class="card-t" id="s1-lbl">สแกน TRACKING NUMBER</div>
+    <div style="display:flex;gap:8px;align-items:center"><input type="search" class="big-inp" id="in1" placeholder="สแกนหรือพิมพ์..."
       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
       oninput="onIn1(this.value)"
-      onkeydown="if(event.key==='Enter'){event.preventDefault();confirm1()}">
+      onkeydown="if(event.key==='Enter'){event.preventDefault();confirm1()}" style="flex:1">
+    <button onclick="startCam('trk')" style="padding:14px;background:#0F172A;color:#fff;border:none;border-radius:var(--rs);font-size:20px;cursor:pointer;flex-shrink:0">📷</button></div>
     <div class="hint" id="h1"></div>
-    <div class="sr-list" id="sr-list"></div>
-    <div class="cancel-ban" id="cancel-ban">🚫 Order นี้ถูก Cancel</div>
-    <!-- Preview order ใต้ช่อง scan -->
+    <!-- Preview -->
     <div id="scan-preview" style="display:none;margin-top:10px;padding:10px;background:var(--bg3);border-radius:var(--rx);border:1.5px solid var(--border2)">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div>
           <div style="font-size:11px;color:var(--text2)">Order ID</div>
-          <div style="font-size:18px;font-weight:700" id="preview-oid">—</div>
-          <div style="font-size:11px;color:var(--text2)" id="preview-con">—</div>
+          <div style="font-size:18px;font-weight:700" id="prev-oid">—</div>
+          <div style="font-size:11px;color:var(--text2)" id="prev-con">—</div>
         </div>
         <div style="text-align:right">
-          <span class="badge b-new" id="preview-badge">new</span>
-          <div style="font-size:10px;color:var(--teal);font-family:monospace;margin-top:4px" id="preview-trk"></div>
+          <span class="badge b-new" id="prev-badge">new</span>
+          <div style="font-size:10px;color:var(--teal);font-family:monospace;margin-top:4px" id="prev-trk"></div>
         </div>
       </div>
     </div>
+    <div class="sr-list" id="sr-list"></div>
+    <div class="cancel-ban" id="cancel-ban">🚫 Order นี้ถูก Cancel</div>
     <div style="margin-top:10px">
       <button class="btn btn-p" onclick="confirm1()">ยืนยัน →</button>
     </div>
   </div>
 
-  <!-- Order info + SKU scan -->
+  <!-- Order info + SKU -->
   <div id="order-info" style="display:none">
     <div class="card" style="padding:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -192,7 +181,7 @@ input:focus{outline:none;border-color:var(--primary)}
           <div style="font-size:12px;color:var(--text2);margin-top:1px" id="con-lbl">—</div>
         </div>
         <div style="text-align:right">
-          <span class="badge b-qc">QC</span>
+          <span class="badge b-qc" id="status-badge">QC</span>
           <div style="font-size:11px;color:var(--teal);margin-top:4px;font-family:monospace" id="trk-lbl"></div>
         </div>
       </div>
@@ -202,30 +191,32 @@ input:focus{outline:none;border-color:var(--primary)}
       <div class="prog"><div class="prog-f" id="prog-f" style="width:0%"></div></div>
       <div class="prod-list" id="prod-list"></div>
     </div>
-
     <div class="card">
       <div class="card-t">สแกน SKU</div>
-      <input type="search" class="input-big" id="in-sku" placeholder="สแกน SKU..."
+      <div style="display:flex;gap:8px;align-items:center">
+      <input type="search" class="big-inp" id="in-sku" placeholder="สแกน SKU..."
         autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
         oninput="onSkuIn(this.value)"
-        onkeydown="if(event.key==='Enter')doScan()">
+        onkeydown="if(event.key==='Enter')doScan()" style="flex:1">
+      <button onclick="startCam('sku')" style="padding:14px;background:#0F172A;color:#fff;border:none;border-radius:var(--rs);font-size:20px;cursor:pointer;flex-shrink:0">📷</button>
+    </div>
       <div class="hint" id="sku-hint"></div>
       <div id="over-box" style="display:none;margin-top:10px;padding:12px;background:var(--rb);border:1.5px solid var(--rbr);border-radius:var(--rx)">
         <div style="font-size:13px;color:var(--red);font-weight:700;margin-bottom:8px">⚠ สแกนเกินจำนวน!</div>
         <div class="brow">
-          <button class="btn btn-sm" style="background:var(--red);color:#fff;width:auto" onclick="undoScan()">ลบล่าสุด</button>
-          <button class="btn btn-o btn-sm" onclick="resetSku()">รีเซ็ต SKU</button>
+          <button class="btn btn-red" onclick="undoScan()" style="font-size:13px">ลบล่าสุด</button>
+          <button class="btn btn-o" onclick="resetSku()" style="font-size:13px">รีเซ็ต SKU</button>
         </div>
       </div>
     </div>
-
     <div id="al" class="al" style="margin-bottom:10px"></div>
     <div class="brow" style="margin-bottom:8px">
       <button class="btn btn-p" onclick="doScan()">✓ สแกน</button>
+      <button class="btn btn-g" id="pass-btn" style="display:none" onclick="showPassOv()">✅ ผ่าน QC</button>
     </div>
     <div class="brow">
-      <button class="btn btn-teal" onclick="saveDraft()">💾 Draft</button>
-      <button class="btn btn-o" onclick="resetScan()" style="font-size:13px">🔄 รีเซ็ต</button>
+      <button class="btn btn-o" style="background:#0D9488;color:#fff;border:none;font-size:13px" onclick="saveDraft()">💾 Draft</button>
+      <button class="btn btn-o" style="font-size:13px" onclick="resetScan()">🔄 รีเซ็ต</button>
     </div>
   </div>
 </div>
@@ -233,14 +224,14 @@ input:focus{outline:none;border-color:var(--primary)}
 <!-- DRAFT -->
 <div id="page-draft" class="page">
   <div class="card">
-    <div class="card-t">💾 งานค้าง</div>
+    <div class="card-t">💾 งานค้าง (Draft)</div>
     <div id="draft-list"><div class="empty">ไม่มีงานค้าง</div></div>
   </div>
 </div>
 
 <!-- ORDERS -->
 <div id="page-orders" class="page">
-  <div class="card" style="padding:10px;margin-bottom:8px">
+  <div class="card" style="padding:10px">
     <input type="search" id="ord-q" placeholder="ค้นหา Order, Tracking..." oninput="renderOrders()" style="font-size:13px">
   </div>
   <div id="ord-list"><div class="empty">ยังไม่มีข้อมูล</div></div>
@@ -249,57 +240,72 @@ input:focus{outline:none;border-color:var(--primary)}
 <!-- SETTINGS -->
 <div id="page-settings" class="page">
   <div class="card">
-    <div class="card-t">📋 Google Sheets (ดึงออเดอร์)</div>
-    <div class="fg"><label class="fl">Apps Script URL</label>
-      <input type="url" id="api-url" placeholder="https://script.google.com/macros/s/..."></div>
-    <div class="card-t" style="margin-top:12px">🔥 Firebase (Sync real-time)</div>
-    <div class="fg"><label class="fl">Firebase Database URL</label>
-      <input type="url" id="fb-url" placeholder="https://xxx-default-rtdb.firebasedatabase.app"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <div class="fg"><label class="fl">ชื่ออุปกรณ์</label>
-        <input type="text" id="dev-name" placeholder="PDA-01"></div>
-      <div class="fg"><label class="fl">ชื่อผู้ใช้</label>
-        <input type="text" id="usr-name" placeholder="user01"></div>
-    </div>
-    <div id="conn-txt" style="font-size:12px;color:var(--text2);margin-bottom:10px"></div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <button class="btn btn-p" onclick="saveSettings()">บันทึกและทดสอบ</button>
-      <button class="btn btn-o" style="font-size:13px" onclick="clearAll()">ล้างข้อมูลทั้งหมด</button>
-    </div>
+    <div class="card-t">🔗 เชื่อมต่อ Google Sheets</div>
+    <div class="fg"><label class="fl">Apps Script URL</label><input type="url" id="api-url" placeholder="https://script.google.com/macros/s/..."></div>
+  </div>
+  <div class="card">
+    <div class="card-t">🔥 Firebase Database</div>
+    <div class="fg"><label class="fl">Firebase URL</label><input type="url" id="fb-url" placeholder="https://xxx.firebasedatabase.app"></div>
+  </div>
+  <div class="card">
+    <div class="card-t">👤 ผู้ใช้งาน</div>
+    <div class="fg"><label class="fl">ชื่ออุปกรณ์</label><input type="text" id="dev-name" placeholder="PDA-01"></div>
+    <div class="fg"><label class="fl">ชื่อผู้ใช้</label><input type="text" id="usr-name" placeholder="user01"></div>
+  </div>
+  <div id="conn-txt" style="font-size:12px;color:var(--text2);margin-bottom:10px"></div>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <button class="btn btn-p" onclick="saveSettings()">บันทึกและทดสอบ</button>
+    <button class="btn btn-o" style="font-size:13px;color:var(--red)" onclick="clearAll()">🗑 ล้างข้อมูลทั้งหมด</button>
   </div>
 </div>
 
 </div>
 
 <nav class="botnav">
-  <div class="bn active" id="bn-dashboard" onclick="goPage('dashboard')"><span class="bi">📊</span>หน้าหลัก</div>
-  <div class="bn" id="bn-scan" onclick="startScan(MODE)"><span class="bi">🔍</span>QC Scan<span class="bn-badge" id="b-qc">0</span></div>
-  <div class="bn" id="bn-draft" onclick="goPage('draft');renderDrafts()"><span class="bi">💾</span>Draft<span class="bn-badge" id="b-dr" style="background:var(--teal)">0</span></div>
-  <div class="bn" id="bn-orders" onclick="goPage('orders');renderOrders()"><span class="bi">📋</span>Orders</div>
+  <div class="bn act" id="bn-dashboard" onclick="goPage('dashboard')"><span class="bi">📊</span>หน้าหลัก</div>
+  <div class="bn" id="bn-scan" onclick="startScan('tracking')"><span class="bi">🔍</span>QC Scan<span class="bnb" id="bnb-qc">0</span></div>
+  <div class="bn" id="bn-draft" onclick="goPage('draft');renderDrafts()"><span class="bi">💾</span>Draft<span class="bnb" id="bnb-dr" style="background:var(--teal)">0</span></div>
+  <div class="bn" id="bn-orders" onclick="goPage('orders');renderOrds()"><span class="bi">📋</span>Orders</div>
   <div class="bn" id="bn-settings" onclick="goPage('settings')"><span class="bi">⚙️</span>ตั้งค่า</div>
 </nav>
+
+<!-- PASS OVERLAY -->
+<div class="pov" id="pass-ov">
+  <div class="pov-box">
+    <div style="font-size:52px;margin-bottom:10px">✅</div>
+    <div style="font-size:20px;font-weight:700;color:var(--green);margin-bottom:6px">ผ่าน QC!</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:20px" id="pass-sub"></div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-g" onclick="confirmPass()">✓ ยืนยัน → QC Pass</button>
+      <button class="btn btn-o" onclick="document.getElementById('pass-ov').classList.remove('show')">อยู่หน้านี้</button>
+    </div>
+  </div>
+</div>
 
 <div class="lov" id="lov"><div class="spin"></div><div class="lov-t" id="lov-t">กำลังโหลด...</div></div>
 
 <script>
-// Polyfills for older Android browsers
-if(!Object.values)Object.values=function(o){return Object.keys(o).map(function(k){return o[k];});};
-if(!Object.entries)Object.entries=function(o){return Object.keys(o).map(function(k){return [k,o[k]];});};
-if(![].includes)Array.prototype.includes=function(v){return this.indexOf(v)>=0;};
-</script>
-<script>
-/* ===== STATE ===== */
-var ORDERS={}, SC={}, DRAFTS={};
-var API='', DEV='PDA-01', USR='user01', FB='';
-var ALERTED_CANCEL={}; // ป้องกันแจ้งซ้ำ
-var MODE='tracking', CUR_OID='', CUR_TRK='', CUR_ITEMS=[];
+var ORDERS={},SC={},DRAFTS={};
+var API='',FB='',DEV='PDA-01',USR='user01';
+var MODE='tracking',CUR_OID='',CUR_TRK='',CUR_ITEMS=[];
 var SL={new:'🆕 รับแล้ว',pick:'🔍 Pick',qc:'✅ QC ผ่าน',ship:'🚚 Ship',done:'✔ Done',cancel:'🚫 Cancel'};
-var SB2={new:'b-new',pick:'b-pick',qc:'b-qc',ship:'b-ship',done:'b-done',cancel:'b-cancel'};
-var SB={new:'b-new',qc:'b-qc',pack:'b-pack',done:'b-done',cancel:'b-cancel'};
+var SB={new:'b-new',pick:'b-pick',qc:'b-qc',ship:'b-ship',done:'b-done',cancel:'b-cancel'};
+var _timer=null;
+
+function ls(k,v){if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v);}
+function save(){ls('PDA_O',JSON.stringify(ORDERS));ls('PDA_SC',JSON.stringify(SC));ls('PDA_DR',JSON.stringify(DRAFTS));}
+function scKey(oid,sku,trk){return oid+'||'+sku+(trk?'||'+trk:'');}
+function encId(id){return (id||'').replace(/\./g,'_');}
 
 /* ===== INIT ===== */
 function init(){
-  API=ls('PDA_URL')||''; FB=ls('PDA_FB')||''; DEV=ls('PDA_DEV')||'PDA-01'; USR=ls('PDA_USR')||'user01';
+  // Auto-config จาก URL params (ไม่หายแม้ไฟล์อัปเดต)
+  var params=new URLSearchParams(location.search);
+  if(params.get('fb')) ls('PDA_FB',params.get('fb'));
+  if(params.get('dev')) ls('PDA_DEV',params.get('dev'));
+  if(params.get('usr')) ls('PDA_USR',params.get('usr'));
+  API=ls('PDA_URL')||''; FB=ls('PDA_FB')||'';
+  DEV=ls('PDA_DEV')||'PDA-01'; USR=ls('PDA_USR')||'user01';
   try{ORDERS=JSON.parse(ls('PDA_O')||'{}');}catch(e){}
   try{SC=JSON.parse(ls('PDA_SC')||'{}');}catch(e){}
   try{DRAFTS=JSON.parse(ls('PDA_DR')||'{}');}catch(e){}
@@ -308,362 +314,327 @@ function init(){
   document.getElementById('dev-name').value=DEV;
   document.getElementById('usr-name').value=USR;
   document.getElementById('dev-badge').textContent=DEV;
-  updSync();refreshStats();renderDashboard();
+  setSyncOk(FB?'Firebase: '+DEV:'ออฟไลน์');
+  refreshStats();renderDashboard();
+  if(FB){
+    setTimeout(function(){syncOrdersFromFirebase();},800);
+    setTimeout(function(){syncDraftsFromFB();},2500);
+  }
   if(API) setTimeout(startAutoSync,2000);
-  // Auto pull orders from Firebase on startup (always)
-  if(FB){
-    setTimeout(function(){
-      syncOrdersFromFirebase();
-    },1000);
-  }
+  if(FB) setTimeout(startCancelSSE,3000);
+  _timer=setInterval(function(){
+    if(FB){syncDraftsFromFB();syncCancels();}
+    if(API) syncStatus();
+  },30000);
 }
-function ls(k,v){if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v);}
-function save(){ls('PDA_O',JSON.stringify(ORDERS));ls('PDA_SC',JSON.stringify(SC));ls('PDA_DR',JSON.stringify(DRAFTS));}
 
-/* ===== JSONP ===== */
-var _jc=0;
-function jFetch(url,cb){
-  var id='_j'+(++_jc)+'_'+Date.now();
-  var s=document.createElement('script');
-  window[id]=function(d){
-    delete window[id];
-    try{if(s.parentNode)s.parentNode.removeChild(s);}catch(e){}
-    if(cb)cb(null,d);
+/* ===== NAV ===== */
+function goPage(p){
+  document.querySelectorAll('.page').forEach(function(x){x.classList.remove('act');});
+  document.querySelectorAll('.bn').forEach(function(x){x.classList.remove('act');});
+  var pg=document.getElementById('page-'+p);
+  if(pg) pg.classList.add('act');
+  var bn=document.getElementById('bn-'+p);
+  if(bn) bn.classList.add('act');
+  if(p==='dashboard') renderDashboard();
+  if(p==='orders') renderOrds();
+  if(p==='draft') renderDrafts();
+}
+function startScan(mode){
+  MODE=mode||'tracking';
+  goPage('scan');
+  setMode(MODE);
+  resetScan();
+}
+
+/* ===== FIREBASE ===== */
+function fbGet(path,cb){
+  var xhr=new XMLHttpRequest();
+  xhr.open('GET',FB+path+'.json');
+  xhr.timeout=10000;
+  xhr.onload=function(){try{cb(null,JSON.parse(xhr.responseText));}catch(e){cb(e);}};
+  xhr.onerror=function(){cb(new Error('Firebase GET failed'));};
+  xhr.ontimeout=function(){cb(new Error('timeout'));};
+  xhr.send();
+}
+function fbPut(path,data){
+  var xhr=new XMLHttpRequest();
+  xhr.open('PUT',FB+path+'.json');
+  xhr.setRequestHeader('Content-Type','application/json');
+  xhr.send(data===null?'null':JSON.stringify(data));
+}
+function fbPatch(path,data){
+  var xhr=new XMLHttpRequest();
+  xhr.open('PATCH',FB+path+'.json');
+  xhr.setRequestHeader('Content-Type','application/json');
+  xhr.send(JSON.stringify(data));
+}
+
+/* ===== SYNC ORDERS (BATCH) ===== */
+function syncOrdersFromFirebase(){
+  var dbg=document.getElementById('sync-debug');
+  if(dbg) dbg.textContent='Firebase: '+(FB||'ไม่มี URL');
+  if(!FB){showAl('ใส่ Firebase URL ในตั้งค่าก่อนครับ','err');goPage('settings');return;}
+  setSyncOk('⏳ ดึงรายชื่อ orders...');
+  var xhr=new XMLHttpRequest();
+  xhr.open('GET',FB+'/orders.json?shallow=true');
+  xhr.timeout=15000;
+  xhr.onload=function(){
+    try{
+      var data=JSON.parse(xhr.responseText)||{};
+      var keys=Object.keys(data);
+      if(!keys.length){setSyncErr('Firebase ว่างเปล่า');return;}
+      setSyncOk('⏳ ดึง '+keys.length+' orders...');
+      pdaBatch(keys,0,40,0);
+    }catch(e){setSyncErr('Firebase error');}
   };
-  s.onerror=function(){
-    delete window[id];
-    try{if(s.parentNode)s.parentNode.removeChild(s);}catch(e){}
-    if(cb)cb(new Error('Network error'));
-  };
-  s.src=url+(url.indexOf('?')>=0?'&':'?')+'callback='+id;
-  setTimeout(function(){if(window[id]){delete window[id];if(cb)cb(new Error('Timeout'));}},15000);
-  document.head.appendChild(s);
+  xhr.onerror=function(){setSyncErr('เชื่อมต่อ Firebase ไม่ได้');};
+  xhr.ontimeout=function(){setSyncErr('Firebase timeout');};
+  xhr.send();
 }
-
-/* ===== SYNC ===== */
-function syncCancels(){
-  if(!API)return;
-  jFetch(API+'?action=getCancels',function(err,r){
-    if(err||!r||!r.ok)return;
-    var cancelled=r.cancelled||[];
-    var changed=false;
-    cancelled.forEach(function(oid){
-      if(!ORDERS[oid])return; // ไม่มีใน local ข้ามไป
-      if(ORDERS[oid].status!=='cancel'){
-        ORDERS[oid].status='cancel';
-        changed=true;
-        showCancelAlert(oid); // แจ้งเตือน (มี guard ไม่ซ้ำ)
-      }
-    });
-    if(changed){save();refreshStats();renderDashboard();}
-  });
-}
-
-function syncOrders(){
-  if(!API){alert('กรุณาใส่ API URL ในตั้งค่าก่อนครับ');return;}
-  showLov('ดึงออเดอร์จาก Sheets...');
-  jFetch(API+'?action=getOrders',function(err,r){
-    hideLov();
-    if(err||!r||!r.ok||!r.rows||!r.rows.length){
-      alert(err?err.message:'ไม่มีข้อมูลใน Sheet OrderData');return;
-    }
-    // Build new orders map from Sheets
-    var newOrders={};
-    r.rows.forEach(function(row){
-      var oid=String(row.o||'').trim(); if(!oid)return;
-      if(!newOrders[oid]){
-        newOrders[oid]={id:oid,consign:row.c||'',tracking:row.tracking||'',trackings:[],items:[],status:'new'};
-      }
-      var t=String(row.tracking||'').trim();
-      newOrders[oid].items.push({sku:row.sku||'',name:row.name||'',size:row.size||'',qty:parseInt(row.qty)||1,tracking:t});
-      if(t&&newOrders[oid].trackings.indexOf(t)<0)newOrders[oid].trackings.push(t);
-      if(t&&!newOrders[oid].tracking)newOrders[oid].tracking=t;
-      if(row.status==='cancel')newOrders[oid].status='cancel';
-    });
-    // Keep existing QC/pack/done status, replace everything else
-    Object.keys(newOrders).forEach(function(oid){
-      if(ORDERS[oid]&&['qc','pack','done'].indexOf(ORDERS[oid].status)>=0){
-        newOrders[oid].status=ORDERS[oid].status;
-      }
-      // If API says cancel, always mark cancel and alert
-      if(row.status==='cancel'&&(!ORDERS[oid]||ORDERS[oid].status!=='cancel')){
-        newOrders[oid].status='cancel';
-        setTimeout(function(o){return function(){showCancelAlert(o);};}(oid),500);
-      }
-    });
-    ORDERS=newOrders;
+function pdaBatch(keys,offset,size,done){
+  var batch=keys.slice(offset,offset+size);
+  if(!batch.length){
     save();refreshStats();renderDashboard();
-    setSyncOk('synced '+Object.keys(newOrders).length);
-    alert('ดึงข้อมูลสำเร็จ '+Object.keys(newOrders).length+' ออเดอร์');
-    // Push orders to Firebase for PC to read
-    if(FB) pushOrdersToFirebase(newOrders);
-    // Sync statuses + drafts + cancels
-    syncStatus();
-    syncCancels();
-    if(FB) syncDraftsFromFirebase();
+    setSyncOk('🔥 '+done+'/'+keys.length+' orders พร้อมแล้ว');
+    return;
+  }
+  setSyncOk('⏳ ดึง '+(offset+1)+'-'+Math.min(offset+size,keys.length)+'/'+keys.length);
+  var left=batch.length;
+  batch.forEach(function(key){
+    var x=new XMLHttpRequest();
+    x.open('GET',FB+'/orders/'+key+'.json');
+    x.timeout=8000;
+    x.onload=function(){
+      try{
+        var o=JSON.parse(x.responseText);
+        if(o&&o.id){
+          var oid=o.id;
+          var ex=ORDERS[oid]?ORDERS[oid].status:'';
+          var keep=['pick','qc','ship','done'].indexOf(ex)>=0;
+          ORDERS[oid]={id:oid,consign:o.consign||'',tracking:o.tracking||'',
+            trackings:o.trackings||[],items:o.items||[],
+            status:keep?ex:(o.status||'new'),
+            date:o.date||''};
+          done++;
+        }
+      }catch(e){}
+      if(--left===0) pdaBatch(keys,offset+size,size,done);
+    };
+    x.onerror=x.ontimeout=function(){if(--left===0) pdaBatch(keys,offset+size,size,done);};
+    x.send();
   });
 }
 
-function syncStatus(){
-  // Sync from Firebase (real-time, preferred)
-  if(FB){
-    fbGet('/statuses',function(err,data){
-      if(!err&&data) applyStatuses(data);
-    });
-  }
-  // Also sync from Sheets as fallback
-  if(API&&!FB){
-    jFetch(API+'?action=getStatuses',function(err,r){
-      if(err){setSyncErr();return;}
-      if(!r||!r.ok||!r.statuses)return;
-      applyStatuses(r.statuses);
-    });
-  }
-}
-
-function applyStatuses(statuses){
-  var changed=false;
-  var rank={new:0,pick:1,qc:2,ship:3,done:4,cancel:5};
-  Object.keys(statuses).forEach(function(rawOid){
-    var oid=rawOid.replace(/_/g,'.').replace(/-/g,'/');
-    var entry=statuses[rawOid];
-    var st=typeof entry==='string'?entry:(entry&&entry.status?entry.status:'');
-    st=String(st||'').trim();
-    if(!st||!ORDERS[oid])return;
-    if((rank[st]||0)>=(rank[ORDERS[oid].status]||0)&&ORDERS[oid].status!==st){
-      ORDERS[oid].status=st;changed=true;
-      // Alert if cancel
-      if(st==='cancel') showCancelAlert(oid);
-    }
-  });
-  if(changed){save();refreshStats();renderDashboard();}
-  setSyncOk('sync '+new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}));
-}
-
-function syncDraftsFromFirebase(){
-  if(!FB)return;
+/* ===== SYNC DRAFTS ===== */
+function syncDraftsFromFB(){
+  if(!FB) return;
   fbGet('/drafts',function(err,data){
-    if(err||!data)return;
+    if(err||!data) return;
     var changed=false;
     Object.keys(data).forEach(function(rawOid){
       var d=data[rawOid];
-      if(!d||!d.oid)return;
+      if(!d||!d.oid) return;
       var oid=d.oid;
-      // Only pull drafts from OTHER devices (not our own)
-      if(d.device&&d.device===DEV)return;
-      // Only pull if we don't have a newer local draft
-      if(DRAFTS[oid]&&DRAFTS[oid].ts>=(d.ts||0))return;
-      DRAFTS[oid]=d;changed=true;
+      // Pull from all devices — show newer
+      if(!DRAFTS[oid]||(d.ts||0)>DRAFTS[oid].ts){
+        DRAFTS[oid]=d; changed=true;
+      }
     });
     if(changed){save();refreshStats();renderDrafts();}
   });
 }
 
-function pushStatus(oid,status){
-  // Push to Sheets (Apps Script)
-  if(API&&oid) jFetch(API+'?action=setStatus&orderId='+encodeURIComponent(oid)+'&status='+encodeURIComponent(status)+'&device='+encodeURIComponent(DEV),function(){});
-  // Push to Firebase (real-time)
-  if(FB&&oid) fbPatch('/statuses/'+encodeId(oid),{status:status,updatedAt:new Date().toISOString(),device:DEV});
+/* ===== SYNC STATUS ===== */
+function syncStatus(){
+  if(!API) return;
+  jFetch(API+'?action=getStatuses').then(function(r){
+    if(!r.ok||!r.statuses) return;
+    var changed=false;
+    Object.keys(r.statuses).forEach(function(oid){
+      var st=r.statuses[oid];
+      if(ORDERS[oid]&&st&&ORDERS[oid].status!==st){
+        ORDERS[oid].status=st; changed=true;
+      }
+    });
+    if(changed){save();refreshStats();renderDashboard();}
+    setSyncOk('sync '+new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}));
+  }).catch(function(){});
 }
 
-function encodeId(id){return id.replace(/\./g,'_').replace(/\//g,'-').replace(/\[/g,'(').replace(/\]/g,')');}
-
-function fbGet(path,cb){
-  var url=FB+path+'.json';
-  var xhr=new XMLHttpRequest();
-  xhr.open('GET',url);
-  xhr.onload=function(){try{cb(null,JSON.parse(xhr.responseText));}catch(e){cb(e);}};
-  xhr.onerror=function(){cb(new Error('FB GET failed'));};
-  xhr.send();
-}
-function fbPut(path,data){
-  var url=FB+path+'.json';
-  var xhr=new XMLHttpRequest();
-  xhr.open('PUT',url);
-  xhr.setRequestHeader('Content-Type','application/json');
-  xhr.send(JSON.stringify(data));
-}
-function fbPatch(path,data){
-  var url=FB+path+'.json';
-  var xhr=new XMLHttpRequest();
-  xhr.open('PATCH',url);
-  xhr.setRequestHeader('Content-Type','application/json');
-  xhr.send(JSON.stringify(data));
-}
-function fbPost(path,data){
-  var url=FB+path+'.json';
-  var xhr=new XMLHttpRequest();
-  xhr.open('POST',url);
-  xhr.setRequestHeader('Content-Type','application/json');
-  xhr.send(JSON.stringify(data));
-}
-
-function pushScanLog(oid,items){
-  var o=ORDERS[oid]; if(!o)return;
-  var seen={};
-  items.forEach(function(item,idx){
-    var k=oid+'|'+(item.sku||'')+'|'+(item.tracking||CUR_TRK||'');
-    if(seen[k])return; seen[k]=1;
-    // Push to Sheets
-    if(API){
-      var url=API+'?action=saveScan'
-        +'&oid='+encodeURIComponent(oid)
-        +'&sku='+encodeURIComponent(item.sku||'')
-        +'&name='+encodeURIComponent((item.name||'').substring(0,50))
-        +'&qty='+(item.qty||1)
-        +'&consign='+encodeURIComponent((o.consign||'').substring(0,40))
-        +'&tracking='+encodeURIComponent((item.tracking||o.tracking||'').substring(0,40))
-        +'&badge=qc&msg=QC'
-        +'&device='+encodeURIComponent(DEV)
-        +'&user='+encodeURIComponent(USR);
-      setTimeout(function(){jFetch(url,function(){});},idx*300);
-    }
-    // Push to Firebase
-    if(FB){
-      var logData={oid:oid,sku:item.sku||'',name:(item.name||'').substring(0,50),
-        qty:item.qty||1,consign:o.consign||'',tracking:item.tracking||o.tracking||'',
-        badge:'qc',device:DEV,user:USR,ts:new Date().toISOString()};
-      setTimeout(function(){fbPost('/scanlogs',logData);},idx*300);
-    }
+/* ===== SYNC CANCELS ===== */
+function syncCancels(){
+  if(!FB) return;
+  fbGet('/cancels',function(err,data){
+    if(err||!data) return;
+    var changed=false;
+    Object.keys(data).forEach(function(rawOid){
+      var oid=(rawOid||'').replace(/_/g,'.');
+      if(ORDERS[oid]&&ORDERS[oid].status!=='cancel'){
+        ORDERS[oid].status='cancel'; changed=true;
+        // แจ้งเตือนทันที
+        showCancelToast(oid);
+      }
+    });
+    if(changed) save();
   });
 }
 
-var _autoTimer=null;
-function startAutoSync(){
-  if(_autoTimer)clearInterval(_autoTimer);
-  syncStatus();
-  _autoTimer=setInterval(function(){syncStatus();syncDraftsFromFirebase();syncCancels();},30000);
+function showCancelToast(oid){
+  playErr();
+  if(navigator.vibrate) navigator.vibrate([100,50,100,50,200]);
+  var al=document.getElementById('al');
+  if(al){al.className='al al-err show';al.textContent='🚫 CANCEL: '+oid;clearTimeout(al._t);al._t=setTimeout(function(){al.className='al';},8000);}
 }
 
-/* ===== SYNC UI ===== */
-function setSyncOk(t){var b=document.getElementById('sync-bar');b.className='sync-status s-ok';document.getElementById('sync-txt').textContent=t||'OK';}
-function setSyncErr(){var b=document.getElementById('sync-bar');b.className='sync-status s-err';document.getElementById('sync-txt').textContent='Sync ไม่สำเร็จ';}
-function updSync(){document.getElementById('sync-txt').textContent=API?('Sheets: '+DEV):'ออฟไลน์';}
+// Firebase SSE สำหรับ cancel real-time
+var _cancelSSE=null;
+function startCancelSSE(){
+  if(!FB||_cancelSSE) return;
+  try{
+    _cancelSSE=new EventSource(FB+'/cancels.json');
+    _cancelSSE.onmessage=function(e){
+      try{
+        var data=JSON.parse(e.data);
+        if(!data) return;
+        Object.keys(data).forEach(function(rawOid){
+          var oid=(rawOid||'').replace(/_/g,'.');
+          if(ORDERS[oid]&&ORDERS[oid].status!=='cancel'){
+            ORDERS[oid].status='cancel'; save();
+            showCancelToast(oid);
+          }
+        });
+      }catch(ex){}
+    };
+    _cancelSSE.onerror=function(){_cancelSSE=null;};
+  }catch(ex){}
+}
+
+/* ===== PUSH STATUS ===== */
+function pushStatus(oid,status){
+  var ts=new Date().toISOString();
+  if(FB) fbPatch('/statuses/'+encId(oid),{status:status,updatedAt:ts,device:DEV,user:USR});
+  if(FB) fbPatch('/orders/'+encId(oid),{status:status,updatedAt:ts,updatedBy:USR,device:DEV});
+  if(API) jFetch(API+'?action=setStatus&orderId='+encodeURIComponent(oid)+'&status='+encodeURIComponent(status)).catch(function(){});
+}
+function pushScanLog(oid,items){
+  if(!FB) return;
+  var ts=Date.now();
+  var log={oid:oid,items:items.length,device:DEV,user:USR,ts:ts,status:'qc'};
+  fbPut('/scanlogs/'+ts,log);
+}
 
 /* ===== STATS ===== */
 function refreshStats(){
   var orders=Object.values(ORDERS);
-  var cnt={new:0,qc:0,pack:0,done:0,cancel:0};
-  orders.forEach(function(o){cnt[o.status]=(cnt[o.status]||0)+1;});
-  document.getElementById('d-new').textContent=cnt.new;
-  document.getElementById('d-pack').textContent=cnt.qc+cnt.pack;
-  document.getElementById('d-done').textContent=cnt.done;
+  var qc=0,done=0;
+  orders.forEach(function(o){
+    if(o.status==='new'||o.status==='pick') qc++;
+    else if(o.status==='done') done++;
+  });
   var dr=Object.keys(DRAFTS).length;
-  var bqc=document.getElementById('b-qc');
-  bqc.textContent=cnt.new;bqc.style.display=cnt.new>0?'inline':'none';
-  var bdr=document.getElementById('b-dr');
-  bdr.textContent=dr;bdr.style.display=dr>0?'inline':'none';
+  var set=function(id,v){var el=document.getElementById(id);if(el)el.textContent=v;};
+  set('d-qc',qc); set('d-draft',dr); set('d-done',done);
+  var bqc=document.getElementById('bnb-qc');
+  var bdr=document.getElementById('bnb-dr');
+  if(bqc){bqc.textContent=qc||'';bqc.style.display=qc>0?'inline':'none';}
+  if(bdr){bdr.textContent=dr||'';bdr.style.display=dr>0?'inline':'none';}
 }
 
+/* ===== DASHBOARD ===== */
 function renderDashboard(){
   refreshStats();
-  var urgent=Object.values(ORDERS).filter(function(o){return o.status==='new';}).slice(0,8);
-  document.getElementById('urgent-cnt').textContent=urgent.length?'('+urgent.length+')':'';
-  document.getElementById('d-urgent').innerHTML=urgent.length?urgent.map(function(o){
+  var urgent=Object.values(ORDERS).filter(function(o){return o.status==='new'||o.status==='pick';}).slice(0,10);
+  var el=document.getElementById('d-urgent');
+  var cnt=document.getElementById('urgent-cnt');
+  if(cnt) cnt.textContent=urgent.length?'('+urgent.length+')':'';
+  if(!el) return;
+  if(!urgent.length){el.innerHTML='<div class="empty">✅ ไม่มีงานค้าง</div>';return;}
+  el.innerHTML=urgent.map(function(o){
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">'
-      +'<div><div style="font-weight:700;font-size:14px">'+o.id+'</div>'
-      +'<div style="font-size:11px;color:var(--text2)">'+(o.consign||'—')+' · '+o.items.length+' รายการ</div></div>'
+      +'<div>'
+      +'<div style="font-weight:700;font-size:14px">'+o.id+'</div>'
+      +'<div style="font-size:11px;color:var(--text2)">'+(o.consign||'—')+' · '+o.items.length+' รายการ</div>'
+      +'</div>'
       +'<div style="display:flex;gap:6px;align-items:center">'
       +'<span class="badge '+(SB[o.status]||'b-new')+'">'+(SL[o.status]||'—')+'</span>'
       +'<button onclick="goQC(\''+o.id+'\')" style="padding:6px 12px;background:var(--primary);color:#fff;border:none;border-radius:var(--rx);font-weight:700;font-size:12px;cursor:pointer">🔍</button>'
       +'</div></div>';
-  }).join(''):'<div class="empty">✅ ไม่มีงานค้าง</div>';
+  }).join('');
 }
 
-/* ===== NAV ===== */
-function goPage(p){
-  document.querySelectorAll('.page').forEach(function(x){x.classList.remove('active');});
-  document.querySelectorAll('.bn').forEach(function(x){x.classList.remove('active');});
-  document.getElementById('page-'+p).classList.add('active');
-  var bn=document.getElementById('bn-'+p);if(bn)bn.classList.add('active');
-  if(p==='dashboard')renderDashboard();
-  if(p==='orders')renderOrders();
-  if(p==='draft')renderDrafts();
-}
-function startScan(mode){MODE=mode||'tracking';goPage('scan');setMode(MODE);resetScan();}
-function goQC(oid){
-  CUR_OID=oid;CUR_TRK=ORDERS[oid]?ORDERS[oid].tracking||'':'';CUR_ITEMS=[];
-  if(DRAFTS[oid])restoreDraftSC(oid);
-  goPage('scan');showOrderInfo();
-}
+/* ===== MODE ===== */
 function setMode(mode){
   MODE=mode;
-  document.getElementById('m-trk').classList.toggle('active',mode==='tracking');
-  document.getElementById('m-ord').classList.toggle('active',mode==='order');
-  document.getElementById('s1-lbl').textContent=mode==='tracking'?'สแกน Tracking Number':'ค้นหา Order ID';
-  document.getElementById('in1').placeholder=mode==='tracking'?'สแกน Tracking...':'พิมพ์ Order ID...';
+  document.getElementById('m-trk').classList.toggle('act',mode==='tracking');
+  document.getElementById('m-ord').classList.toggle('act',mode==='order');
+  document.getElementById('s1-lbl').textContent=mode==='tracking'?'สแกน TRACKING NUMBER':'ค้นหา ORDER ID';
+  document.getElementById('in1').placeholder=mode==='tracking'?'สแกนหรือพิมพ์ Tracking...':'พิมพ์ Order ID...';
+}
+function goQC(oid){
+  CUR_OID=oid; CUR_TRK=ORDERS[oid]?ORDERS[oid].tracking||'':''; CUR_ITEMS=[];
+  if(DRAFTS[oid]) restoreDraftSC(oid);
+  goPage('scan'); showOrderInfo();
 }
 
-/* ===== STEP 1: FIND ORDER ===== */
+/* ===== SEARCH ===== */
 function onIn1(val){
   var h=document.getElementById('h1');
   var res=document.getElementById('sr-list');
+  var prev=document.getElementById('scan-preview');
   document.getElementById('cancel-ban').style.display='none';
   CUR_OID='';CUR_TRK='';CUR_ITEMS=[];
-  var prev=document.getElementById('scan-preview');if(prev)prev.style.display='none';
+  if(prev) prev.style.display='none';
   if(!val.trim()){h.className='hint';h.textContent='';res.style.display='none';return;}
   var v=val.trim().toLowerCase();
-
   if(MODE==='tracking'){
     var found=null,foundT='',foundItems=[];
     var orders=Object.values(ORDERS);
     for(var i=0;i<orders.length;i++){
       var o=orders[i];
-      // collect all trackings for this order
       var allT=[];
-      o.items.forEach(function(it){if(it.tracking&&allT.indexOf(it.tracking)<0)allT.push(it.tracking);});
-      if(o.tracking&&allT.indexOf(o.tracking)<0)allT.push(o.tracking);
+      (o.items||[]).forEach(function(it){if(it.tracking&&allT.indexOf(it.tracking)<0)allT.push(it.tracking);});
+      if(o.tracking&&allT.indexOf(o.tracking)<0) allT.push(o.tracking);
       for(var j=0;j<allT.length;j++){
         var tL=allT[j].toLowerCase();
         if(tL===v||tL.indexOf(v)>=0||v.indexOf(tL)>=0){
           found=o;foundT=allT[j];
           foundItems=o.items.filter(function(it){return it.tracking===allT[j];});
-          if(!foundItems.length)foundItems=o.items;
+          if(!foundItems.length) foundItems=o.items;
           break;
         }
       }
-      if(found)break;
+      if(found) break;
     }
-    res.style.display='none';
-    // Fallback: ถ้าหา tracking ไม่เจอ ลองหา Order ID แทน
     if(!found){
       var byOid=Object.values(ORDERS).filter(function(o){return o.id.toLowerCase()===v;})[0];
       if(byOid){found=byOid;foundT=byOid.tracking||'';foundItems=byOid.items;}
     }
+    res.style.display='none';
     if(found){
       CUR_OID=found.id;CUR_TRK=foundT;CUR_ITEMS=foundItems;
-      // แสดง preview ใต้ช่อง scan
-      var prev=document.getElementById('scan-preview');
       if(prev){
         prev.style.display='block';
-        document.getElementById('preview-oid').textContent=found.id;
-        document.getElementById('preview-con').textContent=found.consign||'—';
-        document.getElementById('preview-trk').textContent=foundT||found.tracking||'';
-        var pb=document.getElementById('preview-badge');
-        if(pb){pb.textContent=SL[found.status]||found.status;pb.className='badge '+(SB2[found.status]||'b-new');}
+        document.getElementById('prev-oid').textContent=found.id;
+        document.getElementById('prev-con').textContent=found.consign||'—';
+        document.getElementById('prev-trk').textContent=foundT||found.tracking||'';
+        var pb=document.getElementById('prev-badge');
+        if(pb){pb.textContent=SL[found.status]||found.status;pb.className='badge '+(SB[found.status]||'b-new');}
       }
       if(found.status==='cancel'){h.className='hint h-err';h.textContent='🚫 Order '+found.id+' ถูก Cancel';}
-      else{h.className='hint h-ok';h.textContent='✓ '+found.id+' · '+foundItems.length+' รายการ'+(DRAFTS[found.id]?' [Draft]':'');}
-    }else{h.className='hint h-err';h.textContent='ไม่พบ Tracking หรือ Order ID นี้';}
+      else{h.className='hint h-ok';h.textContent='✓ Order: '+found.id+' · '+foundItems.length+' รายการ'+(DRAFTS[found.id]?' [Draft]':'');}
+    }else{h.className='hint h-err';h.textContent='ไม่พบ Tracking นี้';}
   }else{
     var matches=Object.values(ORDERS).filter(function(o){return o.id.toLowerCase().indexOf(v)>=0;}).slice(0,8);
-    if(!matches.length){
-      // Try searching by consign too
-      matches=Object.values(ORDERS).filter(function(o){
-        return (o.consign||'').toLowerCase().indexOf(v)>=0;
-      }).slice(0,8);
-    }
-    if(!matches.length){h.className='hint h-err';h.textContent='ไม่พบ Order ID หรือ Consign';res.style.display='none';return;}
+    if(!matches.length){h.className='hint h-err';h.textContent='ไม่พบ Order ID';res.style.display='none';return;}
     if(matches.length===1&&matches[0].id.toLowerCase()===v){
-      CUR_OID=matches[0].id;CUR_TRK=matches[0].tracking||'';CUR_ITEMS=matches[0].items;
-      h.className='hint h-ok';h.textContent='✓ '+CUR_OID+' · '+matches[0].items.length+' รายการ'+(DRAFTS[CUR_OID]?' [Draft]':'');
-      res.style.display='none';
+      selOrder(matches[0].id);res.style.display='none';
     }else{
-      h.className='hint';h.textContent=matches.length+' ออเดอร์ที่ตรงกัน';
+      h.className='hint';h.textContent=matches.length+' orders';
       res.innerHTML=matches.map(function(o){
         return '<div class="sr-item" onclick="selOrder(\''+o.id+'\')">'
-          +'<div style="font-weight:700;font-size:14px'+(o.status==='cancel'?';color:var(--red)':'')+'">'+o.id+(o.status==='cancel'?' 🚫':'')+'</div>'
-          +'<div style="font-size:11px;color:var(--text2)">'+(o.consign||'')+' · '+o.items.length+' รายการ <span class="badge '+(SB[o.status]||'b-new')+'">'+(SL[o.status]||'')+'</span>'+(DRAFTS[o.id]?' · <span style="color:var(--teal)">Draft</span>':'')+'</div>'
+          +'<div style="font-weight:700;font-size:14px">'+o.id+'</div>'
+          +'<div style="font-size:11px;color:var(--text2)">'+(o.consign||'')+' · '+o.items.length+' รายการ <span class="badge '+(SB[o.status]||'b-new')+'">'+(SL[o.status]||'—')+'</span></div>'
           +'</div>';
       }).join('');
       res.style.display='block';
@@ -680,52 +651,37 @@ function selOrder(oid){
   else{h.className='hint h-ok';h.textContent='✓ '+oid+' · '+o.items.length+' รายการ'+(DRAFTS[oid]?' [Draft]':'');}
 }
 function confirm1(){
-  if(!CUR_OID){document.getElementById('h1').className='hint h-err';document.getElementById('h1').textContent='กรุณาสแกนหรือเลือก Order';return;}
+  if(!CUR_OID){var h=document.getElementById('h1');h.className='hint h-err';h.textContent='กรุณาสแกนหรือเลือก Order';return;}
   var o=ORDERS[CUR_OID];if(!o)return;
-  // เช็ค cancel จาก Sheets ก่อนเสมอ
-  if(o.status==='cancel'){
-    document.getElementById('cancel-ban').style.display='block';
-    ALERTED_CANCEL[CUR_OID]=false; // force show alert again เมื่อสแกนเอง
-    showCancelAlert(CUR_OID);
-    CUR_OID='';CUR_ITEMS=[];return;
-  }
-  if(!CUR_ITEMS.length)CUR_ITEMS=o.items;
-  if(DRAFTS[CUR_OID])restoreDraftSC(CUR_OID);
-  // ถ้าทุก item ไม่มีชื่อแบรนด์/ไม่มี SKU → ผ่านอัตโนมัติเลย
-  var allBlank=CUR_ITEMS.every(function(it){return !it.name&&!it.sku;});
-  if(allBlank){
-    showAl('⚡ ไม่มีข้อมูลสินค้า — ผ่าน QC อัตโนมัติ','warn');
-    setTimeout(autoPass,600);
-    return;
-  }
+  if(o.status==='cancel'){document.getElementById('cancel-ban').style.display='block';CUR_OID='';CUR_TRK='';CUR_ITEMS=[];return;}
+  if(DRAFTS[CUR_OID]) restoreDraftSC(CUR_OID);
   showOrderInfo();
 }
 
 /* ===== ORDER INFO ===== */
 function showOrderInfo(){
   var o=ORDERS[CUR_OID];if(!o)return;
-  if(!CUR_ITEMS.length)CUR_ITEMS=o.items;
   document.getElementById('oid-lbl').textContent=CUR_OID;
   document.getElementById('con-lbl').textContent=o.consign||'—';
   document.getElementById('trk-lbl').textContent=CUR_TRK||o.tracking||'';
+  var sb=document.getElementById('status-badge');
+  if(sb){sb.textContent=SL[o.status]||o.status;sb.className='badge '+(SB[o.status]||'b-new');}
   document.getElementById('order-info').style.display='block';
+  if(!CUR_ITEMS||!CUR_ITEMS.length) CUR_ITEMS=o.items;
   renderItems();updateProg();
   setTimeout(function(){document.getElementById('in-sku').focus();},100);
 }
 
 /* ===== ITEMS ===== */
-function scKey(oid,sku,trk){return oid+'||'+(sku||'__NOSKU__')+(trk?'||'+trk:'');}
 function renderItems(){
-  var items=CUR_ITEMS;
-  var doneCount=getDoneCount();
-  document.getElementById('prod-list').innerHTML=items.map(function(item,i){
+  var el=document.getElementById('prod-list');
+  el.innerHTML=CUR_ITEMS.map(function(item,i){
     var k=scKey(CUR_OID,item.sku,item.tracking||'');
-    var s=SC[k]||0;
-    var done=s>=(item.qty||1);
-    var over=s>(item.qty||1);
+    var s=SC[k]||0,q=item.qty||1;
+    var done=s>=q,over=s>q;
     var cls=over?'ov':done?'ok':s>0?'act':'';
     var ncls=over?'pn-ov':done?'pn-ok':s>0?'pn-act':'';
-    var qcol=over?'c-ov':done?'c-ok':s>0?'c-act':'c-miss';
+    var qcls=over?'c-ov':done?'c-ok':s>0?'c-act':'c-miss';
     return '<div class="pi '+cls+'">'
       +'<div class="pn '+ncls+'">'+(i+1)+'</div>'
       +'<div style="flex:1;min-width:0">'
@@ -733,30 +689,28 @@ function renderItems(){
       +'<div class="pname">'+(item.name||'')+'</div>'
       +(item.size?'<div class="psize">'+item.size+'</div>':'')
       +'</div>'
-      +'<div class="qcol"><div class="qbig '+qcol+'">'+s+'</div><div class="qtot">/ '+item.qty+'</div></div>'
+      +'<div class="qcol"><div class="qbig '+qcls+'">'+s+'</div><div class="qtot">/ '+q+'</div></div>'
       +'</div>';
   }).join('');
 }
-function getDoneCount(){
-  var done=0;
-  CUR_ITEMS.forEach(function(item){
-    var k=scKey(CUR_OID,item.sku,item.tracking||'');
-    if((SC[k]||0)>=(item.qty||1))done++;
-  });
-  return done;
+function getDone(){
+  return CUR_ITEMS.filter(function(item){
+    return (SC[scKey(CUR_OID,item.sku,item.tracking||'')]||0)>=(item.qty||1);
+  }).length;
 }
 function updateProg(){
-  var done=getDoneCount(),total=CUR_ITEMS.length;
-  var pct=total?Math.round(done/total*100):0;
-  var remaining=total-done;
-  document.getElementById('prog-txt').textContent=done+' / '+total+' รายการ'+(remaining>0?' (เหลือ '+remaining+')':'');
+  var done=getDone(),total=CUR_ITEMS.length,pct=total?Math.round(done/total*100):0;
+  document.getElementById('prog-txt').textContent=done+' / '+total+' รายการ';
   document.getElementById('prog-pct').textContent=pct+'%';
   document.getElementById('prog-f').style.width=pct+'%';
+  var allDone=done===total&&done>0;
+  document.getElementById('pass-btn').style.display=allDone?'flex':'none';
+  if(allDone) document.getElementById('pass-sub').textContent=CUR_OID+' · ครบ '+total+' รายการ';
 }
 
 /* ===== SKU SCAN ===== */
 function onSkuIn(val){
-  var f=CUR_ITEMS.filter(function(i){return i.sku===val.trim();})[0];
+  var f=CUR_ITEMS.find(function(i){return i.sku===val.trim();});
   var h=document.getElementById('sku-hint');
   if(f){h.className='hint h-ok';h.textContent='✓ '+f.name+(f.size?' ('+f.size+')':'');}
   else if(val.trim().length>3){h.className='hint h-err';h.textContent='ไม่พบ SKU นี้';}
@@ -766,16 +720,10 @@ function doScan(){
   if(!CUR_OID){showAl('กรุณาเลือก Order ก่อน','err');return;}
   var sku=document.getElementById('in-sku').value.trim();
   if(!sku){document.getElementById('in-sku').focus();return;}
-  var f=null;
-  CUR_ITEMS.forEach(function(it){if(it.sku===sku)f=it;});
+  var f=CUR_ITEMS.find(function(i){return i.sku===sku;});
   document.getElementById('over-box').style.display='none';
   if(!f){
-    var inOther=null;
-    Object.values(ORDERS).forEach(function(o2){
-      if(o2.id!==CUR_OID)o2.items.forEach(function(it){if(it.sku===sku)inOther=o2.id;});
-    });
-    showAl(inOther?'SKU นี้อยู่ใน Order อื่น: '+inOther:'ไม่พบ SKU นี้','err');
-    playErr();return;
+    showAl('ไม่พบ SKU นี้ใน Order','err');playErr();return;
   }
   var k=scKey(CUR_OID,f.sku,f.tracking||'');
   SC[k]=(SC[k]||0)+1;
@@ -785,19 +733,23 @@ function doScan(){
     document.getElementById('over-box').style.display='block';
     document.getElementById('over-box').dataset.key=k;
   }else{
-    if(s===f.qty)showAl('✓ ครบ '+s+'/'+f.qty,'ok');
-    else showAl('สแกน '+s+'/'+f.qty+' ขาด '+(f.qty-s),'warn');
+    if(s===f.qty){showAl('✓ ครบ '+s+'/'+f.qty,'ok');playOk();}
+    else{showAl('สแกน '+s+'/'+f.qty+' ขาด '+(f.qty-s),'warn');}
     document.getElementById('in-sku').value='';
     document.getElementById('sku-hint').textContent='';
-    playOk();
   }
   renderItems();updateProg();save();
-  // Auto-pass when all done
-  if(s<=f.qty&&getDoneCount()===CUR_ITEMS.length&&CUR_ITEMS.length>0){
-    setTimeout(autoPass,400);
-  }else if(s<f.qty){
-    document.getElementById('in-sku').focus();
+  // Push draft ทันทีหลัง scan แต่ละชิ้น (ป้องกัน data loss)
+  if(FB&&CUR_OID){
+    var dsc={};
+    CUR_ITEMS.forEach(function(item){
+      var k=scKey(CUR_OID,item.sku,item.tracking||'');
+      if(SC[k]) dsc[k]=SC[k];
+    });
+    fbPut('/drafts/'+encId(CUR_OID),{oid:CUR_OID,trk:CUR_TRK,items:CUR_ITEMS,sc:dsc,ts:Date.now(),device:DEV,user:USR});
   }
+  if(s<=f.qty&&getDone()===CUR_ITEMS.length&&CUR_ITEMS.length>0) setTimeout(autoPass,400);
+  else if(s<f.qty) document.getElementById('in-sku').focus();
 }
 function undoScan(){
   var k=document.getElementById('over-box').dataset.key;
@@ -817,139 +769,73 @@ function resetSku(){
 }
 
 /* ===== AUTO PASS ===== */
-function syncOrdersFromFirebase(){
-  if(!FB){
-    showAl('ใส่ Firebase URL ในตั้งค่าก่อนครับ','err');
-    goPage('settings');return;
-  }
-  setSyncOk('⏳ ดึงรายชื่อ orders...');
-  // Step 1: shallow=true ดึงแค่ keys ก่อน
-  var xhr=new XMLHttpRequest();
-  xhr.open('GET',FB+'/orders.json?shallow=true');
-  xhr.timeout=15000;
-  xhr.onload=function(){
-    try{
-      var data=JSON.parse(xhr.responseText)||{};
-      var keys=Object.keys(data);
-      if(!keys.length){setSyncErr('ไม่มีข้อมูลใน Firebase');return;}
-      setSyncOk('⏳ ดึง '+keys.length+' orders...');
-      pdaFetchBatch(keys,0,40,0);
-    }catch(e){setSyncErr('Firebase error');}
-  };
-  xhr.onerror=function(){setSyncErr('Firebase เชื่อมต่อไม่ได้');};
-  xhr.ontimeout=function(){setSyncErr('Firebase timeout');};
-  xhr.send();
-}
-
-function pdaFetchBatch(keys,offset,size,done){
-  var batch=keys.slice(offset,offset+size);
-  if(!batch.length){
-    save();refreshStats();renderDashboard();
-    setSyncOk('🔥 '+done+' orders พร้อมแล้ว');
-    return;
-  }
-  setSyncOk('⏳ ดึง '+(offset+1)+'-'+(Math.min(offset+size,keys.length))+'/'+keys.length);
-  var left=batch.length;
-  batch.forEach(function(key){
-    var x=new XMLHttpRequest();
-    x.open('GET',FB+'/orders/'+key+'.json');
-    x.timeout=8000;
-    x.onload=function(){
-      try{
-        var o=JSON.parse(x.responseText);
-        if(o&&o.id){
-          var oid=o.id;
-          var existSt=ORDERS[oid]?ORDERS[oid].status:'';
-          var keepSt=['pick','qc','ship','done'].indexOf(existSt)>=0;
-          ORDERS[oid]={
-            id:oid,consign:o.consign||'',tracking:o.tracking||'',
-            trackings:o.trackings||[],items:o.items||[],
-            status:keepSt?existSt:(o.status||'new'),
-            date:o.date||new Date().toLocaleDateString('th-TH')
-          };
-          done++;
-        }
-      }catch(e){}
-      if(--left===0) pdaFetchBatch(keys,offset+size,size,done);
-    };
-    x.onerror=x.ontimeout=function(){if(--left===0) pdaFetchBatch(keys,offset+size,size,done);};
-    x.send();
-  });
-}
-
-function pushOrdersToFirebase(orders){
-  if(!FB)return;
-  // Push each order to Firebase /orders/{encodedId}
-  Object.values(orders).forEach(function(o,idx){
-    setTimeout(function(){
-      var data={id:o.id,consign:o.consign||'',tracking:o.tracking||'',
-        trackings:o.trackings||[],items:o.items,status:o.status,
-        updatedAt:new Date().toISOString()};
-      fbPut('/orders/'+encodeId(o.id),data);
-    },idx*50);
-  });
-  setSyncOk('Firebase: อัปโหลด '+Object.keys(orders).length+' orders');
-}
-
 function autoPass(){
   if(!CUR_OID||!ORDERS[CUR_OID])return;
   playPack();
   var passOid=CUR_OID;
   var passItems=CUR_ITEMS.slice();
-  if(DRAFTS[passOid])delete DRAFTS[passOid];
+  // 1. ลบ draft จาก Firebase ก่อน (ขณะที่ DRAFTS[passOid] ยังมีอยู่)
+  if(FB) fbPut('/drafts/'+encId(passOid),null);
+  // 2. ลบ draft local
+  delete DRAFTS[passOid];
+  // 3. อัปเดตสถานะ
   ORDERS[passOid].status='qc';
   save();refreshStats();renderDashboard();
-  // Push to Sheets
-  if(API||FB){
-    pushStatus(passOid,'qc');
-    pushScanLog(passOid,passItems);
-    // Update order status in Firebase
-    if(FB) fbPatch('/orders/'+encodeId(passOid),{status:'qc',updatedAt:new Date().toISOString()});
-  }
+  // 4. Push ขึ้น Firebase + Sheets
+  pushStatus(passOid,'qc');
+  pushScanLog(passOid,passItems);
+  // 5. Reset scan
   resetScan();
-  // Remove draft from Firebase after passing QC
-  if(FB&&DRAFTS[passOid]) fbPut('/drafts/'+encodeId(passOid),null);
-  delete DRAFTS[passOid];
-  save();
   var h=document.getElementById('h1');
   h.className='hint h-ok';
-  h.textContent='✅ ผ่าน QC: '+passOid+' → Pack แล้ว';
+  h.textContent='✅ ผ่าน QC: '+passOid;
   setTimeout(function(){h.className='hint';h.textContent='';},3000);
   document.getElementById('in1').focus();
+}
+
+/* ===== PASS OVERLAY ===== */
+function showPassOv(){
+  document.getElementById('pass-ov').classList.add('show');
+  playPack();
+}
+function confirmPass(){
+  document.getElementById('pass-ov').classList.remove('show');
+  autoPass();
 }
 
 /* ===== DRAFT ===== */
 function saveDraft(){
   if(!CUR_OID){showAl('กรุณาเลือก Order ก่อน','err');return;}
-  var draftSC={};
+  var dsc={};
   CUR_ITEMS.forEach(function(item){
     var k=scKey(CUR_OID,item.sku,item.tracking||'');
-    if(SC[k])draftSC[k]=SC[k];
+    if(SC[k]) dsc[k]=SC[k];
   });
-  var draftData={oid:CUR_OID,trk:CUR_TRK,items:CUR_ITEMS,sc:draftSC,ts:Date.now(),device:DEV};
-  DRAFTS[CUR_OID]=draftData;
+  var d={oid:CUR_OID,trk:CUR_TRK,items:CUR_ITEMS,sc:dsc,ts:Date.now(),device:DEV,user:USR};
+  DRAFTS[CUR_OID]=d;
   save();refreshStats();
-  // Sync draft to Firebase
-  if(FB) fbPut('/drafts/'+encodeId(CUR_OID),draftData);
+  // Push draft ขึ้น Firebase
+  if(FB) fbPut('/drafts/'+encId(CUR_OID),d);
   showAl('💾 บันทึก Draft ของ '+CUR_OID+' แล้ว','ok');
   resetScan();
 }
 function restoreDraftSC(oid){
-  var d=DRAFTS[oid];if(!d)return;
-  Object.keys(d.sc||{}).forEach(function(k){SC[k]=d.sc[k];});
-  if(d.items&&d.items.length)CUR_ITEMS=d.items;
-  if(d.trk)CUR_TRK=d.trk;
+  var d=DRAFTS[oid];if(!d||!d.sc)return;
+  Object.keys(d.sc).forEach(function(k){SC[k]=d.sc[k];});
+  if(d.items&&d.items.length) CUR_ITEMS=d.items;
+  if(d.trk) CUR_TRK=d.trk;
 }
 function renderDrafts(){
   var keys=Object.keys(DRAFTS);
   var el=document.getElementById('draft-list');
   if(!keys.length){el.innerHTML='<div class="empty">ไม่มีงานค้าง</div>';return;}
   el.innerHTML=keys.map(function(oid){
-    var d=DRAFTS[oid],o=ORDERS[oid];
+    var d=DRAFTS[oid];
     var sc=Object.values(d.sc||{}).reduce(function(a,b){return a+b;},0);
     var dt=new Date(d.ts).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    var devLabel=d.device&&d.device!==DEV?' ('+d.device+')':'';
     return '<div class="draft-item">'
-      +'<div><div style="font-weight:700;font-size:14px">'+oid+'</div>'
+      +'<div><div style="font-weight:700;font-size:14px">'+oid+devLabel+'</div>'
       +'<div style="font-size:11px;color:var(--text2)">'+(d.items||[]).length+' รายการ · สแกน '+sc+' ชิ้น · '+dt+'</div></div>'
       +'<div style="display:flex;gap:6px">'
       +'<button onclick="resumeDraft(\''+oid+'\')" style="padding:8px 12px;background:var(--teal);color:#fff;border:none;border-radius:var(--rx);font-weight:700;font-size:13px;cursor:pointer">ทำต่อ</button>'
@@ -958,112 +844,175 @@ function renderDrafts(){
   }).join('');
 }
 function resumeDraft(oid){
-  CUR_OID=oid;
-  var d=DRAFTS[oid];
-  CUR_TRK=d?d.trk||'':'';
-  CUR_ITEMS=d&&d.items?d.items:(ORDERS[oid]?ORDERS[oid].items:[]);
+  var d=DRAFTS[oid];if(!d)return;
+  CUR_OID=oid;CUR_TRK=d.trk||'';CUR_ITEMS=d.items||(ORDERS[oid]?ORDERS[oid].items:[]);
   restoreDraftSC(oid);
-  // Sort: ยังไม่ได้สแกน (remaining) ขึ้นก่อน → สแกนแล้วตามหลัง
+  // Sort: ยังไม่สแกนขึ้นก่อน
   CUR_ITEMS=CUR_ITEMS.slice().sort(function(a,b){
     var ka=scKey(oid,a.sku,a.tracking||'');
     var kb=scKey(oid,b.sku,b.tracking||'');
-    var doneA=(SC[ka]||0)>=(a.qty||1)?1:0;
-    var doneB=(SC[kb]||0)>=(b.qty||1)?1:0;
-    return doneA-doneB; // ยังไม่เสร็จ (0) ขึ้นก่อน
+    var da=(SC[ka]||0)>=(a.qty||1)?1:0;
+    var db=(SC[kb]||0)>=(b.qty||1)?1:0;
+    return da-db;
   });
   goPage('scan');showOrderInfo();
-  showAl('💾 Draft: ยังเหลือ '+(CUR_ITEMS.length-getDoneCount())+' รายการที่ยังไม่สแกน','warn');
+  showAl('💾 Draft: เหลือ '+(CUR_ITEMS.length-getDone())+' รายการที่ยังไม่สแกน','warn');
 }
 function delDraft(oid){
-  if(!confirm('ลบ Draft?'))return;
-  delete DRAFTS[oid];save();renderDrafts();refreshStats();
-  if(FB) fbPut('/drafts/'+encodeId(oid),null); // null = delete in Firebase
+  if(!confirm('ลบ Draft ของ '+oid+'?'))return;
+  if(FB) fbPut('/drafts/'+encId(oid),null);
+  delete DRAFTS[oid];
+  save();renderDrafts();refreshStats();
 }
 
-/* ===== ORDERS LIST ===== */
-function renderOrders(){
-  var q=(document.getElementById('ord-q').value||'').toLowerCase();
-  var list=Object.values(ORDERS).filter(function(o){
+/* ===== ORDERS ===== */
+function renderOrds(){
+  var q=(document.getElementById('ord-q')?document.getElementById('ord-q').value||'':'').toLowerCase();
+  var orders=Object.values(ORDERS).filter(function(o){
     if(!q)return true;
-    return o.id.toLowerCase().indexOf(q)>=0||(o.tracking||'').toLowerCase().indexOf(q)>=0||(o.consign||'').toLowerCase().indexOf(q)>=0;
+    return o.id.toLowerCase().indexOf(q)>=0||(o.tracking||'').indexOf(q)>=0||(o.consign||'').toLowerCase().indexOf(q)>=0;
   });
-  document.getElementById('ord-list').innerHTML=list.length?list.map(function(o){
-    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rs);padding:12px;margin-bottom:8px">'
+  var el=document.getElementById('ord-list');
+  if(!orders.length){el.innerHTML='<div class="empty">ไม่พบออเดอร์</div>';return;}
+  el.innerHTML=orders.map(function(o){
+    return '<div class="ord-card">'
       +'<div style="display:flex;justify-content:space-between;align-items:center">'
       +'<div><div style="font-weight:700;font-size:15px;font-family:monospace">'+o.id+'</div>'
       +'<div style="font-size:12px;color:var(--text2);margin-top:2px">'+(o.consign||'—')+'</div>'
-      +'<div style="font-size:10px;color:var(--teal);margin-top:1px">'+(o.trackings||[]).slice(0,3).join(' · ')+'</div>'
+      +'<div style="font-size:11px;color:var(--teal);margin-top:1px">'+(o.tracking||'')+'</div>'
       +'<div style="font-size:11px;color:var(--text2);margin-top:1px">'+o.items.length+' รายการ</div></div>'
       +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">'
       +'<span class="badge '+(SB[o.status]||'b-new')+'">'+(SL[o.status]||'—')+'</span>'
       +(o.status!=='cancel'&&o.status!=='done'?'<button onclick="goQC(\''+o.id+'\')" style="padding:7px 14px;background:var(--primary);color:#fff;border:none;border-radius:var(--rx);font-weight:700;font-size:12px;cursor:pointer">🔍 QC</button>':'')
       +'</div></div></div>';
-  }).join(''):'<div class="empty">ไม่พบออเดอร์</div>';
+  }).join('');
 }
 
 /* ===== RESET ===== */
 function resetScan(){
   CUR_OID='';CUR_TRK='';CUR_ITEMS=[];
   document.getElementById('in1').value='';
-  document.getElementById('h1').className='hint';document.getElementById('h1').textContent='';
-  document.getElementById('in-sku').value='';document.getElementById('sku-hint').textContent='';
+  document.getElementById('h1').className='hint';
+  document.getElementById('h1').textContent='';
+  document.getElementById('in-sku').value='';
+  document.getElementById('sku-hint').textContent='';
   document.getElementById('order-info').style.display='none';
   document.getElementById('sr-list').style.display='none';
   document.getElementById('cancel-ban').style.display='none';
   document.getElementById('over-box').style.display='none';
   document.getElementById('al').className='al';
+  document.getElementById('pass-btn').style.display='none';
+  document.getElementById('pass-ov').classList.remove('show');
+  var prev=document.getElementById('scan-preview');if(prev)prev.style.display='none';
   setTimeout(function(){document.getElementById('in1').focus();},80);
 }
 
-/* ===== SETTINGS ===== */
-function saveSettings(){
-  API=document.getElementById('api-url').value.trim();
-  FB=document.getElementById('fb-url').value.trim().replace(/\/$/,'');
-  DEV=document.getElementById('dev-name').value.trim()||'PDA-01';
-  USR=document.getElementById('usr-name').value.trim()||'user01';
-  ls('PDA_URL',API);ls('PDA_FB',FB);ls('PDA_DEV',DEV);ls('PDA_USR',USR);
-  document.getElementById('dev-badge').textContent=DEV;
-  if(!API){document.getElementById('conn-txt').textContent='กรุณาใส่ URL';return;}
-  showLov('ทดสอบ...');
-  jFetch(API+'?action=ping',function(err,r){
-    hideLov();
-    document.getElementById('conn-txt').textContent=(r&&r.ok)?'✅ เชื่อมต่อสำเร็จ':'❌ ไม่สำเร็จ '+(err?err.message:'');
-    if(r&&r.ok){setSyncOk('Sheets: '+DEV);startAutoSync();}else setSyncErr();
-  });
-}
-function clearAll(){
-  if(!confirm('ล้างข้อมูลทั้งหมด?'))return;
-  ORDERS={};SC={};DRAFTS={};
-  ['PDA_O','PDA_SC','PDA_DR'].forEach(function(k){localStorage.removeItem(k);});
-  save();refreshStats();renderDashboard();
-  alert('ล้างแล้วครับ กด Sync เพื่อดึงข้อมูลใหม่');
-}
-
 /* ===== ALERT ===== */
-function showCancelAlert(oid){
-  if(ALERTED_CANCEL[oid])return; // ไม่แจ้งซ้ำ
-  ALERTED_CANCEL[oid]=true;
-  // เสียงเตือน cancel
-  playErr();playErr();
-  setTimeout(function(){playErr();},400);
-  // แสดง popup แดง
-  var div=document.createElement('div');
-  div.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(220,38,38,.92);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;text-align:center;padding:20px';
-  div.innerHTML='<div style="font-size:60px;margin-bottom:16px">🚫</div>'
-    +'<div style="font-size:24px;font-weight:700;margin-bottom:8px">Order ถูก Cancel!</div>'
-    +'<div style="font-size:18px;margin-bottom:20px">'+oid+'</div>'
-    +'<div style="font-size:14px;opacity:.8;margin-bottom:24px">Order นี้ถูกยกเลิกจากระบบ — ไม่สามารถ QC ได้</div>'
-    +'<button onclick="this.parentNode.remove()" style="padding:14px 32px;font-size:16px;font-weight:700;background:#fff;color:var(--red);border:none;border-radius:8px;cursor:pointer">รับทราบ</button>';
-  document.body.appendChild(div);
-  // Auto close after 8s
-  setTimeout(function(){if(div.parentNode)div.remove();},8000);
-  if(navigator.vibrate)navigator.vibrate([200,100,200,100,200]);
-}
-
 function showAl(msg,type){
   var e=document.getElementById('al');
   e.className='al al-'+type+' show';e.textContent=msg;
   clearTimeout(e._t);e._t=setTimeout(function(){e.className='al';},5000);
+}
+
+/* ===== SYNC UI ===== */
+function setSyncOk(t){var b=document.getElementById('sync-bar');if(b)b.className='sync-bar s-ok';var el=document.getElementById('sync-txt');if(el)el.textContent=t||'OK';}
+function setSyncErr(t){var b=document.getElementById('sync-bar');if(b)b.className='sync-bar s-err';var el=document.getElementById('sync-txt');if(el)el.textContent=t||'Error';}
+
+/* ===== SETTINGS ===== */
+function saveSettings(){
+  API=document.getElementById('api-url').value.trim();
+  FB=document.getElementById('fb-url').value.trim().replace(/\/+$/,'');
+  DEV=document.getElementById('dev-name').value.trim()||'PDA-01';
+  USR=document.getElementById('usr-name').value.trim()||'user01';
+  ls('PDA_URL',API);ls('PDA_FB',FB);ls('PDA_DEV',DEV);ls('PDA_USR',USR);
+  document.getElementById('dev-badge').textContent=DEV;
+  setSyncOk(FB?'Firebase: '+DEV:'ออฟไลน์');
+  var ct=document.getElementById('conn-txt');
+  if(FB){
+    ct.textContent='✅ บันทึกแล้ว กำลัง sync...';
+    setTimeout(syncOrdersFromFirebase,300);
+    setTimeout(syncDraftsFromFB,2000);
+  }else{
+    ct.textContent='⚠ ยังไม่ได้ใส่ Firebase URL';
+  }
+}
+function clearAll(){
+  if(!confirm('ล้างข้อมูลทั้งหมด?'))return;
+  ORDERS={};SC={};DRAFTS={};save();refreshStats();renderDashboard();
+  alert('ล้างแล้วครับ');
+}
+
+/* ===== JSONP (Sheets) ===== */
+var _jc=0;
+function jFetch(url){
+  return new Promise(function(res,rej){
+    var cb='_pj'+(_jc++)+'_'+Date.now();
+    var s=document.createElement('script');
+    window[cb]=function(d){delete window[cb];try{document.head.removeChild(s);}catch(e){}res(d);};
+    s.src=url+(url.indexOf('?')>=0?'&':'?')+'callback='+cb;
+    s.onerror=function(){delete window[cb];try{document.head.removeChild(s);}catch(e){}rej(new Error('Network error'));};
+    document.head.appendChild(s);
+    setTimeout(function(){if(window[cb]){delete window[cb];try{document.head.removeChild(s);}catch(e){}rej(new Error('Timeout'));}},15000);
+  });
+}
+var _autoSync=null;
+function startAutoSync(){
+  if(!API)return;
+  if(_autoSync)clearInterval(_autoSync);
+  syncStatus();
+  _autoSync=setInterval(syncStatus,30000);
+}
+
+/* ===== CAMERA SCANNER ===== */
+var _camMode='trk', _reader=null, _stream=null;
+
+function startCam(mode){
+  _camMode=mode;
+  if(typeof ZXing==='undefined'){
+    showAl('กำลังโหลด Scanner...','warn');
+    setTimeout(function(){startCam(mode);},1000);
+    return;
+  }
+  document.getElementById('cam-ov').style.display='flex';
+  var hints=new Map();
+  hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[
+    ZXing.BarcodeFormat.CODE_128,
+    ZXing.BarcodeFormat.CODE_39,
+    ZXing.BarcodeFormat.EAN_13,
+    ZXing.BarcodeFormat.EAN_8,
+    ZXing.BarcodeFormat.QR_CODE,
+    ZXing.BarcodeFormat.DATA_MATRIX,
+    ZXing.BarcodeFormat.ITF
+  ]);
+  hints.set(ZXing.DecodeHintType.TRY_HARDER,true);
+  _reader=new ZXing.BrowserMultiFormatReader(hints);
+  var video=document.getElementById('cam-video');
+  _reader.decodeFromConstraints(
+    {video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}},
+    video,
+    function(result,err){
+      if(result){
+        var val=result.getText();
+        stopCam();
+        if(_camMode==='trk'){
+          document.getElementById('in1').value=val;
+          onIn1(val);
+          playOk();
+        }else{
+          document.getElementById('in-sku').value=val;
+          onSkuIn(val);
+          playOk();
+          setTimeout(doScan,300);
+        }
+      }
+    }
+  );
+}
+
+function stopCam(){
+  if(_reader) _reader.reset();
+  _reader=null;
+  document.getElementById('cam-ov').style.display='none';
 }
 
 /* ===== SOUND ===== */
@@ -1071,6 +1020,7 @@ var _ac=null;
 function beep(f,d,t,v){
   try{
     if(!_ac)_ac=new(window.AudioContext||window.webkitAudioContext)();
+    if(_ac.state==='suspended')_ac.resume();
     var o=_ac.createOscillator(),g=_ac.createGain();
     o.connect(g);g.connect(_ac.destination);
     o.type=t||'sine';o.frequency.value=f;
@@ -1089,5 +1039,31 @@ function hideLov(){document.getElementById('lov').classList.remove('show');}
 
 init();
 </script>
+
+<!-- Camera Scanner Overlay -->
+<div id="cam-ov" style="display:none;position:fixed;inset:0;background:#000;z-index:500;flex-direction:column">
+  <div style="background:#0F172A;padding:12px 16px;display:flex;justify-content:space-between;align-items:center">
+    <div style="color:#fff;font-weight:700;font-size:15px">📷 สแกนบาร์โค้ด</div>
+    <button onclick="stopCam()" style="background:#EF4444;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer">✕ ปิด</button>
+  </div>
+  <div style="flex:1;position:relative;overflow:hidden">
+    <video id="cam-video" style="width:100%;height:100%;object-fit:cover"></video>
+    <!-- scan line animation -->
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+      <div style="width:80%;max-width:320px;aspect-ratio:1.6;position:relative">
+        <div style="position:absolute;inset:0;border:2px solid rgba(255,255,255,0.3);border-radius:8px"></div>
+        <div style="position:absolute;top:0;left:0;width:24px;height:24px;border-top:3px solid #22C55E;border-left:3px solid #22C55E;border-radius:4px 0 0 0"></div>
+        <div style="position:absolute;top:0;right:0;width:24px;height:24px;border-top:3px solid #22C55E;border-right:3px solid #22C55E;border-radius:0 4px 0 0"></div>
+        <div style="position:absolute;bottom:0;left:0;width:24px;height:24px;border-bottom:3px solid #22C55E;border-left:3px solid #22C55E;border-radius:0 0 0 4px"></div>
+        <div style="position:absolute;bottom:0;right:0;width:24px;height:24px;border-bottom:3px solid #22C55E;border-right:3px solid #22C55E;border-radius:0 0 4px 0"></div>
+        <div id="scan-line" style="position:absolute;left:4px;right:4px;height:2px;background:linear-gradient(90deg,transparent,#22C55E,transparent);top:50%;animation:scanline 1.5s ease-in-out infinite"></div>
+      </div>
+    </div>
+    <div id="cam-hint" style="position:absolute;bottom:20px;left:0;right:0;text-align:center;color:#fff;font-size:13px;text-shadow:0 1px 3px rgba(0,0,0,.8)">จ่อบาร์โค้ดในกรอบ</div>
+  </div>
+</div>
+<style>
+@keyframes scanline{0%,100%{top:10%}50%{top:90%}}
+</style>
 </body>
 </html>
