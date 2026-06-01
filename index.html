@@ -411,7 +411,10 @@ tr:hover td{background:var(--bg3)}
 <!-- DRAFT -->
 <div id="page-draft" class="page">
   <div class="card">
-    <div class="card-t">💾 งานค้าง (Draft)</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="card-t" style="margin:0">💾 งานค้าง (Draft)</div>
+      <button onclick="syncDraftsFromFB();renderDraftList()" style="padding:6px 12px;background:#0D9488;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">🔄 Sync Draft</button>
+    </div>
     <div id="draft-list"><div class="empty">ไม่มีงานค้าง</div></div>
   </div>
 </div>
@@ -425,6 +428,14 @@ tr:hover td{background:var(--bg3)}
         <option value="week">7 วันล่าสุด</option>
         <option value="all" selected>ทั้งหมด</option>
       </select>
+      <select id="rpt-status" onchange="renderReport()" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
+        <option value="all">ทุกสถานะ</option>
+        <option value="qc">QC ผ่าน</option>
+        <option value="ship">Ship</option>
+        <option value="done">Done</option>
+        <option value="cancel">Cancel</option>
+      </select>
+      <input type="text" id="rpt-search" placeholder="ค้นหา Order ID..." oninput="renderReport()" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text);width:160px">
     </div>
     <div style="display:flex;gap:8px">
       <button onclick="exportReportCSV()" style="padding:8px 14px;font-size:13px;font-weight:700;background:var(--teal);color:#fff;border:none;border-radius:var(--rx);cursor:pointer">📥 Export CSV</button>
@@ -457,7 +468,6 @@ tr:hover td{background:var(--bg3)}
             <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">SUP</th>
             <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">SKU</th>
             <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">แบรนด์</th>
-            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">ขนาด</th>
             <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:center">จำนวน</th>
             <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">Consign</th>
             <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">Tracking</th>
@@ -647,6 +657,7 @@ function goPage(p){
   document.getElementById('pg-title').textContent=m[0];
   document.getElementById('pg-sub').textContent=m[1]||'';
   if(p==='orders')renderOrders();
+  if(p==='draft'){syncDraftsFromFB();setTimeout(renderDraftList,500);}
   if(p==='pack')renderPack();
   if(p==='ship')renderShip();
   if(p==='draft')renderDrafts();
@@ -1137,6 +1148,7 @@ function renderOrders(){
         <button class="btn btn-xs btn-o" onclick="openOrder('${o.id}')">ดู</button>
         ${SN[o.status]?`<button class="btn btn-xs btn-p" onclick="setStatus('${o.id}','${SN[o.status]}');renderOrders()">→${SNL[o.status]}</button>`:''}
         ${o.status==='new'?`<button class="btn btn-xs" style="background:var(--orange);color:#fff;border:none;font-weight:600" onclick="goQCScan('${o.id}')">🔍 QC</button>`:''}
+        <button class="btn btn-xs" style="background:#F59E0B;color:#fff;border:none;font-weight:700" onclick="openEditOrder('${o.id}')" title="แก้ไข Order">✏️ แก้ไข</button>
       </div></td>
     </tr>`).join(''):'<tr><td colspan="7" class="empty">ไม่พบออเดอร์</td></tr>';
 }
@@ -1211,6 +1223,7 @@ function filterReport(q){
 
 function refreshAll(){
   renderDashboard();
+  renderDraftList();
   let nb={pick:0,qc:0,ship:0,done:0,draft:0,cancel:0};
   Object.values(ORDERS).forEach(o=>{
     if(o.status==='pick')nb.pick++;
@@ -1267,11 +1280,50 @@ function doNextStatus(){
 
 /* ======= EXPORT ======= */
 function exportCSV(){
-  let rows=[['Date','Order ID','SKU','แบรนด์','Qty','Consign','Tracking','สถานะ']];
-  Object.values(ORDERS).forEach(o=>o.items.forEach(item=>rows.push([o.date||'',o.id,item.sku||'',item.name||'',item.qty,o.consign||'',o.tracking||'',o.status||''])));
-  let csv=rows.map(r=>r.map(c=>'"'+String(c||'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
-  let a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
-  a.download='wms_'+new Date().toISOString().slice(0,10)+'.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);
+  var now=new Date();
+  var dev=localStorage.getItem('WMS_DEV')||'-';
+  var usr=localStorage.getItem('WMS_USR')||'-';
+  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
+  var rows=[['Order ID','SUP','SKU','แบรนด์','Qty','Consign','Tracking','สถานะ','พนักงาน','อุปกรณ์','เวลา']];
+  Object.values(ORDERS).forEach(function(o){
+    if(o.status==='new'||o.status==='pick')return;
+    var oUsr=o.user||usr;
+    var oDev=o.device||dev;
+    var upd=o.updatedAt?new Date(o.updatedAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):(o.date||'');
+    var allItems=o.items&&o.items.length?o.items:[{sku:'',name:'',qty:1,tracking:'',sup:''}];
+    // แสดงเฉพาะ items ที่ตรงกับ tracking (ถ้า order มี tracking)
+    var items=allItems;
+    if(o.tracking){
+      var byTrk=allItems.filter(function(it){return it.tracking&&it.tracking===o.tracking;});
+      if(byTrk.length>0) items=byTrk;
+    }
+    items.forEach(function(item){
+      var supVal=(item.sup||'').toUpperCase()||detectCarrier(item.tracking||o.tracking||'').short||'';
+      var trkDisplay=item.tracking||o.tracking||'—';
+      rows.push('<tr style="border-bottom:1px solid var(--border)">'
+        +'<td style="padding:6px;font-weight:700;font-family:monospace;font-size:12px">'+o.id+'</td>'
+        +'<td style="padding:6px;font-weight:700;font-size:12px;color:var(--primary)">'+supVal+'</td>'
+        +'<td style="padding:6px;font-family:monospace;font-size:11px;color:var(--primary)">'+(item.sku||'—')+'</td>'
+        +'<td style="padding:6px;font-size:12px">'+(item.name||'—').substring(0,30)+'</td>'
+        +'<td style="padding:6px;text-align:center;font-weight:700">'+item.qty+'</td>'
+        +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+(o.consign||'—')+'</td>'
+        +'<td style="padding:6px;font-family:monospace;font-size:11px">'+trkDisplay.substring(0,18)+'</td>'
+        +'<td style="padding:6px;text-align:center">'+st+'</td>'
+        +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+usr+'</td>'
+        +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+dev+'</td>'
+        +'<td style="padding:6px;text-align:right;font-size:11px;color:var(--text3)">'+upd+'</td>'
+        +'</tr>');
+    });
+  });
+  var lines=rows.map(function(r){
+    return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');
+  });
+  var csv=lines.join('\r\n');
+  var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='wms_report_'+now.toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
 
 /* ======= SETTINGS ======= */
@@ -1486,6 +1538,8 @@ function syncReportFromSheets(){
 
 function renderReport(){
   let range=document.getElementById('rpt-range')?document.getElementById('rpt-range').value:'all';
+  let stFilter=document.getElementById('rpt-status')?document.getElementById('rpt-status').value:'all';
+  let srchFilter=(document.getElementById('rpt-search')?document.getElementById('rpt-search').value:'').toLowerCase().trim();
   let orders=Object.values(ORDERS);
   let now=new Date();
   let todayStr=now.toLocaleDateString('th-TH');
@@ -1496,8 +1550,8 @@ function renderReport(){
     if(o.status==='cancel'){cancelCount++;return;}
     let d=o.updatedAt?new Date(o.updatedAt).toLocaleDateString('th-TH'):'';
     if(d===todayStr){
-      if(['qc','pack','done'].indexOf(o.status)>=0)qcToday++;
-      if(['pack','done'].indexOf(o.status)>=0)packToday++;
+      if(['qc','ship','done'].indexOf(o.status)>=0)qcToday++;
+      if(['ship','done'].indexOf(o.status)>=0)packToday++;
       if(o.status==='done')doneToday++;
     }
   });
@@ -1507,7 +1561,9 @@ function renderReport(){
 
   // Filter
   let filtered=orders.filter(function(o){
-    if(o.status==='new')return false;
+    if(o.status==='new'||o.status==='pick')return false;
+    if(stFilter!=='all'&&o.status!==stFilter)return false;
+    if(srchFilter&&!o.id.toLowerCase().includes(srchFilter)&&!(o.consign||'').toLowerCase().includes(srchFilter))return false;
     if(range==='today'){
       let d=o.updatedAt?new Date(o.updatedAt).toLocaleDateString('th-TH'):'';
       return d===todayStr;
@@ -1520,8 +1576,8 @@ function renderReport(){
   });
   filtered.sort(function(a,b){return (b.updatedAt||'').localeCompare(a.updatedAt||'');});
 
-  let SB2={qc:'b-qc',pack:'b-pack',done:'b-done',cancel:'b-cancel',new:'b-new'};
-  let SL2={qc:'✅ QC ผ่าน',pack:'📦 Pack',done:'🚚 ส่งแล้ว',cancel:'🚫 Cancel',new:'รับแล้ว'};
+  let SB2={new:'b-new',pick:'b-pick',qc:'b-qc',ship:'b-ship',done:'b-done',cancel:'b-cancel'};
+  let SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
 
   let tbody=document.getElementById('rpt-tbody');
   if(!tbody)return;
@@ -1534,14 +1590,17 @@ function renderReport(){
     let st='<span class="badge '+(SB2[o.status]||'b-new')+'">'+(SL2[o.status]||o.status)+'</span>';
     let items=o.items&&o.items.length?o.items:[{sku:'',name:'',size:'',qty:1}];
     items.forEach(function(item){
+      var sup=(item.sku||'').match(/^([A-Z]{2,5})/);
+      var supStr=sup?sup[1]:'—';
+      var trkDisplay=item.tracking||o.tracking||'—';
       rows.push('<tr style="border-bottom:1px solid var(--border)">'
+        +'<td style="padding:6px;font-weight:700;font-size:12px;color:var(--primary)">'+supStr+'</td>'
         +'<td style="padding:6px;font-weight:700;font-family:monospace;font-size:12px">'+o.id+'</td>'
         +'<td style="padding:6px;font-family:monospace;font-size:11px;color:var(--primary)">'+(item.sku||'—')+'</td>'
         +'<td style="padding:6px;font-size:12px">'+(item.name||'—').substring(0,30)+'</td>'
-        +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+(item.size||'—')+'</td>'
         +'<td style="padding:6px;text-align:center;font-weight:700">'+item.qty+'</td>'
         +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+(o.consign||'—')+'</td>'
-        +'<td style="padding:6px;font-family:monospace;font-size:11px">'+(o.tracking||'—').substring(0,16)+'</td>'
+        +'<td style="padding:6px;font-family:monospace;font-size:11px">'+trkDisplay.substring(0,18)+'</td>'
         +'<td style="padding:6px;text-align:center">'+st+'</td>'
         +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+usr+'</td>'
         +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+dev+'</td>'
@@ -1554,6 +1613,8 @@ function renderReport(){
 
 function exportReportCSV(){
   let range=document.getElementById('rpt-range')?document.getElementById('rpt-range').value:'all';
+  let stFilter=document.getElementById('rpt-status')?document.getElementById('rpt-status').value:'all';
+  let srchFilter=(document.getElementById('rpt-search')?document.getElementById('rpt-search').value:'').toLowerCase().trim();
   let orders=Object.values(ORDERS).filter(function(o){return o.status!=='new';});
   if(range==='today'){
     let todayStr=new Date().toLocaleDateString('th-TH');
@@ -1659,31 +1720,110 @@ function fbPushStatus(oid,status){
 // Pull all orders from Firebase (synced from PDA)
 function syncFromFirebase(){
   if(!FB_URL){alert('กรุณาใส่ Firebase URL ในตั้งค่าก่อนครับ');return;}
-  showLov('ดึงข้อมูลจาก Firebase...');
-  fbGet('/orders',function(err,data){
-    hideLov();
-    if(err||!data){
-      showLov(false);
-      alert('ไม่สามารถดึงข้อมูลจาก Firebase ได้ — ลอง Sync จาก Sheets แทน');return;
-    }
-    // Merge Firebase orders เข้า ORDERS
-    Object.keys(data).forEach(function(rawOid){
-      var o=data[rawOid]; if(!o||!o.id)return;
-      var oid=o.id;
-      var existSt=ORDERS[oid]?ORDERS[oid].status:'';
-      var keepSt=['pick','qc','ship','done'].indexOf(existSt)>=0;
-      ORDERS[oid]={
-        id:oid,consign:o.consign||'',tracking:o.tracking||'',
-        trackings:o.trackings||[],items:o.items||[],
-        status:keepSt?existSt:(o.status||'new'),
-        date:o.date||new Date().toLocaleDateString('th-TH'),
-        updatedAt:o.updatedAt||'',note:'',timeline:o.timeline||[]
-      };
-    });
+  showLov('🔥 กำลังเชื่อมต่อ Firebase...');
+  var xhr=new XMLHttpRequest();
+  xhr.open('GET',FB_URL+'/orders.json');
+  xhr.timeout=90000;
+  // Stream progress
+  var lastLen=0;
+  xhr.onprogress=function(){
+    var txt=xhr.responseText||'';
+    var pct=Math.min(99,Math.round(txt.length/6000));
+    document.getElementById('lov-t').textContent='🔥 ดาวน์โหลด '+pct+'% ('+Math.round(txt.length/1024)+'KB)...';
+  };
+  xhr.onload=function(){
+    document.getElementById('lov-t').textContent='⚙️ ประมวลผลข้อมูล...';
+    setTimeout(function(){
+      try{
+        var data=JSON.parse(xhr.responseText);
+        if(!data){hideLov();ulAlert('Firebase ว่างเปล่า','err');return;}
+        var added=0,updated=0,old=0;
+        Object.keys(data).forEach(function(rawKey){
+          var o=data[rawKey];
+          if(!o||!o.id)return;
+          var oid=o.id;
+          // ข้าม orders เก่า (id เป็นตัวเลขล้วน = ข้อมูลเก่าก่อนระบบใหม่)
+          if(/^\d+$/.test(oid)){old++;return;}
+          var ex=ORDERS[oid]?ORDERS[oid].status:'';
+          var keep=['pick','qc','ship','done'].indexOf(ex)>=0;
+          if(ORDERS[oid])updated++;else added++;
+          ORDERS[oid]={
+            id:oid,consign:o.consign||'',tracking:o.tracking||'',
+            trackings:o.trackings||[],items:o.items||[],
+            status:keep?ex:(o.status||'new'),
+            date:o.date||'',updatedAt:o.updatedAt||'',
+            note:o.note||'',timeline:o.timeline||[]
+          };
+        });
+        hideLov();
+        saveLocal();refreshAll();
+        var msg='🔥 Firebase: '+Object.keys(ORDERS).length+' orders (เพิ่ม '+added+', อัปเดต '+updated+')';
+        if(old>0)msg+=' ⚠ ข้าม '+old+' orders เก่า';
+        ulAlert(msg,'ok');
+      }catch(e){
+        hideLov();
+        ulAlert('Firebase parse error — ลอง batch mode','err');
+        syncFromFirebaseBatch();
+      }
+    },50);
+  };
+  xhr.onerror=function(){hideLov();ulAlert('เชื่อมต่อ Firebase ไม่ได้','err');};
+  xhr.ontimeout=function(){hideLov();ulAlert('Firebase timeout — ลอง batch mode...','warn');syncFromFirebaseBatch();};
+  xhr.send();
+}
+
+function syncFromFirebaseBatch(){
+  if(!FB_URL)return;
+  showLov('ดึงรายชื่อ Orders...');
+  var xhr=new XMLHttpRequest();
+  xhr.open('GET',FB_URL+'/orders.json?shallow=true');
+  xhr.timeout=15000;
+  xhr.onload=function(){
+    try{
+      var keys=Object.keys(JSON.parse(xhr.responseText)||{});
+      if(!keys.length){hideLov();ulAlert('Firebase ว่างเปล่า','err');return;}
+      fetchOrdersBatch(keys,0,50,0,keys.length);
+    }catch(e){hideLov();ulAlert('Firebase error','err');}
+  };
+  xhr.onerror=xhr.ontimeout=function(){hideLov();ulAlert('Firebase ไม่ตอบสนอง','err');};
+  xhr.send();
+}
+
+function fetchOrdersBatch(keys,offset,batchSize,done,total){
+  var batch=keys.slice(offset,offset+batchSize);
+  if(!batch.length){
     saveLocal();refreshAll();
-    // Also sync statuses
-    if(FB_URL) startFirebaseStream();
-    alert('ดึงข้อมูลจาก Firebase สำเร็จ: '+Object.keys(newOrders).length+' orders');
+    hideLov();
+    ulAlert('🔥 Firebase sync: '+done+'/'+total+' orders','ok');
+    return;
+  }
+  showLov('ดึง '+(offset+1)+'-'+Math.min(offset+batchSize,total)+' / '+total+' orders...');
+  var left=batch.length;
+  batch.forEach(function(key){
+    var xhr=new XMLHttpRequest();
+    xhr.open('GET',FB_URL+'/orders/'+key+'.json');
+    xhr.timeout=8000;
+    xhr.onload=function(){
+      try{
+        var o=JSON.parse(xhr.responseText);
+        if(o&&o.id){
+          var oid=o.id;
+          var ex=ORDERS[oid]?ORDERS[oid].status:'';
+          var keep=['pick','qc','ship','done'].indexOf(ex)>=0;
+          ORDERS[oid]={id:oid,consign:o.consign||'',tracking:o.tracking||'',
+            trackings:o.trackings||[],items:o.items||[],
+            status:keep?ex:(o.status||'new'),
+            date:o.date||'',updatedAt:o.updatedAt||'',
+            note:o.note||'',timeline:o.timeline||[]};
+          done++;
+        }
+      }catch(e){}
+      if(--left===0) fetchOrdersBatch(keys,offset+batchSize,batchSize,done,total);
+    };
+    xhr.onerror=xhr.ontimeout=function(){
+      if(--left===0) fetchOrdersBatch(keys,offset+batchSize,batchSize,done,total);
+    };
+    xhr.send();
   });
 }
 
@@ -1870,9 +2010,14 @@ function runMatcher(){
     while((m=re_sku.exec(bnorm))!==null) skus.push(m[1]);
     if(!tm[oid])tm[oid]={};
     if(skus.length){
-      skus.forEach(function(s){tm[oid][s]={tracking:tracking,consign:consign};});
-    }else if(!tm[oid]['__nosku']){
-      tm[oid]['__nosku']={tracking:tracking,consign:consign};
+      skus.forEach(function(s){
+        if(!tm[oid][s]) tm[oid][s]=[];
+        // เพิ่มทุก tracking (ไม่ overwrite)
+        tm[oid][s].push({tracking:tracking,consign:consign});
+      });
+    }else{
+      if(!tm[oid]['__nosku']) tm[oid]['__nosku']=[];
+      tm[oid]['__nosku'].push({tracking:tracking,consign:consign});
     }
   });
 
@@ -1892,9 +2037,20 @@ function runMatcher(){
       var qty=parseInt(row[oQty])||1;
       if(!oid)return;
       var isGift=brand.startsWith('แถม');
-      var t=(tm[oid]&&(tm[oid][sku]||tm[oid]['__nosku']))||{tracking:'',consign:''};
-      var carrier=detectCarrier(t.tracking);
-      rows.push({oid:oid,sku:sku,brand:brand,size:size,qty:qty,consign:t.consign,tracking:t.tracking,carrier:carrier,isGift:isGift});
+      var tList=(tm[oid]&&(tm[oid][sku]||tm[oid]['__nosku']))||[];
+      if(!Array.isArray(tList)) tList=[tList]; // backward compat
+      if(tList.length===0) tList=[{tracking:'',consign:''}];
+      // SKU เดียวกัน หลาย tracking → สร้างหลาย row (qty=1 ต่อ tracking)
+      if(tList.length>1){
+        tList.forEach(function(t){
+          var carrier=detectCarrier(t.tracking);
+          rows.push({oid:oid,sku:sku,brand:brand,size:size,qty:1,consign:t.consign,tracking:t.tracking,carrier:carrier,isGift:isGift});
+        });
+      } else {
+        var t=tList[0];
+        var carrier=detectCarrier(t.tracking);
+        rows.push({oid:oid,sku:sku,brand:brand,size:size,qty:qty,consign:t.consign,tracking:t.tracking,carrier:carrier,isGift:isGift});
+      }
     });
   }else{
     // Tracking only mode
@@ -1953,10 +2109,18 @@ function applyMatcherToWMS(){
     if(r.tracking&&map[r.oid].trackings.indexOf(r.tracking)<0)map[r.oid].trackings.push(r.tracking);
     if(r.consign&&!map[r.oid].consign)map[r.oid].consign=r.consign;
     if(r.tracking&&!map[r.oid].tracking)map[r.oid].tracking=r.tracking;
-    map[r.oid].items.push({sku:r.sku,name:r.brand,size:r.size,qty:r.qty,tracking:r.tracking,consign:r.consign});
+    var existItem=map[r.oid].items.find(function(it){
+      return it.sku===r.sku && it.tracking===(r.tracking||'') && it.size===(r.size||'');
+    });
+    if(existItem){
+      existItem.qty+=r.qty;
+    } else {
+      map[r.oid].items.push({sku:r.sku,name:r.brand,size:r.size,qty:r.qty,tracking:r.tracking,consign:r.consign,sup:(r.carrier&&r.carrier.short)||''});
+    }
   });
   var added=0,updated=0;
   var now=new Date().toLocaleDateString('th-TH');
+  var batchId='batch_'+Date.now(); // ID ของ batch นี้
   // Merge ข้อมูลจาก Matcher เข้า ORDERS (ไม่ลบ order เก่าที่มีสถานะ)
   var newOrders={};
   // เก็บ orders เก่าที่ยังทำงานอยู่ (pick/qc/ship/done)
@@ -1993,6 +2157,8 @@ function applyMatcherToWMS(){
       },idx*30); // stagger 30ms each
     });
   }
+  // Push batch metadata
+  if(FB_URL) fbPut('/currentBatch',{id:batchId,date:now,count:Object.keys(newOrders).length,uploadedBy:localStorage.getItem('WMS_USR')||'PC'});
   var fbNote=FB_URL?' (sync ขึ้น Firebase แล้ว — PDA ดึงได้เลย)':'';
   alert('✅ นำเข้า WMS สำเร็จ!\nออเดอร์ใหม่: '+added+'\nอัปเดต: '+updated+'\nรวม: '+Object.keys(newOrders).length+' orders'+fbNote);
   goPage('orders');
@@ -2105,14 +2271,77 @@ function saveEditOrder(){
 
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
+
+/* ===== FIREBASE DRAFT SYNC (PC) ===== */
+function syncDraftsFromFB(){
+  if(!FB_URL)return;
+  fbGet('/drafts',function(err,data){
+    if(err||!data)return;
+    var changed=false;
+    Object.keys(data).forEach(function(rawOid){
+      var d=data[rawOid];
+      if(!d||!d.oid)return;
+      var oid=d.oid;
+      if(!DRAFTS[oid]||(d.ts||0)>DRAFTS[oid].ts){
+        DRAFTS[oid]=d;changed=true;
+      }
+    });
+    if(changed){saveLocal();refreshAll();}
+  });
+}
+
+// Sync drafts every 30s
+setInterval(function(){if(FB_URL)syncDraftsFromFB();},30000);
+
+
+/* ===== RENDER DRAFT LIST (PC) ===== */
+function renderDraftList(){
+  var keys=Object.keys(DRAFTS);
+  var el=document.getElementById('draft-list');
+  if(!el)return;
+  if(!keys.length){el.innerHTML='<div class="empty">ไม่มีงานค้าง</div>';return;}
+  el.innerHTML='';
+  keys.forEach(function(oid){
+    var d=DRAFTS[oid];
+    var sc=Object.values(d.sc||{}).reduce(function(a,b){return a+b;},0);
+    var dt=d.ts?new Date(d.ts).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+    var row=document.createElement('div');
+    row.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:11px 4px;border-bottom:1px solid var(--border)';
+    var info=document.createElement('div');
+    var devBadge=d.device?('<span style="font-size:10px;padding:2px 6px;background:var(--bg3);border-radius:4px;color:var(--text2)">'+d.device+'</span>'):'';
+    info.innerHTML='<div style="font-weight:700;font-size:14px;font-family:monospace">'+oid+' '+devBadge+'</div>'
+      +'<div style="font-size:11px;color:var(--text2);margin-top:2px">'+(d.items||[]).length+' รายการ · สแกน '+sc+' ชิ้น'+(d.user?' · '+d.user:'')+' · '+dt+'</div>';
+    var btns=document.createElement('div');
+    btns.style.cssText='display:flex;gap:6px';
+    var b1=document.createElement('button');
+    b1.textContent='ดู QC';
+    b1.style.cssText='padding:6px 12px;background:var(--teal);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer';
+    b1.onclick=function(){goQCScan(oid);};
+    var b2=document.createElement('button');
+    b2.textContent='🗑';
+    b2.style.cssText='padding:6px 10px;background:var(--rb);color:var(--red);border:1.5px solid var(--rbr);border-radius:6px;font-size:12px;cursor:pointer';
+    b2.onclick=function(){delDraftPC(oid);};
+    btns.appendChild(b1);btns.appendChild(b2);
+    row.appendChild(info);row.appendChild(btns);
+    el.appendChild(row);
+  });
+}
+
+function delDraftPC(oid){
+  if(!confirm('ลบ Draft ของ '+oid+'?'))return;
+  if(FB_URL) fbPut('/drafts/'+encodeId(oid),null);
+  delete DRAFTS[oid];
+  saveLocal();renderDraftList();refreshAll();
+}
+
 init();
 // เริ่ม auto-sync หลัง init
 setTimeout(function(){
   if(API_URL)startAutoSync();
   if(FB_URL){
     startFirebaseStream();
-    // Auto merge Firebase orders on startup
-    syncFromFirebase();
+    // Sync drafts from Firebase on startup
+    setTimeout(function(){syncDraftsFromFB();},2000);
   }
 },1200);
 
