@@ -411,12 +411,14 @@ function pdaBatch(keys,offset,size,done){
         var o=JSON.parse(x.responseText);
         if(o&&o.id){
           var oid=o.id;
+          // ข้าม orders เก่า id ตัวเลขล้วน
+          if(/^\d+$/.test(oid)){if(--left===0)pdaBatch(keys,offset+size,size,done);return;}
           var ex=ORDERS[oid]?ORDERS[oid].status:'';
           var keep=['pick','qc','ship','done'].indexOf(ex)>=0;
           ORDERS[oid]={id:oid,consign:o.consign||'',tracking:o.tracking||'',
             trackings:o.trackings||[],items:o.items||[],
             status:keep?ex:(o.status||'new'),
-            date:o.date||''};
+            date:o.date||'',batchId:o.batchId||''};
           done++;
         }
       }catch(e){}
@@ -668,7 +670,18 @@ function showOrderInfo(){
   var sb=document.getElementById('status-badge');
   if(sb){sb.textContent=SL[o.status]||o.status;sb.className='badge '+(SB[o.status]||'b-new');}
   document.getElementById('order-info').style.display='block';
-  if(!CUR_ITEMS||!CUR_ITEMS.length) CUR_ITEMS=o.items;
+  if(!CUR_ITEMS||!CUR_ITEMS.length){
+    var allItems=o.items||[];
+    // ถ้าสแกน tracking มา → แสดงเฉพาะ item ที่ผูกกับ tracking นั้น
+    if(CUR_TRK&&allItems.some(function(it){return it.tracking===CUR_TRK;})){
+      CUR_ITEMS=allItems.filter(function(it){return it.tracking===CUR_TRK;});
+    } else if(CUR_TRK&&allItems.some(function(it){return !it.tracking;})){
+      // item ที่ไม่มี tracking → แสดงทั้งหมด (เก่า)
+      CUR_ITEMS=allItems;
+    } else {
+      CUR_ITEMS=allItems;
+    }
+  }
   renderItems();updateProg();
   setTimeout(function(){document.getElementById('in-sku').focus();},100);
 }
@@ -748,7 +761,15 @@ function doScan(){
     showAl('ไม่พบ SKU นี้ใน Order','err');playErr();return;
   }
   var k=scKey(CUR_OID,f.sku,f.tracking||'');
-  SC[k]=(SC[k]||0)+1;
+  var curS=SC[k]||0;
+  // ป้องกันสแกนเกินจำนวน
+  if(curS>=f.qty){
+    showAl('🚫 ครบแล้ว! '+f.sku+' ('+curS+'/'+f.qty+') ห้ามสแกนเพิ่ม','err');
+    playErr();
+    document.getElementById('in-sku').value='';
+    return;
+  }
+  SC[k]=curS+1;
   var s=SC[k];
   if(s>f.qty){
     showAl('⚠ สแกนเกิน '+s+'/'+f.qty,'err');playErr();
@@ -768,7 +789,7 @@ function doScan(){
       var k=scKey(CUR_OID,item.sku,item.tracking||'');
       if(SC[k]) dsc[k]=SC[k];
     });
-    fbPut('/drafts/'+encId(CUR_OID),{oid:CUR_OID,trk:CUR_TRK,items:CUR_ITEMS,sc:dsc,ts:Date.now(),device:DEV,user:USR});
+    fbPut('/drafts/'+encId(CUR_OID),{oid:CUR_OID,trk:CUR_TRK,items:CUR_ITEMS,sc:dsc,ts:Date.now(),device:DEV,user:USR,updatedAt:new Date().toISOString()});
   }
   if(s<=f.qty&&getDone()===CUR_ITEMS.length&&CUR_ITEMS.length>0) setTimeout(autoPass,400);
   else if(s<f.qty) document.getElementById('in-sku').focus();
@@ -862,8 +883,15 @@ function saveDraft(){
 function restoreDraftSC(oid){
   var d=DRAFTS[oid];if(!d||!d.sc)return;
   Object.keys(d.sc).forEach(function(k){SC[k]=d.sc[k];});
-  if(d.items&&d.items.length) CUR_ITEMS=d.items;
   if(d.trk) CUR_TRK=d.trk;
+  if(d.items&&d.items.length){
+    // filter items ตาม tracking ที่สแกน
+    if(CUR_TRK&&d.items.some(function(it){return it.tracking===CUR_TRK;})){
+      CUR_ITEMS=d.items.filter(function(it){return it.tracking===CUR_TRK;});
+    } else {
+      CUR_ITEMS=d.items;
+    }
+  }
 }
 function renderDrafts(){
   var keys=Object.keys(DRAFTS);

@@ -317,7 +317,7 @@ tr:hover td{background:var(--bg3)}
     </div>
   </div>
   <div class="tw">
-    <table><thead><tr><th>Order ID</th><th>Consign</th><th class="hide-mobile">Tracking</th><th>รายการ</th><th>สถานะ</th><th class="hide-mobile">วันที่</th><th>Actions</th></tr></thead>
+    <table><thead><tr><th>Order ID</th><th>SUP</th><th>Consign</th><th class="hide-mobile">Tracking</th><th>รายการ</th><th>สถานะ</th><th class="hide-mobile">จัดส่ง</th><th>Actions</th></tr></thead>
     <tbody id="ord-tbody"><tr><td colspan="7" class="empty">ยังไม่มีข้อมูล</td></tr></tbody></table>
   </div>
 </div>
@@ -423,19 +423,30 @@ tr:hover td{background:var(--bg3)}
 <div id="page-report" class="page">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <div>
-      <select id="rpt-range" onchange="renderReport()" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
-        <option value="today">วันนี้</option>
-        <option value="week">7 วันล่าสุด</option>
-        <option value="all" selected>ทั้งหมด</option>
-      </select>
-      <select id="rpt-status" onchange="renderReport()" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
-        <option value="all">ทุกสถานะ</option>
-        <option value="qc">QC ผ่าน</option>
-        <option value="ship">Ship</option>
-        <option value="done">Done</option>
-        <option value="cancel">Cancel</option>
-      </select>
-      <input type="text" id="rpt-search" placeholder="ค้นหา Order ID..." oninput="renderReport()" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text);width:160px">
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+        <select id="rpt-range" onchange="onRptRange()" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
+          <option value="today">วันนี้</option>
+          <option value="week">7 วันล่าสุด</option>
+          <option value="month">เดือนนี้</option>
+          <option value="custom">กำหนดเอง</option>
+          <option value="all" selected>ทั้งหมด</option>
+        </select>
+        <select id="rpt-status" onchange="renderReport()" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
+          <option value="all">ทุกสถานะ</option>
+          <option value="qc">QC ผ่าน</option>
+          <option value="ship">Ship</option>
+          <option value="done">Done</option>
+          <option value="cancel">Cancel</option>
+        </select>
+        <input type="text" id="rpt-search" placeholder="ค้นหา Order ID, SUP..." oninput="renderReport()" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text);width:150px">
+        <div id="rpt-custom" style="display:none;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px">
+          <input type="date" id="rpt-date-from" onchange="renderReport()" style="padding:6px 8px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
+          <input type="time" id="rpt-time-from" onchange="renderReport()" value="00:00" style="padding:6px 8px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
+          <span style="color:var(--text2);font-size:12px">ถึง</span>
+          <input type="date" id="rpt-date-to" onchange="renderReport()" style="padding:6px 8px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
+          <input type="time" id="rpt-time-to" onchange="renderReport()" value="23:59" style="padding:6px 8px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
+        </div>
+      </div>
     </div>
     <div style="display:flex;gap:8px">
       <button onclick="exportReportCSV()" style="padding:8px 14px;font-size:13px;font-weight:700;background:var(--teal);color:#fff;border:none;border-radius:var(--rx);cursor:pointer">📥 Export CSV</button>
@@ -1139,6 +1150,7 @@ function renderOrders(){
   document.getElementById('ord-tbody').innerHTML=orders.length?orders.map(o=>`
     <tr>
       <td><span style="font-weight:700;font-family:monospace">${o.id}</span></td>
+      <td style="font-size:12px;font-weight:600;color:var(--primary)">${detectCarrier(o.tracking||'').short||o.sup||'—'}</td>
       <td style="font-size:12px">${o.consign||'—'}</td>
       <td class="mono" style="font-size:11px">${
         (o.trackings&&o.trackings.length>0
@@ -1147,7 +1159,7 @@ function renderOrders(){
       }</td>
       <td>${o.items.length} รายการ</td>
       <td><span class="badge ${SB[o.status]}">${SL[o.status]}</span></td>
-      <td style="font-size:12px">${o.date||'—'}</td>
+      <td style="font-size:12px">${o.shipDate||o.date||'—'}</td>
       <td><div class="brow">
         <button class="btn btn-xs btn-o" onclick="openOrder('${o.id}')">ดู</button>
         ${SN[o.status]?`<button class="btn btn-xs btn-p" onclick="setStatus('${o.id}','${SN[o.status]}');renderOrders()">→${SNL[o.status]}</button>`:''}
@@ -1531,10 +1543,36 @@ function syncReportFromSheets(){
   });
 }
 
+function onRptRange(){
+  var range=document.getElementById('rpt-range').value;
+  var customDiv=document.getElementById('rpt-custom');
+  if(customDiv){
+    customDiv.style.cssText=range==='custom'?
+      'display:flex!important;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px':
+      'display:none';
+  }
+  if(range==='custom'){
+    var today=new Date().toISOString().slice(0,10);
+    var f=document.getElementById('rpt-date-from');
+    var t=document.getElementById('rpt-date-to');
+    var tf=document.getElementById('rpt-time-from');
+    var tt=document.getElementById('rpt-time-to');
+    if(f&&!f.value) f.value=today;
+    if(t&&!t.value) t.value=today;
+    if(tf) tf.value='00:00';
+    if(tt) tt.value='23:59';
+  }
+  renderReport();
+}
+
 function renderReport(){
   let range=document.getElementById('rpt-range')?document.getElementById('rpt-range').value:'all';
   let stFilter=document.getElementById('rpt-status')?document.getElementById('rpt-status').value:'all';
   let srchFilter=(document.getElementById('rpt-search')?document.getElementById('rpt-search').value:'').toLowerCase().trim();
+  let dateFrom=document.getElementById('rpt-date-from')?document.getElementById('rpt-date-from').value:'';
+  let dateTo=document.getElementById('rpt-date-to')?document.getElementById('rpt-date-to').value:'';
+  let timeFrom=document.getElementById('rpt-time-from')?document.getElementById('rpt-time-from').value:'00:00';
+  let timeTo=document.getElementById('rpt-time-to')?document.getElementById('rpt-time-to').value:'23:59';
   let orders=Object.values(ORDERS);
   let now=new Date();
   let todayStr=now.toLocaleDateString('th-TH');
@@ -1559,6 +1597,20 @@ function renderReport(){
     if(o.status==='new'||o.status==='pick')return false;
     if(stFilter!=='all'&&o.status!==stFilter)return false;
     if(srchFilter&&!o.id.toLowerCase().includes(srchFilter)&&!(o.consign||'').toLowerCase().includes(srchFilter))return false;
+    // date filter
+    if(range==='custom'&&(dateFrom||dateTo)){
+      let upd=o.updatedAt?new Date(o.updatedAt):null;
+      if(!upd) return false;
+      let timeFrom=document.getElementById('rpt-time-from')?document.getElementById('rpt-time-from').value:'00:00';
+      let timeTo=document.getElementById('rpt-time-to')?document.getElementById('rpt-time-to').value:'23:59';
+      if(dateFrom&&upd<new Date(dateFrom+'T'+timeFrom+':00')) return false;
+      if(dateTo&&upd>new Date(dateTo+'T'+timeTo+':59')) return false;
+    }
+    if(range==='month'){
+      let upd=o.updatedAt?new Date(o.updatedAt):null;
+      if(!upd) return false;
+      let nm=new Date(); if(upd.getMonth()!==nm.getMonth()||upd.getFullYear()!==nm.getFullYear()) return false;
+    }
     if(range==='today'){
       let d=o.updatedAt?new Date(o.updatedAt).toLocaleDateString('th-TH'):'';
       return d===todayStr;
@@ -1610,6 +1662,10 @@ function exportReportCSV(){
   let range=document.getElementById('rpt-range')?document.getElementById('rpt-range').value:'all';
   let stFilter=document.getElementById('rpt-status')?document.getElementById('rpt-status').value:'all';
   let srchFilter=(document.getElementById('rpt-search')?document.getElementById('rpt-search').value:'').toLowerCase().trim();
+  let dateFrom=document.getElementById('rpt-date-from')?document.getElementById('rpt-date-from').value:'';
+  let dateTo=document.getElementById('rpt-date-to')?document.getElementById('rpt-date-to').value:'';
+  let timeFrom=document.getElementById('rpt-time-from')?document.getElementById('rpt-time-from').value:'00:00';
+  let timeTo=document.getElementById('rpt-time-to')?document.getElementById('rpt-time-to').value:'23:59';
   let orders=Object.values(ORDERS).filter(function(o){return o.status!=='new';});
   if(range==='today'){
     let todayStr=new Date().toLocaleDateString('th-TH');
@@ -2186,6 +2242,10 @@ function openEditOrder(oid){
   document.getElementById('edit-oid-label').textContent=oid;
   document.getElementById('edit-consign').value=o.consign||'';
   document.getElementById('edit-tracking').value=o.tracking||'';
+  var supEl=document.getElementById('edit-sup');
+  if(supEl) supEl.value=o.sup||detectCarrier(o.tracking||'').short||'';
+  var sdEl=document.getElementById('edit-shipdate');
+  if(sdEl) sdEl.value=o.shipDate||'';
   renderEditItems(o.items||[]);
   document.getElementById('edit-order-modal').style.display='block';
 }
@@ -2258,6 +2318,8 @@ function saveEditOrder(){
   var o=ORDERS[_editOid];
   o.consign=document.getElementById('edit-consign').value.trim();
   o.tracking=document.getElementById('edit-tracking').value.trim();
+  var _sup=document.getElementById('edit-sup'); if(_sup) o.sup=_sup.value.trim();
+  var _sd=document.getElementById('edit-shipdate'); if(_sd) o.shipDate=_sd.value;
   o.updatedAt=new Date().toISOString();
   saveLocal();refreshAll();
   // Push full order to Firebase
@@ -2350,6 +2412,24 @@ function syncStatusesNow(){
   });
 }
 
+
+function cancelOrderFromEdit(){
+  if(!_editOid) return;
+  if(!confirm('ยืนยันยกเลิก Order '+_editOid+'?')) return;
+  var o=ORDERS[_editOid];
+  if(!o) return;
+  o.status='cancel';
+  o.updatedAt=new Date().toISOString();
+  if(FB_URL){
+    fbPut('/orders/'+encodeId(_editOid)+'/status','cancel');
+    fbPut('/orders/'+encodeId(_editOid)+'/updatedAt',o.updatedAt);
+    fbPut('/cancels/'+encodeId(_editOid),{cancelledAt:o.updatedAt,by:localStorage.getItem('WMS_USR')||'PC'});
+  }
+  saveLocal(); refreshAll();
+  document.getElementById('edit-order-modal').style.display='none';
+  ulAlert('🚫 ยกเลิก Order '+_editOid+' แล้ว','warn');
+}
+
 init();
 // เริ่ม auto-sync หลัง init
 setTimeout(function(){
@@ -2386,9 +2466,21 @@ setTimeout(function(){
         <input id="edit-tracking" type="text" style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;margin-top:4px">
       </div>
     </div>
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <div style="flex:1">
+        <label style="font-size:12px;font-weight:600;color:var(--text2)">ขนส่ง (SUP)</label>
+        <input id="edit-sup" type="text" placeholder="Best, Flash, Kerry..." style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;margin-top:4px">
+      </div>
+      <div style="flex:1">
+        <label style="font-size:12px;font-weight:600;color:var(--text2)">วันที่จัดส่ง</label>
+        <input id="edit-shipdate" type="date" style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;margin-top:4px">
+      </div>
+    </div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
       <button onclick="resetOrderToPick()" style="padding:10px 18px;background:#F59E0B;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700">↩ Reset → Pick</button>
       <button onclick="saveEditOrder()" style="padding:10px 24px;background:var(--primary);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700">💾 บันทึก</button>
+      <button onclick="cancelOrderFromEdit()" style="padding:10px 20px;background:#EF4444;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700">🚫 ยกเลิก Order</button>
+      <button onclick="document.getElementById('edit-order-modal').style.display='none'" style="padding:10px 20px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:8px;cursor:pointer">ปิด</button>
     </div>
   </div>
 </div>
