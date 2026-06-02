@@ -464,8 +464,8 @@ tr:hover td{background:var(--bg3)}
       <table style="width:100%;border-collapse:collapse;font-size:12px" id="rpt-table">
         <thead>
           <tr style="border-bottom:2px solid var(--border);background:var(--bg3)">
-            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">Order ID</th>
             <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">SUP</th>
+            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">Order ID</th>
             <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">SKU</th>
             <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">แบรนด์</th>
             <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:center">จำนวน</th>
@@ -625,6 +625,9 @@ const SNL={'new':'→ Pick','pick':'→ QC','qc':'→ Ship','ship':'→ Done'};
 function init(){
   API_URL=localStorage.getItem('WMS_URL')||'';
   FB_URL=localStorage.getItem('WMS_FB')||'';
+  if(FB_URL&&Object.keys(ORDERS).length===0){
+    setTimeout(function(){ulAlert('ไม่พบข้อมูล กำลัง sync Firebase...','warn');syncFromFirebase();},2000);
+  }
   document.getElementById('api-url').value=API_URL;
   let _fbEl=document.getElementById('fb-url');
   if(_fbEl)_fbEl.value=FB_URL;
@@ -658,6 +661,7 @@ function goPage(p){
   document.getElementById('pg-sub').textContent=m[1]||'';
   if(p==='orders')renderOrders();
   if(p==='draft'){syncDraftsFromFB();setTimeout(renderDraftList,500);}
+  if(p==='pack'||p==='ship'){if(FB_URL)syncStatusesNow();}
   if(p==='pack')renderPack();
   if(p==='ship')renderShip();
   if(p==='draft')renderDrafts();
@@ -1168,7 +1172,7 @@ function goQCScan(oid){
 }
 
 function renderPack(){
-  let orders=Object.values(ORDERS).filter(o=>o.status==='qc');
+  let orders=Object.values(ORDERS).filter(o=>o.status==='qc'||o.status==='ship');
   document.getElementById('nb-qc').textContent=orders.length;
   document.getElementById('pack-tbody').innerHTML=orders.length?orders.map(o=>`
     <tr>
@@ -1178,7 +1182,7 @@ function renderPack(){
       <td>${o.items.length} รายการ</td>
       <td><div class="brow">
         <button class="btn btn-xs btn-o" onclick="openOrder('${o.id}')">ดู</button>
-        <button class="btn btn-xs" style="background:var(--purple);color:#fff;border:none;font-weight:600" onclick="setStatus('${o.id}','pack');renderPack()">📦 Pack แล้ว</button>
+        <button class="btn btn-xs" style="background:var(--purple);color:#fff;border:none;font-weight:600" onclick="setStatus('${o.id}','ship');renderPack()">🚚 Ship แล้ว</button>
       </div></td>
     </tr>`).join(''):'<tr><td colspan="5" class="empty">ไม่มีออเดอร์รอ Pack</td></tr>';
   document.getElementById('nb-pack').textContent=Object.values(ORDERS).filter(o=>o.status==='pack').length;
@@ -1284,35 +1288,23 @@ function exportCSV(){
   var dev=localStorage.getItem('WMS_DEV')||'-';
   var usr=localStorage.getItem('WMS_USR')||'-';
   var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
-  var rows=[['Order ID','SUP','SKU','แบรนด์','Qty','Consign','Tracking','สถานะ','พนักงาน','อุปกรณ์','เวลา']];
+  var rows=[['SUP','Order ID','SKU','แบรนด์','Qty','Consign','Tracking','สถานะ','พนักงาน','อุปกรณ์','เวลา']];
   Object.values(ORDERS).forEach(function(o){
     if(o.status==='new'||o.status==='pick')return;
     var oUsr=o.user||usr;
     var oDev=o.device||dev;
     var upd=o.updatedAt?new Date(o.updatedAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):(o.date||'');
     var allItems=o.items&&o.items.length?o.items:[{sku:'',name:'',qty:1,tracking:'',sup:''}];
-    // แสดงเฉพาะ items ที่ตรงกับ tracking (ถ้า order มี tracking)
     var items=allItems;
     if(o.tracking){
       var byTrk=allItems.filter(function(it){return it.tracking&&it.tracking===o.tracking;});
       if(byTrk.length>0) items=byTrk;
     }
     items.forEach(function(item){
-      var supVal=(item.sup||'').toUpperCase()||detectCarrier(item.tracking||o.tracking||'').short||'';
-      var trkDisplay=item.tracking||o.tracking||'—';
-      rows.push('<tr style="border-bottom:1px solid var(--border)">'
-        +'<td style="padding:6px;font-weight:700;font-family:monospace;font-size:12px">'+o.id+'</td>'
-        +'<td style="padding:6px;font-weight:700;font-size:12px;color:var(--primary)">'+supVal+'</td>'
-        +'<td style="padding:6px;font-family:monospace;font-size:11px;color:var(--primary)">'+(item.sku||'—')+'</td>'
-        +'<td style="padding:6px;font-size:12px">'+(item.name||'—').substring(0,30)+'</td>'
-        +'<td style="padding:6px;text-align:center;font-weight:700">'+item.qty+'</td>'
-        +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+(o.consign||'—')+'</td>'
-        +'<td style="padding:6px;font-family:monospace;font-size:11px">'+trkDisplay.substring(0,18)+'</td>'
-        +'<td style="padding:6px;text-align:center">'+st+'</td>'
-        +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+usr+'</td>'
-        +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+dev+'</td>'
-        +'<td style="padding:6px;text-align:right;font-size:11px;color:var(--text3)">'+upd+'</td>'
-        +'</tr>');
+      var trk=item.tracking||o.tracking||'';
+      var carrier=detectCarrier(trk);
+      var supVal=carrier.short||(item.sup||'').toUpperCase()||'';
+      rows.push([supVal,o.id,item.sku||'',item.name||'',item.qty||1,o.consign||'','="'+trk+'"',SL2[o.status]||o.status,oUsr,oDev,upd]);
     });
   });
   var lines=rows.map(function(r){
@@ -1687,7 +1679,7 @@ function startFirebaseStream(){
         var data=msg&&msg.data?msg.data:msg;
         if(!data)return;
         var changed=false;
-        var rank={new:0,qc:1,pack:2,done:3,cancel:4};
+        var rank={new:0,pick:1,qc:2,ship:3,pack:3,done:4,cancel:5};
         Object.keys(data).forEach(function(rawOid){
           var oid=decodeId(rawOid);
           var entry=data[rawOid];
@@ -2332,6 +2324,25 @@ function delDraftPC(oid){
   if(FB_URL) fbPut('/drafts/'+encodeId(oid),null);
   delete DRAFTS[oid];
   saveLocal();renderDraftList();refreshAll();
+}
+
+
+function syncStatusesNow(){
+  if(!FB_URL)return;
+  fbGet('/statuses',function(err,data){
+    if(err||!data)return;
+    var rank={new:0,pick:1,qc:2,ship:3,pack:3,done:4,cancel:5};
+    var changed=false;
+    Object.keys(data).forEach(function(rawOid){
+      var oid=decodeId(rawOid);
+      var entry=data[rawOid];
+      var st=typeof entry==='string'?entry:(entry&&entry.status?entry.status:'');
+      if(st&&ORDERS[oid]&&(rank[st]||0)>=(rank[ORDERS[oid].status]||0)&&ORDERS[oid].status!==st){
+        ORDERS[oid].status=st;changed=true;
+      }
+    });
+    if(changed){saveLocal();refreshAll();}
+  });
 }
 
 init();

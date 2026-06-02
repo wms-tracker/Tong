@@ -10,7 +10,8 @@
 <meta name="theme-color" content="#0F172A">
 <title>PDA QC Scan</title>
 <link rel="manifest" href="data:application/json,{%22name%22:%22PDA+QC+Scan%22,%22short_name%22:%22PDA+Scan%22,%22display%22:%22standalone%22,%22background_color%22:%22%230F172A%22,%22theme_color%22:%22%230F172A%22,%22start_url%22:%22/Tong/wms_pda.html%22,%22scope%22:%22/Tong/wms_pda.html%22,%22icons%22:[{%22src%22:%22data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A//www.w3.org/2000/svg'%20viewBox%3D'0%200%20192%20192'%3E%3Crect%20width%3D'192'%20height%3D'192'%20rx%3D'32'%20fill%3D'%230F172A'/%3E%3Ctext%20x%3D'96'%20y%3D'130'%20font-size%3D'120'%20text-anchor%3D'middle'%3E%F0%9F%94%8D%3C/text%3E%3C/svg%3E%22,%22sizes%22:%22192x192%22,%22type%22:%22image/svg+xml%22}]}">
-<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
 <style>
 :root{--bg:#F8FAFC;--bg2:#fff;--bg3:#F1F5F9;--text:#0F172A;--text2:#64748B;--text3:#94A3B8;--border:#E2E8F0;--border2:#CBD5E1;--primary:#2563EB;--pd:#1D4ED8;--pl:#EFF6FF;--green:#16A34A;--gb:#F0FDF4;--gbr:#86EFAC;--orange:#D97706;--ob:#FFFBEB;--obr:#FCD34D;--red:#DC2626;--rb:#FEF2F2;--rbr:#FECACA;--purple:#7C3AED;--pb:#F5F3FF;--pbr:#C4B5FD;--teal:#0D9488;--r:12px;--rs:8px;--rx:6px}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -682,6 +683,8 @@ function renderItems(){
     var cls=over?'ov':done?'ok':s>0?'act':'';
     var ncls=over?'pn-ov':done?'pn-ok':s>0?'pn-act':'';
     var qcls=over?'c-ov':done?'c-ok':s>0?'c-act':'c-miss';
+    var noSku=!item.sku||item.sku.length<3;
+    var skipBtnHtml=noSku?'<button onclick="skipItem('+i+')" style="font-size:11px;padding:3px 8px;background:#94A3B8;color:#fff;border:none;border-radius:6px;cursor:pointer;margin-top:4px">⏭ ข้าม</button>':'';
     return '<div class="pi '+cls+'">'
       +'<div class="pn '+ncls+'">'+(i+1)+'</div>'
       +'<div style="flex:1;min-width:0">'
@@ -690,7 +693,7 @@ function renderItems(){
       +(item.size?'<div class="psize">'+item.size+'</div>':'')
       +'</div>'
       +'<div class="qcol"><div class="qbig '+qcls+'">'+s+'</div><div class="qtot">/ '+q+'</div></div>'
-      +'</div>';
+      +(skipBtnHtml?'<div style="padding:0 8px 8px">'+skipBtnHtml+'</div>':'')+'</div>';
   }).join('');
 }
 function getDone(){
@@ -715,6 +718,15 @@ function onSkuIn(val){
   if(f){h.className='hint h-ok';h.textContent='✓ '+f.name+(f.size?' ('+f.size+')':'');}
   else if(val.trim().length>3){h.className='hint h-err';h.textContent='ไม่พบ SKU นี้';}
   else{h.className='hint';h.textContent='';}
+}
+function skipItem(itemIdx){
+  if(!CUR_ITEMS[itemIdx])return;
+  var item=CUR_ITEMS[itemIdx];
+  var k=scKey(CUR_OID,(item.sku||'__skip_'+itemIdx),item.tracking||'');
+  SC[k]=item.qty||1;
+  showAl('ข้าม: '+(item.name||'รายการที่ '+(itemIdx+1)),'warn');
+  renderItems();updateProg();save();
+  if(getDone()===CUR_ITEMS.length&&CUR_ITEMS.length>0)setTimeout(autoPass,400);
 }
 function doScan(){
   if(!CUR_OID){showAl('กรุณาเลือก Order ก่อน','err');return;}
@@ -774,23 +786,41 @@ function autoPass(){
   playPack();
   var passOid=CUR_OID;
   var passItems=CUR_ITEMS.slice();
-  // 1. ลบ draft จาก Firebase ก่อน (ขณะที่ DRAFTS[passOid] ยังมีอยู่)
+  var passTrk=CUR_TRK;
+  // 1. ลบ draft
   if(FB) fbPut('/drafts/'+encId(passOid),null);
-  // 2. ลบ draft local
   delete DRAFTS[passOid];
-  // 3. อัปเดตสถานะ
+  // 2. อัปเดตสถานะ
   ORDERS[passOid].status='qc';
   save();refreshStats();renderDashboard();
-  // 4. Push ขึ้น Firebase + Sheets
+  // 3. Push Firebase + Sheets
   pushStatus(passOid,'qc');
   pushScanLog(passOid,passItems);
-  // 5. Reset scan
-  resetScan();
+  // 4. แสดงหน้า success ก่อน reset — ไม่ให้หน้าจอว่างทันที
+  showPassResult(passOid,passItems,passTrk);
+}
+
+function showPassResult(oid,items,trk){
+  // แสดงสรุปสินค้าที่สแกนเสร็จ พร้อมปุ่ม "สแกนต่อ"
+  var el=document.getElementById('prod-list');
+  var total=items.reduce(function(a,b){return a+(b.qty||1);},0);
+  el.innerHTML='<div style="text-align:center;padding:24px 16px">'
+    +'<div style="font-size:56px;margin-bottom:8px">✅</div>'
+    +'<div style="font-size:20px;font-weight:800;color:#16A34A;margin-bottom:4px">QC ผ่านแล้ว!</div>'
+    +'<div style="font-size:16px;font-weight:700;font-family:monospace;margin-bottom:4px">'+oid+'</div>'
+    +'<div style="font-size:13px;color:#64748B;margin-bottom:20px">'+items.length+' รายการ · '+total+' ชิ้น</div>'
+    +'<button onclick="resetScan()" style="width:100%;padding:16px;background:#2563EB;color:#fff;border:none;border-radius:12px;font-size:17px;font-weight:700;cursor:pointer;margin-bottom:10px">📦 สแกน Order ต่อไป</button>'
+    +'</div>';
+  // ซ่อน input ชั่วคราว
   var h=document.getElementById('h1');
   h.className='hint h-ok';
-  h.textContent='✅ ผ่าน QC: '+passOid;
-  setTimeout(function(){h.className='hint';h.textContent='';},3000);
-  document.getElementById('in1').focus();
+  h.textContent='✅ ผ่าน QC: '+oid;
+  document.getElementById('in1').value='';
+  document.getElementById('in-sku').value='';
+  document.getElementById('over-box').style.display='none';
+  // auto reset หลัง 5 วิ ถ้าไม่กดปุ่ม
+  clearTimeout(window._autoResetTimer);
+  window._autoResetTimer=setTimeout(function(){resetScan();},5000);
 }
 
 /* ===== PASS OVERLAY ===== */
@@ -912,6 +942,12 @@ function showAl(msg,type){
   var e=document.getElementById('al');
   e.className='al al-'+type+' show';e.textContent=msg;
   clearTimeout(e._t);e._t=setTimeout(function(){e.className='al';},5000);
+  // flash หน้าจอสีแดงเมื่อ error
+  if(type==='err'){
+    document.body.style.transition='background .1s';
+    document.body.style.background='#FEE2E2';
+    setTimeout(function(){document.body.style.background='';},150);
+  }
 }
 
 /* ===== SYNC UI ===== */
@@ -963,56 +999,127 @@ function startAutoSync(){
   _autoSync=setInterval(syncStatus,30000);
 }
 
-/* ===== CAMERA SCANNER ===== */
-var _camMode='trk', _reader=null, _stream=null;
+/* ===== CAMERA SCANNER (jsQR + Quagga) ===== */
+var _camMode='trk',_camRunning=false,_torchOn=false;
+var _raf=null,_stream=null,_quaggaOn=false;
 
 function startCam(mode){
   _camMode=mode;
-  if(typeof ZXing==='undefined'){
-    showAl('กำลังโหลด Scanner...','warn');
-    setTimeout(function(){startCam(mode);},1000);
-    return;
-  }
   document.getElementById('cam-ov').style.display='flex';
-  var hints=new Map();
-  hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[
-    ZXing.BarcodeFormat.CODE_128,
-    ZXing.BarcodeFormat.CODE_39,
-    ZXing.BarcodeFormat.EAN_13,
-    ZXing.BarcodeFormat.EAN_8,
-    ZXing.BarcodeFormat.QR_CODE,
-    ZXing.BarcodeFormat.DATA_MATRIX,
-    ZXing.BarcodeFormat.ITF
-  ]);
-  hints.set(ZXing.DecodeHintType.TRY_HARDER,true);
-  _reader=new ZXing.BrowserMultiFormatReader(hints);
-  var video=document.getElementById('cam-video');
-  _reader.decodeFromConstraints(
-    {video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}},
-    video,
-    function(result,err){
-      if(result){
-        var val=result.getText();
-        stopCam();
-        if(_camMode==='trk'){
-          document.getElementById('in1').value=val;
-          onIn1(val);
-          playOk();
-        }else{
-          document.getElementById('in-sku').value=val;
-          onSkuIn(val);
-          playOk();
-          setTimeout(doScan,300);
+  document.getElementById('cam-hint').textContent='กำลังเปิดกล้อง...';
+  _camRunning=true;_torchOn=false;
+  document.getElementById('torch-btn').style.background='#374151';
+
+  navigator.mediaDevices.getUserMedia({
+    video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}}
+  }).then(function(stream){
+    _stream=stream;
+    var video=document.getElementById('cam-video');
+    video.srcObject=stream;
+    video.setAttribute('playsinline','true');
+    video.play();
+    video.onloadedmetadata=function(){
+      document.getElementById('cam-hint').textContent='จ่อบาร์โค้ดในกรอบ — รองรับทุกแนว + QR';
+      startDecode(video);
+    };
+  }).catch(function(e){
+    stopCam();
+    showAl('ไม่สามารถเปิดกล้องได้: '+e.message,'err');
+  });
+}
+
+function startDecode(video){
+  var canvas=document.createElement('canvas');
+  var ctx=canvas.getContext('2d',{willReadFrequently:true});
+  var useBarcodeDetector=('BarcodeDetector' in window);
+  var detector=null;
+  if(useBarcodeDetector){
+    try{
+      // BarcodeDetector API — native browser, ทุกทิศทาง, เร็วมาก
+      detector=new BarcodeDetector({formats:[
+        'code_128','code_39','code_93','ean_13','ean_8',
+        'itf','codabar','upc_a','upc_e',
+        'qr_code','data_matrix','pdf417','aztec'
+      ]});
+    }catch(e){useBarcodeDetector=false;}
+  }
+
+  function tick(){
+    if(!_camRunning) return;
+    if(video.readyState===video.HAVE_ENOUGH_DATA){
+      canvas.width=video.videoWidth;
+      canvas.height=video.videoHeight;
+      ctx.drawImage(video,0,0);
+
+      if(useBarcodeDetector&&detector){
+        // Native BarcodeDetector — ทุกทิศทาง
+        detector.detect(canvas).then(function(results){
+          if(results&&results.length>0&&_camRunning){
+            onScanResult(results[0].rawValue);
+          }
+        }).catch(function(){});
+      } else {
+        // Fallback: jsQR สำหรับ QR Code
+        var imgData=ctx.getImageData(0,0,canvas.width,canvas.height);
+        if(typeof jsQR!=='undefined'){
+          var qr=jsQR(imgData.data,canvas.width,canvas.height,{inversionAttempts:'attemptBoth'});
+          if(qr&&qr.data){onScanResult(qr.data);return;}
+        }
+        // Fallback: Quagga สำหรับ 1D barcode
+        if(typeof Quagga!=='undefined'){
+          try{
+            Quagga.decodeSingle({
+              decoder:{readers:['code_128_reader','ean_reader','ean_8_reader','code_39_reader','itf_reader','upc_reader']},
+              locate:true,
+              numOfWorkers:0,
+              src:canvas.toDataURL('image/jpeg',0.8)
+            },function(result){
+              if(result&&result.codeResult&&result.codeResult.code&&_camRunning){
+                onScanResult(result.codeResult.code);
+              }
+            });
+          }catch(e){}
         }
       }
     }
-  );
+    _raf=requestAnimationFrame(tick);
+  }
+  _raf=requestAnimationFrame(tick);
+}
+
+function onScanResult(val){
+  if(!val||!_camRunning) return;
+  _camRunning=false;
+  stopCam();
+  playOk();
+  if(navigator.vibrate) navigator.vibrate([50,30,50]);
+  if(_camMode==='trk'){
+    document.getElementById('in1').value=val;
+    onIn1(val);
+    setTimeout(function(){if(CUR_OID) confirm1();},600);
+  }else{
+    document.getElementById('in-sku').value=val;
+    onSkuIn(val);
+    setTimeout(doScan,300);
+  }
 }
 
 function stopCam(){
-  if(_reader) _reader.reset();
-  _reader=null;
+  _camRunning=false;
+  if(_raf){cancelAnimationFrame(_raf);_raf=null;}
+  if(_stream){_stream.getTracks().forEach(function(t){t.stop();});_stream=null;}
   document.getElementById('cam-ov').style.display='none';
+}
+
+function toggleTorch(){
+  if(!_stream) return;
+  var track=_stream.getVideoTracks()[0];
+  if(!track) return;
+  _torchOn=!_torchOn;
+  try{
+    track.applyConstraints({advanced:[{torch:_torchOn}]});
+    document.getElementById('torch-btn').style.background=_torchOn?'#F59E0B':'#374151';
+  }catch(e){showAl('กล้องนี้ไม่รองรับไฟฉาย','warn');}
 }
 
 /* ===== SOUND ===== */
@@ -1022,15 +1129,24 @@ function beep(f,d,t,v){
     if(!_ac)_ac=new(window.AudioContext||window.webkitAudioContext)();
     if(_ac.state==='suspended')_ac.resume();
     var o=_ac.createOscillator(),g=_ac.createGain();
-    o.connect(g);g.connect(_ac.destination);
+    // เพิ่ม compressor ให้เสียงดังสม่ำเสมอ
+    var comp=_ac.createDynamicsCompressor();
+    o.connect(g);g.connect(comp);comp.connect(_ac.destination);
     o.type=t||'sine';o.frequency.value=f;
-    g.gain.setValueAtTime(v||.25,_ac.currentTime);
+    var vol=Math.min(v||.25,1.0);
+    g.gain.setValueAtTime(vol,_ac.currentTime);
     g.gain.exponentialRampToValueAtTime(.001,_ac.currentTime+d/1000);
     o.start();o.stop(_ac.currentTime+d/1000);
   }catch(e){}
 }
 function playOk(){beep(880,70);setTimeout(function(){beep(1100,100);},90);}
-function playErr(){beep(200,280,'sawtooth',.35);if(navigator.vibrate)navigator.vibrate([70,40,70]);}
+function playErr(){
+  // เสียงเตือนดัง 3 ครั้ง
+  beep(200,200,'sawtooth',.6);
+  setTimeout(function(){beep(180,200,'sawtooth',.6);},220);
+  setTimeout(function(){beep(160,300,'sawtooth',.7);},440);
+  if(navigator.vibrate)navigator.vibrate([100,50,100,50,200]);
+}
 function playPack(){beep(660,70);setTimeout(function(){beep(880,70);},90);setTimeout(function(){beep(1100,180);},180);}
 
 /* ===== LOADING ===== */
@@ -1044,6 +1160,7 @@ init();
 <div id="cam-ov" style="display:none;position:fixed;inset:0;background:#000;z-index:500;flex-direction:column">
   <div style="background:#0F172A;padding:12px 16px;display:flex;justify-content:space-between;align-items:center">
     <div style="color:#fff;font-weight:700;font-size:15px">📷 สแกนบาร์โค้ด</div>
+    <button onclick="toggleTorch()" id="torch-btn" style="background:#374151;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:18px;cursor:pointer">🔦</button>
     <button onclick="stopCam()" style="background:#EF4444;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer">✕ ปิด</button>
   </div>
   <div style="flex:1;position:relative;overflow:hidden">
@@ -1059,7 +1176,7 @@ init();
         <div id="scan-line" style="position:absolute;left:4px;right:4px;height:2px;background:linear-gradient(90deg,transparent,#22C55E,transparent);top:50%;animation:scanline 1.5s ease-in-out infinite"></div>
       </div>
     </div>
-    <div id="cam-hint" style="position:absolute;bottom:20px;left:0;right:0;text-align:center;color:#fff;font-size:13px;text-shadow:0 1px 3px rgba(0,0,0,.8)">จ่อบาร์โค้ดในกรอบ</div>
+    <div id="cam-hint" style="position:absolute;bottom:20px;left:0;right:0;text-align:center;color:#fff;font-size:13px;text-shadow:0 1px 3px rgba(0,0,0,.8)">จ่อบาร์โค้ดในกรอบ — รองรับทุกแนว + QR</div>
   </div>
 </div>
 <style>
