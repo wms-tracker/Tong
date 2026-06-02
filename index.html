@@ -313,7 +313,7 @@ tr:hover td{background:var(--bg3)}
         <option value="done">✅ ส่งแล้ว</option>
         <option value="cancel">🚫 Cancel</option>
       </select>
-      <button class="btn btn-o btn-sm" onclick="exportCSV()">⬇ CSV</button>
+      <button class="btn btn-o btn-sm" onclick="confirmExportCSV()">⬇ Export CSV</button>
     </div>
   </div>
   <div class="tw">
@@ -801,6 +801,9 @@ async function syncFromSheets(){
 function setStatus(oid,status){
   if(!ORDERS[oid])return;
   ORDERS[oid].status=status;
+  ORDERS[oid].updatedAt=new Date().toISOString();
+  ORDERS[oid].user=localStorage.getItem('WMS_USR')||'PC';
+  ORDERS[oid].device=localStorage.getItem('WMS_DEV')||'WMS-PC';
   let now=new Date().toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
   if(!ORDERS[oid].timeline) ORDERS[oid].timeline=[];
   let last=ORDERS[oid].timeline[ORDERS[oid].timeline.length-1];
@@ -2430,6 +2433,68 @@ function cancelOrderFromEdit(){
   ulAlert('🚫 ยกเลิก Order '+_editOid+' แล้ว','warn');
 }
 
+
+function confirmExportCSV(){
+  var today=new Date().toISOString().slice(0,10);
+  var f=document.getElementById('ex-date-from');
+  var t=document.getElementById('ex-date-to');
+  if(f&&!f.value) f.value=today;
+  if(t&&!t.value) t.value=today;
+  document.getElementById('export-modal').style.display='flex';
+}
+function onExRange(){
+  var r=document.getElementById('ex-range').value;
+  var d=document.getElementById('ex-custom');
+  if(d) d.style.display=r==='custom'?'block':'none';
+}
+function doExportCSV(){
+  var range=document.getElementById('ex-range').value;
+  var stFilter=document.getElementById('ex-status').value;
+  var dateFrom=document.getElementById('ex-date-from')?document.getElementById('ex-date-from').value:'';
+  var dateTo=document.getElementById('ex-date-to')?document.getElementById('ex-date-to').value:'';
+  var timeFrom=document.getElementById('ex-time-from')?document.getElementById('ex-time-from').value:'00:00';
+  var timeTo=document.getElementById('ex-time-to')?document.getElementById('ex-time-to').value:'23:59';
+  var now=new Date();
+  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
+  var rows=[['SUP','Order ID','SKU','แบรนด์','Qty','Consign','Tracking','สถานะ','พนักงาน','อุปกรณ์','เวลา']];
+  Object.values(ORDERS).forEach(function(o){
+    if(o.status==='new'||o.status==='pick') return;
+    if(stFilter!=='all'&&o.status!==stFilter) return;
+    // date filter
+    if(o.updatedAt){
+      var upd=new Date(o.updatedAt);
+      if(range==='today'){var t=new Date();if(upd.toDateString()!==t.toDateString())return;}
+      else if(range==='week'){var w=new Date();w.setDate(w.getDate()-7);if(upd<w)return;}
+      else if(range==='month'){var nm=new Date();if(upd.getMonth()!==nm.getMonth()||upd.getFullYear()!==nm.getFullYear())return;}
+      else if(range==='custom'&&(dateFrom||dateTo)){
+        if(dateFrom&&upd<new Date(dateFrom+'T'+timeFrom+':00'))return;
+        if(dateTo&&upd>new Date(dateTo+'T'+timeTo+':59'))return;
+      }
+    }
+    var oUsr=o.user||'—';
+    var oDev=o.device||'—';
+    var upd2=o.updatedAt?new Date(o.updatedAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):(o.date||'');
+    var allItems=o.items&&o.items.length?o.items:[{sku:'',name:'',qty:1,tracking:'',sup:''}];
+    var items=allItems;
+    if(o.tracking){var bt=allItems.filter(function(x){return x.tracking&&x.tracking===o.tracking;});if(bt.length>0)items=bt;}
+    items.forEach(function(item){
+      var trk=item.tracking||o.tracking||'';
+      var c=detectCarrier(trk);
+      var supVal=c.short&&c.short!=='OTHER'?c.short:(o.sup||(function(){var cm=(o.consign||'').match(/^([A-Za-zก-ฮ]+(?:\s+[A-Za-z]+)?)/);return cm?cm[1].trim():'';})());
+      rows.push([supVal,o.id,item.sku||'',item.name||'',item.qty||1,o.consign||'','="'+trk+'"',SL2[o.status]||o.status,oUsr,oDev,upd2]);
+    });
+  });
+  var lines=rows.map(function(r){return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');});
+  var csv=lines.join('\r\n');
+  var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='wms_report_'+now.toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  document.getElementById('export-modal').style.display='none';
+  ulAlert('✅ Export '+( rows.length-1)+' รายการ','ok');
+}
+
 init();
 // เริ่ม auto-sync หลัง init
 setTimeout(function(){
@@ -2485,5 +2550,45 @@ setTimeout(function(){
   </div>
 </div>
 
+
+<!-- Export CSV Confirm Modal -->
+<div id="export-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9000;align-items:center;justify-content:center">
+  <div style="background:var(--bg);border-radius:16px;padding:24px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="font-size:16px;font-weight:700;margin-bottom:16px">⬇ Export CSV</div>
+    <div style="margin-bottom:10px">
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">ช่วงเวลา</label>
+      <select id="ex-range" onchange="onExRange()" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:13px">
+        <option value="today">วันนี้</option>
+        <option value="week">7 วันล่าสุด</option>
+        <option value="month">เดือนนี้</option>
+        <option value="custom">กำหนดเอง</option>
+        <option value="all" selected>ทั้งหมด</option>
+      </select>
+    </div>
+    <div id="ex-custom" style="display:none;margin-bottom:10px">
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <input type="date" id="ex-date-from" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:13px">
+        <input type="time" id="ex-time-from" value="00:00" style="width:90px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:13px">
+        <span style="color:var(--text2);font-size:12px">ถึง</span>
+        <input type="date" id="ex-date-to" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:13px">
+        <input type="time" id="ex-time-to" value="23:59" style="width:90px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:13px">
+      </div>
+    </div>
+    <div style="margin-bottom:10px">
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">สถานะ</label>
+      <select id="ex-status" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:13px">
+        <option value="all">ทุกสถานะ</option>
+        <option value="qc">QC ผ่าน</option>
+        <option value="ship">Ship</option>
+        <option value="done">Done</option>
+        <option value="cancel">Cancel</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button onclick="doExportCSV()" style="flex:1;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px">⬇ ดาวน์โหลด CSV</button>
+      <button onclick="document.getElementById('export-modal').style.display='none'" style="padding:10px 16px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:8px;cursor:pointer">ยกเลิก</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
