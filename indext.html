@@ -1543,6 +1543,24 @@ function syncReportFromSheets(){
   });
 }
 
+function onRptRange(){
+  var range=document.getElementById('rpt-range').value;
+  var customDiv=document.getElementById('rpt-custom');
+  if(customDiv) customDiv.style.display=range==='custom'?'flex':'none';
+  if(range==='custom'){
+    var today=new Date().toISOString().slice(0,10);
+    var f=document.getElementById('rpt-date-from');
+    var t=document.getElementById('rpt-date-to');
+    var tf=document.getElementById('rpt-time-from');
+    var tt=document.getElementById('rpt-time-to');
+    if(f&&!f.value) f.value=today;
+    if(t&&!t.value) t.value=today;
+    if(tf) tf.value='00:00';
+    if(tt) tt.value='23:59';
+  }
+  renderReport();
+}
+
 function renderReport(){
   let range=document.getElementById('rpt-range')?document.getElementById('rpt-range').value:'all';
   let stFilter=document.getElementById('rpt-status')?document.getElementById('rpt-status').value:'all';
