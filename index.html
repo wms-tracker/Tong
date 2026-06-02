@@ -1389,7 +1389,10 @@ function playErr(){beep(200,280,'sawtooth',.35);if(navigator.vibrate)navigator.v
 
 /* ======= LOADING ======= */
 function showLov(msg){document.getElementById('lov').classList.add('show');document.getElementById('lov-txt').textContent=msg||'กำลังโหลด...';}
-function hideLov(){document.getElementById('lov').classList.remove('show');}
+function hideLov(){
+  var lov=document.getElementById('lov');
+  if(lov) lov.classList.remove('show');
+}
 
 /* ======= XLSX ======= */
 async function readXLSX(buf){const data=new Uint8Array(buf);const files=parseZIP(data);let ss=[];const sk=Object.keys(files).find(k=>k.toLowerCase().includes('sharedstrings'));if(sk){const x=await inflate(files[sk]);ss=parseSharedStrings(x);}const wk=Object.keys(files).find(k=>k.match(/xl\/worksheets\/sheet\d*\.xml/i));if(!wk)throw new Error('ไม่พบ worksheet');return parseSheet(await inflate(files[wk]),ss);}
@@ -1721,10 +1724,12 @@ function syncFromFirebase(){
   xhr.onprogress=function(){
     var txt=xhr.responseText||'';
     var pct=Math.min(99,Math.round(txt.length/6000));
-    document.getElementById('lov-t').textContent='🔥 ดาวน์โหลด '+pct+'% ('+Math.round(txt.length/1024)+'KB)...';
+    var lt=document.getElementById('lov-txt');
+    if(lt) lt.textContent='🔥 ดาวน์โหลด '+pct+'% ('+Math.round(txt.length/1024)+'KB)...';
   };
   xhr.onload=function(){
-    document.getElementById('lov-t').textContent='⚙️ ประมวลผลข้อมูล...';
+    var lt2=document.getElementById('lov-txt');
+    if(lt2) lt2.textContent='⚙️ ประมวลผลข้อมูล...';
     setTimeout(function(){
       try{
         var data=JSON.parse(xhr.responseText);
