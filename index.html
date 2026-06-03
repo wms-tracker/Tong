@@ -486,7 +486,8 @@ tr:hover td{background:var(--bg3)}
       <table style="width:100%;border-collapse:collapse;font-size:12px" id="rpt-table">
         <thead>
           <tr style="border-bottom:2px solid var(--border);background:var(--bg3)">
-            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">SUP</th>
+            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">วันที่</th>
+            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">ขนส่ง</th>
             <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">Order ID</th>
             <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">SKU</th>
             <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">แบรนด์</th>
@@ -1315,7 +1316,7 @@ function exportCSV(){
   var dev=localStorage.getItem('WMS_DEV')||'-';
   var usr=localStorage.getItem('WMS_USR')||'-';
   var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
-  var rows=[['SUP','Order ID','SKU','แบรนด์','Qty','Consign','Tracking','สถานะ','พนักงาน','อุปกรณ์','เวลา']];
+  var rows=[['วันที่','ขนส่ง','Order ID','SKU','แบรนด์','Qty','Consign','Tracking','สถานะ','พนักงาน','อุปกรณ์','เวลา']];
   Object.values(ORDERS).forEach(function(o){
     if(o.status==='new'||o.status==='pick')return;
     var oUsr=o.user||usr;
@@ -1330,7 +1331,7 @@ function exportCSV(){
     items.forEach(function(item){
       var trk=item.tracking||o.tracking||'';
       var supVal=getOrderSUP(o)||'';
-      rows.push([supVal,o.id,item.sku||'',item.name||'',item.qty||1,o.consign||'','="'+trk+'"',SL2[o.status]||o.status,oUsr,oDev,upd]);
+      rows.push([o.date||'',getOrderSUP(o)||'',o.id,item.sku||'',item.name||'',item.qty||1,o.consign||'','="'+trk+'"',SL2[o.status]||o.status,oUsr,oDev,upd]);
     });
   });
   var lines=rows.map(function(r){
@@ -1651,17 +1652,18 @@ function renderReport(){
     let st='<span class="badge '+(SB2[o.status]||'b-new')+'">'+(SL2[o.status]||o.status)+'</span>';
     let items=o.items&&o.items.length?o.items:[{sku:'',name:'',size:'',qty:1}];
     items.forEach(function(item){
-      var sup=(item.sku||'').match(/^([A-Z]{2,5})/);
-      var supStr=sup?sup[1]:'—';
+      var supVal=getOrderSUP(o)||'—';
       var trkDisplay=item.tracking||o.tracking||'—';
+      var dateVal=o.date||'—';
       rows.push('<tr style="border-bottom:1px solid var(--border)">'
-        +'<td style="padding:6px;font-weight:700;font-size:12px;color:var(--primary)">'+supStr+'</td>'
+        +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+dateVal+'</td>'
+        +'<td style="padding:6px;font-weight:700;font-size:12px;color:var(--primary)">'+supVal+'</td>'
         +'<td style="padding:6px;font-weight:700;font-family:monospace;font-size:12px">'+o.id+'</td>'
         +'<td style="padding:6px;font-family:monospace;font-size:11px;color:var(--primary)">'+(item.sku||'—')+'</td>'
         +'<td style="padding:6px;font-size:12px">'+(item.name||'—').substring(0,30)+'</td>'
         +'<td style="padding:6px;text-align:center;font-weight:700">'+item.qty+'</td>'
         +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+(o.consign||'—')+'</td>'
-        +'<td style="padding:6px;font-family:monospace;font-size:11px">'+trkDisplay.substring(0,18)+'</td>'
+        +'<td style="padding:6px;font-family:monospace;font-size:11px;word-break:break-all">'+trkDisplay+'</td>'
         +'<td style="padding:6px;text-align:center">'+st+'</td>'
         +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+usr+'</td>'
         +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+dev+'</td>'
@@ -1818,7 +1820,8 @@ function syncFromFirebase(){
             id:oid,consign:o.consign||'',tracking:o.tracking||'',
             trackings:o.trackings||[],items:o.items||[],
             status:keep?ex:(o.status||'new'),
-            date:o.date||'',updatedAt:o.updatedAt||'',
+            date:o.date||'',sup:o.sup||'',
+            updatedAt:o.updatedAt||'',
             note:o.note||'',timeline:o.timeline||[]
           };
         });
@@ -2471,7 +2474,7 @@ function doExportCSV(){
   var timeTo=document.getElementById('ex-time-to')?document.getElementById('ex-time-to').value:'23:59';
   var now=new Date();
   var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
-  var rows=[['SUP','Order ID','SKU','แบรนด์','Qty','Consign','Tracking','สถานะ','พนักงาน','อุปกรณ์','เวลา']];
+  var rows=[['วันที่','ขนส่ง','Order ID','SKU','แบรนด์','Qty','Consign','Tracking','สถานะ','พนักงาน','อุปกรณ์','เวลา']];
   Object.values(ORDERS).forEach(function(o){
     if(o.status==='new'||o.status==='pick') return;
     if(stFilter!=='all'&&o.status!==stFilter) return;
@@ -2495,7 +2498,7 @@ function doExportCSV(){
     items.forEach(function(item){
       var trk=item.tracking||o.tracking||'';
       var supVal=getOrderSUP(o)||'';
-      rows.push([supVal,o.id,item.sku||'',item.name||'',item.qty||1,o.consign||'','="'+trk+'"',SL2[o.status]||o.status,oUsr,oDev,upd2]);
+      rows.push([o.date||'',supVal,o.id,item.sku||'',item.name||'',item.qty||1,o.consign||'','="'+trk+'"',SL2[o.status]||o.status,oUsr,oDev,upd2]);
     });
   });
   var lines=rows.map(function(r){return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');});
@@ -2513,18 +2516,26 @@ function doExportCSV(){
 /* ===== CARRIER SUMMARY ===== */
 function getOrderSUP(o){
   if(!o) return 'ไม่ระบุ';
-  // ใช้ sup จาก Excel col B ก่อน (แม่นที่สุด)
-  if(o.sup&&o.sup.trim()) return o.sup.trim();
-  // ดูจาก items
-  if(o.items&&o.items.length&&o.items[0].sup) return o.items[0].sup.trim();
-  // fallback: detectCarrier จาก tracking
+  // 1. sup จาก Excel col B (แม่นที่สุด)
+  if(o.sup&&o.sup.trim()&&o.sup.trim()!=='-') return o.sup.trim();
+  // 2. sup จาก items
+  if(o.items&&o.items.length){
+    for(var ii=0;ii<o.items.length;ii++){
+      if(o.items[ii].sup&&o.items[ii].sup.trim()) return o.items[ii].sup.trim();
+    }
+  }
+  // 3. detectCarrier จาก tracking
   var trk=o.tracking||'';
-  var c=detectCarrier(trk);
-  if(c.short&&c.short!=='OTHER') return c.short;
-  // fallback: consign prefix
-  var cm=(o.consign||'').match(/^([A-Za-zก-ฮ]+(?:\s+[A-Za-z]+)?)/);
-  if(cm&&cm[1]) return cm[1].trim();
-  if(!trk&&!o.consign) return 'รับที่คลัง';
+  if(trk){
+    var c=detectCarrier(trk);
+    if(c.short&&c.short!=='OTHER') return c.short;
+  }
+  // 4. consign prefix เช่น "Best HRZ 123" → Best HRZ
+  var con=o.consign||'';
+  if(con){
+    var cm=con.match(/^([A-Za-zก-ฮ][A-Za-zก-ฮ\s]{1,20}?)\s+[\dA-Z]/);
+    if(cm&&cm[1]) return cm[1].trim();
+  }
   return 'ไม่ระบุ';
 }
 
