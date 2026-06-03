@@ -299,9 +299,23 @@ tr:hover td{background:var(--bg3)}
 
 <!-- CARRIER SUMMARY (ใน dashboard) -->
 <div class="card" style="margin-top:12px">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
     <div class="card-t" style="margin:0">🚚 สรุปตามขนส่ง</div>
-    <button onclick="renderCarrierSummary()" style="font-size:11px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text2)">🔄 รีเฟรช</button>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <select id="cs-range" onchange="renderCarrierSummary()" style="padding:5px 8px;font-size:12px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text)">
+        <option value="today">วันนี้</option>
+        <option value="week">7 วันล่าสุด</option>
+        <option value="month">เดือนนี้</option>
+        <option value="custom">กำหนดเอง</option>
+        <option value="all" selected>ทั้งหมด</option>
+      </select>
+      <div id="cs-custom" style="display:none;gap:4px;align-items:center">
+        <input type="date" id="cs-date-from" onchange="renderCarrierSummary()" style="padding:4px 6px;font-size:12px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text)">
+        <span style="color:var(--text2);font-size:11px">ถึง</span>
+        <input type="date" id="cs-date-to" onchange="renderCarrierSummary()" style="padding:4px 6px;font-size:12px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text)">
+      </div>
+      <button onclick="renderCarrierSummary()" style="font-size:11px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text2)">🔄</button>
+    </div>
   </div>
   <div id="carrier-summary-table" style="overflow-x:auto">
     <div class="empty">กำลังโหลด...</div>
@@ -2553,8 +2567,44 @@ function getOrderSUP(o){
 function renderCarrierSummary(){
   var el=document.getElementById('carrier-summary-table');
   if(!el) return;
-  var orders=Object.values(ORDERS);
-  if(!orders.length){el.innerHTML='<div class="empty">ยังไม่มีข้อมูล</div>';return;}
+
+  // Date filter
+  var range=document.getElementById('cs-range')?document.getElementById('cs-range').value:'all';
+  var csFrom=document.getElementById('cs-date-from')?document.getElementById('cs-date-from').value:'';
+  var csTo=document.getElementById('cs-date-to')?document.getElementById('cs-date-to').value:'';
+  var csCustom=document.getElementById('cs-custom');
+  if(csCustom) csCustom.style.display=range==='custom'?'flex':'none';
+  if(range==='custom'&&!csFrom){
+    var today=new Date().toISOString().slice(0,10);
+    if(document.getElementById('cs-date-from')) document.getElementById('cs-date-from').value=today;
+    if(document.getElementById('cs-date-to')) document.getElementById('cs-date-to').value=today;
+    csFrom=today; csTo=today;
+  }
+
+  var now=new Date();
+  var allOrders=Object.values(ORDERS);
+  var orders=allOrders.filter(function(o){
+    if(range==='all') return true;
+    var upd=o.updatedAt?new Date(o.updatedAt):null;
+    var dt=o.date?new Date(o.date):null;
+    var ref=upd||dt;
+    if(!ref) return range==='all';
+    if(range==='today'){
+      return ref.toDateString()===now.toDateString();
+    } else if(range==='week'){
+      var w=new Date(now); w.setDate(w.getDate()-7);
+      return ref>=w;
+    } else if(range==='month'){
+      return ref.getMonth()===now.getMonth()&&ref.getFullYear()===now.getFullYear();
+    } else if(range==='custom'&&(csFrom||csTo)){
+      if(csFrom&&ref<new Date(csFrom)) return false;
+      if(csTo&&ref>new Date(csTo+'T23:59:59')) return false;
+      return true;
+    }
+    return true;
+  });
+
+  if(!orders.length){el.innerHTML='<div class="empty">ไม่มีข้อมูลในช่วงที่เลือก</div>';return;}
 
   // สร้าง map: carrier → {total, new, pick, qc, ship, done, cancel}
   var map={};
