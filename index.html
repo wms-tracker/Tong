@@ -2036,14 +2036,17 @@ function clearMatcher(){
 /* ===== DETECT CARRIER ===== */
 function detectCarrier(t){
   t=String(t||'').trim().toUpperCase();
-  if(!t||t==='-'||t==='NAN'||t==='NONE')return{name:'',short:'',url:''};
-  if(/^668\d{11}$/.test(t))return{name:'Best Express',short:'BEST',url:'https://track.best-express.com/tracking?trackingNumber='+t+'&language=TH'};
-  if(/^TH\d{16}$/.test(t))return{name:'Flash Express',short:'FLASH',url:'https://www.flashexpress.co.th/tracking/?se='+t};
-  if(/^800\d{9}$/.test(t))return{name:'J&T Express',short:'J&T',url:'https://www.jtexpress.co.th/index/query/gzquery.html?bills='+t};
-  if(/^NIM/.test(t))return{name:'Nim Express',short:'NIM',url:'https://nimexpress.com/web/tracking?trackNo='+t};
-  if(/^(EH|RH|RE|EO|RP|RR)\d+TH$/.test(t))return{name:'ไปรษณีย์ไทย',short:'THPOST',url:'https://track.thailandpost.co.th/?trackNumber='+t};
-  if(/^KY/.test(t))return{name:'Kerry',short:'KERRY',url:'https://th.kerryexpress.com/th/track/?track='+t};
-  return{name:'อื่นๆ',short:'OTHER',url:''};
+  if(!t||t==='-'||t==='NAN'||t==='NONE'||t==='UNDEFINED') return {name:'',short:'',url:''};
+  if(/^668\d{11}$/.test(t)) return {name:'Best Express',short:'BEST',url:'https://track.best-express.com/tracking?trackingNumber='+t+'&language=TH'};
+  if(/^TH\d{16}$/.test(t)) return {name:'Flash Express',short:'FLASH',url:'https://www.flashexpress.co.th/tracking/?se='+t};
+  if(/^800\d{9}$/.test(t)) return {name:'J&T Express',short:'J&T',url:'https://www.jtexpress.co.th/index/query/gzquery.html?bills='+t};
+  if(/^NIM/.test(t)) return {name:'Nim Express',short:'NIM',url:'https://nimexpress.com/web/tracking?trackNo='+t};
+  if(/^(EH|RH|RE|EO|RP|RR)\d+TH$/.test(t)) return {name:'ไปรษณีย์ไทย',short:'THPOST',url:'https://track.thailandpost.co.th/?trackNumber='+t};
+  if(/^KY|^KEX/.test(t)) return {name:'Kerry Express',short:'KERRY',url:'https://th.kerryexpress.com/th/track/?track='+t};
+  if(/^SPX/.test(t)) return {name:'Shopee Express',short:'SPX',url:''};
+  if(/^LZD|^LAZADA/.test(t)) return {name:'Lazada',short:'LZD',url:''};
+  if(/^BEST/.test(t)) return {name:'Best Express',short:'BEST',url:''};
+  return {name:'อื่นๆ',short:'OTHER',url:''};
 }
 
 /* ===== FIND COLUMN HELPER ===== */
@@ -2102,6 +2105,7 @@ function runMatcher(){
     var oc=Object.keys(matcherOrdRows[0]);
     var oOid=fc2(oc,['Order ID','OrderID','order id'])||oc[2]||oc[0];
     var oSup=fc2(oc,['Sup','SUP','sup','ขนส่ง','หัวข้อขนส่ง','carrier'])||oc[1]; // col B
+    var oDate=fc2(oc,['Date','date','วันที่'])||oc[0]; // col A
     var oSku=fc2(oc,['SKU','sku','SkU'])||oc[3]||oc[1];
     var oBrand=fc2(oc,['แบรนด์','brand','ชื่อสินค้า'])||oc[4]||oc[2];
     var oSize=fc2(oc,['ขนาด','size'])||oc[5];
@@ -2145,7 +2149,8 @@ function runMatcher(){
         var sku=sm?sm[1]:'';
         var name=line.replace(/\s*\(.*?\)/g,'').replace(/^แถม\s*[-\s]*/,'').trim();
         var isGift=line.startsWith('แถม');
-        rows.push({oid:oid,sku:sku,brand:name,size:'',qty:1,consign:consign,tracking:tracking,carrier:carrier,isGift:isGift});
+        var trkSup=String(row[tSup]||'').trim();
+        rows.push({oid:oid,sku:sku,brand:name,size:'',qty:1,consign:consign,tracking:tracking,sup:trkSup,date:'',carrier:carrier,isGift:isGift});
       });
     });
   }
@@ -2528,36 +2533,35 @@ function doExportCSV(){
 
 /* ===== CARRIER SUMMARY ===== */
 function getOrderSUP(o){
-  if(!o) return '';
-  // 1. sup field ตรงๆ จาก order (Excel col B ที่บันทึกไว้)
-  var s=o.sup||'';
-  if(s&&s.trim()&&s.trim()!=='-'&&s.trim()!=='undefined') return s.trim();
-  // 2. sup จาก items (ทุก item)
+  if(!o) return '—';
+  // 1. ใช้ sup จาก Excel col B โดยตรง (ชื่อเต็ม เช่น "Best Express Bulky", "Lunio")
+  var s=(o.sup||'').trim();
+  if(s&&s!=='-'&&s!=='undefined'&&s!=='null') return s;
+  // 2. sup จาก items
   var its=o.items||[];
   for(var ii=0;ii<its.length;ii++){
-    var is=its[ii].sup||'';
-    if(is&&is.trim()&&is.trim()!=='-') return is.trim();
+    var is=(its[ii].sup||'').trim();
+    if(is&&is!=='-') return is;
   }
-  // 3. detectCarrier จาก tracking number
+  // 3. Tracking number → ชื่อขนส่ง
   var trk=(o.tracking||'').trim();
   if(trk){
     var c=detectCarrier(trk);
-    if(c.short&&c.short!=='OTHER') return c.short;
+    if(c.name&&c.short!=='OTHER') return c.name; // ใช้ name เต็ม
   }
-  // 4. consign เช่น "Best HRZ 0306690001" → "Best Express" หรือ "Best"
+  // 4. Consign prefix
   var con=(o.consign||'').trim();
   if(con){
-    // ถ้าขึ้นต้นด้วย Best → Best Express Bulky
     if(/^best/i.test(con)) return 'Best Express Bulky';
     if(/^flash/i.test(con)) return 'Flash Express';
     if(/^kerry|^kex/i.test(con)) return 'Kerry Express';
     if(/^nim/i.test(con)) return 'Nim Express';
     if(/^lunio/i.test(con)) return 'Lunio';
-    // generic prefix
-    var cm=con.match(/^([ก-ฮA-Za-z][ก-ฮA-Za-z\s]{1,20}?)\s+[\dA-Z]/);
+    if(/^spx/i.test(con)) return 'Shopee Express';
+    if(/^j&t|^jt/i.test(con)) return 'J&T Express';
+    var cm=con.match(/^([ก-๿A-Za-z][ก-๿A-Za-z ]{1,20}?)\s+[\dA-Z]/);
     if(cm&&cm[1]) return cm[1].trim();
   }
-  // 5. ไม่มีข้อมูลเลย
   return '—';
 }
 
