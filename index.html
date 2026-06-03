@@ -1450,6 +1450,9 @@ function doManualRefresh(btn){
       let rank={new:0,qc:1,pack:2,done:3,cancel:4};
       if(st&&ORDERS[oid]&&(rank[st]||0)>=(rank[ORDERS[oid].status]||0)&&ORDERS[oid].status!==st){
         ORDERS[oid].status=st;changed=true;
+        if(entry&&entry.user) ORDERS[oid].user=entry.user;
+        if(entry&&entry.device) ORDERS[oid].device=entry.device;
+        if(entry&&entry.updatedAt) ORDERS[oid].updatedAt=entry.updatedAt;
       }
     });
     if(changed){saveLocal();refreshAll();}
@@ -1883,7 +1886,8 @@ function fetchOrdersBatch(keys,offset,batchSize,done,total){
           ORDERS[oid]={id:oid,consign:o.consign||'',tracking:o.tracking||'',
             trackings:o.trackings||[],items:o.items||[],
             status:keep?ex:(o.status||'new'),
-            date:o.date||'',updatedAt:o.updatedAt||'',
+            sup:o.sup||'',date:o.date||'',updatedAt:o.updatedAt||'',
+            user:o.user||'',device:o.device||'',
             note:o.note||'',timeline:o.timeline||[]};
           done++;
         }
@@ -2097,7 +2101,7 @@ function runMatcher(){
   if(matcherOrdRows.length){
     var oc=Object.keys(matcherOrdRows[0]);
     var oOid=fc2(oc,['Order ID','OrderID','order id'])||oc[2]||oc[0];
-    var oSup=fc2(oc,['Sup','SUP','sup','ขนส่ง'])||oc[1]; // col B
+    var oSup=fc2(oc,['Sup','SUP','sup','ขนส่ง','หัวข้อขนส่ง','carrier'])||oc[1]; // col B
     var oSku=fc2(oc,['SKU','sku','SkU'])||oc[3]||oc[1];
     var oBrand=fc2(oc,['แบรนด์','brand','ชื่อสินค้า'])||oc[4]||oc[2];
     var oSize=fc2(oc,['ขนาด','size'])||oc[5];
@@ -2108,6 +2112,8 @@ function runMatcher(){
       var brand=String(row[oBrand]||'').trim();
       var size=String(row[oSize]||'').trim();
       var qty=parseInt(row[oQty])||1;
+      var rowSup=String(row[oSup]||'').trim();
+      var rowDate=String(row[oDate]||'').trim();
       if(!oid)return;
       var isGift=brand.startsWith('แถม');
       var tList=(tm[oid]&&(tm[oid][sku]||tm[oid]['__nosku']))||[];
@@ -2117,12 +2123,12 @@ function runMatcher(){
       if(tList.length>1){
         tList.forEach(function(t){
           var carrier=detectCarrier(t.tracking);
-          rows.push({oid:oid,sku:sku,brand:brand,size:size,qty:1,consign:t.consign,tracking:t.tracking,sup:t.sup||'',carrier:carrier,isGift:isGift});
+          rows.push({oid:oid,sku:sku,brand:brand,size:size,qty:1,consign:t.consign,tracking:t.tracking,sup:t.sup||rowSup,date:rowDate,carrier:carrier,isGift:isGift});
         });
       } else {
         var t=tList[0];
         var carrier=detectCarrier(t.tracking);
-        rows.push({oid:oid,sku:sku,brand:brand,size:size,qty:qty,consign:t.consign,tracking:t.tracking,sup:t.sup||'',carrier:carrier,isGift:isGift});
+        rows.push({oid:oid,sku:sku,brand:brand,size:size,qty:qty,consign:t.consign,tracking:t.tracking,sup:t.sup||rowSup,date:rowDate,carrier:carrier,isGift:isGift});
       }
     });
   }else{
@@ -2178,10 +2184,14 @@ function applyMatcherToWMS(){
   if(!matcherResults.length){matcherAlert('ยังไม่มีผลการจับคู่','err');return;}
   var map={};
   matcherResults.forEach(function(r){
-    if(!map[r.oid])map[r.oid]={trackings:[],consign:'',tracking:'',items:[]};
+    if(!map[r.oid])map[r.oid]={trackings:[],consign:'',tracking:'',items:[],sup:'',date:''};
     if(r.tracking&&map[r.oid].trackings.indexOf(r.tracking)<0)map[r.oid].trackings.push(r.tracking);
     if(r.consign&&!map[r.oid].consign)map[r.oid].consign=r.consign;
     if(r.tracking&&!map[r.oid].tracking)map[r.oid].tracking=r.tracking;
+    if(r.sup&&!map[r.oid].sup)map[r.oid].sup=r.sup;
+    if(r.date&&!map[r.oid].date)map[r.oid].date=r.date;
+    // เก็บ sup จาก row ไว้ที่ order level
+    if(r.sup&&!map[r.oid].sup) map[r.oid].sup=r.sup;
     var existItem=map[r.oid].items.find(function(it){
       return it.sku===r.sku && it.tracking===(r.tracking||'') && it.size===(r.size||'');
     });
@@ -2208,11 +2218,11 @@ function applyMatcherToWMS(){
     var m=map[oid];
     var existSt=ORDERS[oid]?ORDERS[oid].status:'';
     var keepSt=['pick','qc','ship','done'].indexOf(existSt)>=0;
-    var orderSup=m.items.length>0?m.items[0].sup:'';
     newOrders[oid]={
       id:oid,consign:m.consign,tracking:m.tracking,trackings:m.trackings,
-      items:m.items,status:keepSt?existSt:'new',sup:orderSup,
-      date:now,note:'',timeline:[{time:now,action:'นำเข้าจาก Tracking Matcher',user:'System'}]
+      items:m.items,status:keepSt?existSt:'new',
+      sup:m.sup||'',date:m.date||now,
+      note:'',timeline:[{time:now,action:'นำเข้าจาก Tracking Matcher',user:'System'}]
     };
     if(ORDERS[oid]) updated++; else added++;
   });
@@ -2427,6 +2437,9 @@ function syncStatusesNow(){
       var st=typeof entry==='string'?entry:(entry&&entry.status?entry.status:'');
       if(st&&ORDERS[oid]&&(rank[st]||0)>=(rank[ORDERS[oid].status]||0)&&ORDERS[oid].status!==st){
         ORDERS[oid].status=st;changed=true;
+        if(entry&&entry.user) ORDERS[oid].user=entry.user;
+        if(entry&&entry.device) ORDERS[oid].device=entry.device;
+        if(entry&&entry.updatedAt) ORDERS[oid].updatedAt=entry.updatedAt;
       }
     });
     if(changed){saveLocal();refreshAll();}
@@ -2515,28 +2528,37 @@ function doExportCSV(){
 
 /* ===== CARRIER SUMMARY ===== */
 function getOrderSUP(o){
-  if(!o) return 'ไม่ระบุ';
-  // 1. sup จาก Excel col B (แม่นที่สุด)
-  if(o.sup&&o.sup.trim()&&o.sup.trim()!=='-') return o.sup.trim();
-  // 2. sup จาก items
-  if(o.items&&o.items.length){
-    for(var ii=0;ii<o.items.length;ii++){
-      if(o.items[ii].sup&&o.items[ii].sup.trim()) return o.items[ii].sup.trim();
-    }
+  if(!o) return '';
+  // 1. sup field ตรงๆ จาก order (Excel col B ที่บันทึกไว้)
+  var s=o.sup||'';
+  if(s&&s.trim()&&s.trim()!=='-'&&s.trim()!=='undefined') return s.trim();
+  // 2. sup จาก items (ทุก item)
+  var its=o.items||[];
+  for(var ii=0;ii<its.length;ii++){
+    var is=its[ii].sup||'';
+    if(is&&is.trim()&&is.trim()!=='-') return is.trim();
   }
-  // 3. detectCarrier จาก tracking
-  var trk=o.tracking||'';
+  // 3. detectCarrier จาก tracking number
+  var trk=(o.tracking||'').trim();
   if(trk){
     var c=detectCarrier(trk);
     if(c.short&&c.short!=='OTHER') return c.short;
   }
-  // 4. consign prefix เช่น "Best HRZ 123" → Best HRZ
-  var con=o.consign||'';
+  // 4. consign เช่น "Best HRZ 0306690001" → "Best Express" หรือ "Best"
+  var con=(o.consign||'').trim();
   if(con){
-    var cm=con.match(/^([A-Za-zก-ฮ][A-Za-zก-ฮ\s]{1,20}?)\s+[\dA-Z]/);
+    // ถ้าขึ้นต้นด้วย Best → Best Express Bulky
+    if(/^best/i.test(con)) return 'Best Express Bulky';
+    if(/^flash/i.test(con)) return 'Flash Express';
+    if(/^kerry|^kex/i.test(con)) return 'Kerry Express';
+    if(/^nim/i.test(con)) return 'Nim Express';
+    if(/^lunio/i.test(con)) return 'Lunio';
+    // generic prefix
+    var cm=con.match(/^([ก-ฮA-Za-z][ก-ฮA-Za-z\s]{1,20}?)\s+[\dA-Z]/);
     if(cm&&cm[1]) return cm[1].trim();
   }
-  return 'ไม่ระบุ';
+  // 5. ไม่มีข้อมูลเลย
+  return '—';
 }
 
 function renderCarrierSummary(){
