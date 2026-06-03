@@ -194,6 +194,9 @@ tr:hover td{background:var(--bg3)}
   <div onclick="goPage('orders')" id="mn-orders" style="flex:1;padding:8px 4px;text-align:center;cursor:pointer;color:rgba(255,255,255,.6);font-size:10px;font-weight:600">
     <div style="font-size:20px;margin-bottom:2px">📋</div>Orders
   </div>
+  <div onclick="goPage('history')" id="mn-history" style="flex:1;padding:8px 4px;text-align:center;cursor:pointer;color:rgba(255,255,255,.6);font-size:10px;font-weight:600">
+    <div style="font-size:20px;margin-bottom:2px">📚</div>History
+  </div>
   <div onclick="goPage('report')" id="mn-report" style="flex:1;padding:8px 4px;text-align:center;cursor:pointer;color:rgba(255,255,255,.6);font-size:10px;font-weight:600">
     <div style="font-size:20px;margin-bottom:2px">📈</div>รีพอร์ต
   </div>
@@ -444,6 +447,49 @@ tr:hover td{background:var(--bg3)}
   </div>
 </div>
 
+<!-- HISTORY -->
+<div id="page-history" class="page">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+    <div>
+      <div style="font-size:18px;font-weight:700">📚 ประวัติออเดอร์</div>
+      <div style="font-size:12px;color:var(--text2)" id="hist-count">—</div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <select id="hist-year" onchange="loadHistory()" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)"></select>
+      <select id="hist-month" onchange="loadHistory()" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
+        <option value="01">มกราคม</option><option value="02">กุมภาพันธ์</option>
+        <option value="03">มีนาคม</option><option value="04">เมษายน</option>
+        <option value="05">พฤษภาคม</option><option value="06">มิถุนายน</option>
+        <option value="07">กรกฎาคม</option><option value="08">สิงหาคม</option>
+        <option value="09">กันยายน</option><option value="10">ตุลาคม</option>
+        <option value="11">พฤศจิกายน</option><option value="12">ธันวาคม</option>
+      </select>
+      <select id="hist-sup" onchange="renderHistoryTable()" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
+        <option value="all">ทุกขนส่ง</option>
+      </select>
+      <button onclick="exportHistoryCSV()" style="padding:6px 12px;background:var(--primary);color:#fff;border:none;border-radius:var(--rx);font-size:13px;font-weight:700;cursor:pointer">⬇ CSV</button>
+    </div>
+  </div>
+  <div class="tw" style="overflow-x:auto">
+    <table>
+      <thead>
+        <tr style="background:var(--bg3);border-bottom:2px solid var(--border)">
+          <th style="padding:8px 6px;font-size:11px;color:var(--text2);text-align:left">วันที่</th>
+          <th style="padding:8px 6px;font-size:11px;color:var(--text2);text-align:left">ขนส่ง</th>
+          <th style="padding:8px 6px;font-size:11px;color:var(--text2);text-align:left">Order ID</th>
+          <th style="padding:8px 6px;font-size:11px;color:var(--text2);text-align:left">Consign</th>
+          <th style="padding:8px 6px;font-size:11px;color:var(--text2);text-align:left">Tracking</th>
+          <th style="padding:8px 6px;font-size:11px;color:var(--text2);text-align:center">รายการ</th>
+          <th style="padding:8px 6px;font-size:11px;color:var(--text2);text-align:center">สถานะ</th>
+          <th style="padding:8px 6px;font-size:11px;color:var(--text2);text-align:left">พนักงาน</th>
+          <th style="padding:8px 6px;font-size:11px;color:var(--text2);text-align:left">เวลา QC</th>
+        </tr>
+      </thead>
+      <tbody id="hist-tbody"><tr><td colspan="9" class="empty">เลือกเดือนที่ต้องการครับ</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
 <!-- REPORT -->
 <div id="page-report" class="page">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -690,7 +736,7 @@ function saveLocal(){
 }
 
 /* ======= NAV ======= */
-const PM={dashboard:'Dashboard|ภาพรวมระบบ',upload:'Upload / Sync|อัปโหลดหรือดึงข้อมูลจาก Sheets',orders:'Orders|รายการทั้งหมด',qcscan:'ตรวจ QC + Scan|สแกนตรวจสอบสินค้า',pick:'Pick|ออเดอร์พร้อม Pack',ship:'ส่งของ|พร้อมส่ง',draft:'Draft|งานค้าง',report:'รีพอร์ต|สรุปและ Export',matcher:'Tracking Matcher|จับคู่ Tracking กับออเดอร์',settings:'ตั้งค่า|การเชื่อมต่อ'};
+const PM={dashboard:'Dashboard|ภาพรวมระบบ',upload:'Upload / Sync|อัปโหลดหรือดึงข้อมูลจาก Sheets',orders:'Orders|รายการทั้งหมด',history:'History|ประวัติออเดอร์รายเดือน',qcscan:'ตรวจ QC + Scan|สแกนตรวจสอบสินค้า',pick:'Pick|ออเดอร์พร้อม Pack',ship:'ส่งของ|พร้อมส่ง',draft:'Draft|งานค้าง',report:'รีพอร์ต|สรุปและ Export',matcher:'Tracking Matcher|จับคู่ Tracking กับออเดอร์',settings:'ตั้งค่า|การเชื่อมต่อ'};
 function goPage(p){
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(x=>x.classList.remove('active'));
@@ -702,6 +748,7 @@ function goPage(p){
   if(p==='orders')renderOrders();
   if(p==='draft'){syncDraftsFromFB();setTimeout(renderDraftList,500);}
   if(p==='pack'||p==='ship'){if(FB_URL)syncStatusesNow();}
+  if(p==='history') initHistoryPage();
   if(p==='pack')renderPack();
   if(p==='ship')renderShip();
   if(p==='draft')renderDrafts();
@@ -833,6 +880,8 @@ function setStatus(oid,status){
   ORDERS[oid].updatedAt=new Date().toISOString();
   ORDERS[oid].user=localStorage.getItem('WMS_USR')||'PC';
   ORDERS[oid].device=localStorage.getItem('WMS_DEV')||'WMS-PC';
+  // บันทึกลง history อัตโนมัติ
+  if(['qc','ship','done','cancel'].indexOf(status)>=0) archiveOrder(oid);
   let now=new Date().toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
   if(!ORDERS[oid].timeline) ORDERS[oid].timeline=[];
   let last=ORDERS[oid].timeline[ORDERS[oid].timeline.length-1];
@@ -2584,9 +2633,13 @@ function renderCarrierSummary(){
   var now=new Date();
   var allOrders=Object.values(ORDERS);
 
-  // parse วันที่หลาย format: "Wed, Jun 3", "3/6/2569", ISO string
+  // parse วันที่หลาย format — ใช้ updatedAt ก่อน ถ้าไม่มีใช้ date
   function parseOrderDate(o){
-    if(o.updatedAt) return new Date(o.updatedAt);
+    // ใช้ updatedAt (วันที่ QC/สแกน) ก่อนเสมอ
+    if(o.updatedAt){
+      var upd=new Date(o.updatedAt);
+      if(!isNaN(upd.getTime())) return upd;
+    }
     var d=String(o.date||'').trim();
     if(!d||d==='—') return null;
     // ISO format
@@ -2611,7 +2664,24 @@ function renderCarrierSummary(){
 
   var orders=allOrders.filter(function(o){
     if(range==='all') return true;
+    // ลอง updatedAt ก่อน ถ้าไม่มีใช้ date จาก Excel
     var ref=parseOrderDate(o);
+    // ถ้าไม่มี updatedAt แต่มี date → ใช้ date (orders ที่ยังไม่ได้ QC)
+    if(!ref||isNaN(ref.getTime())){
+      var d2=String(o.date||'').trim();
+      if(d2){
+        var m1=d2.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
+        if(m1){
+          var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+          var mn=MN[m1[1]];
+          if(mn!==undefined) ref=new Date(now.getFullYear(),mn,parseInt(m1[2]));
+        }
+        if(!ref){
+          var m2=d2.match(/^(\d+)\/(\d+)\/(\d+)/);
+          if(m2){var yr2=parseInt(m2[3]);if(yr2>2400)yr2-=543;ref=new Date(yr2,parseInt(m2[2])-1,parseInt(m2[1]));}
+        }
+      }
+    }
     if(!ref||isNaN(ref.getTime())) return false;
     if(range==='today'){
       return ref.toDateString()===now.toDateString();
@@ -2722,6 +2792,142 @@ function clearFirebaseOrders(){
     ulAlert('❌ เชื่อมต่อ Firebase ไม่ได้','err');
   };
   xhr.send();
+}
+
+
+/* ===== HISTORY ===== */
+var HIST_DATA={}; // cache history data
+
+// บันทึก order ลง Firebase /history/YYYY-MM/ เมื่อ status เปลี่ยน
+function archiveOrder(oid){
+  if(!FB_URL||!ORDERS[oid]) return;
+  var o=ORDERS[oid];
+  var dt=o.updatedAt?new Date(o.updatedAt):new Date();
+  var ym=dt.getFullYear()+'-'+(String(dt.getMonth()+1).padStart(2,'0'));
+  var key=encodeId(oid);
+  fbPut('/history/'+ym+'/'+key,{
+    id:oid,sup:o.sup||getOrderSUP(o)||'',
+    consign:o.consign||'',tracking:o.tracking||'',
+    trackings:o.trackings||[],items:o.items||[],
+    status:o.status,date:o.date||'',
+    updatedAt:o.updatedAt||new Date().toISOString(),
+    user:o.user||localStorage.getItem('WMS_USR')||'',
+    device:o.device||localStorage.getItem('WMS_DEV')||''
+  });
+}
+
+// โหลด history จาก Firebase ตาม เดือน/ปี
+function loadHistory(){
+  var yr=document.getElementById('hist-year').value;
+  var mo=document.getElementById('hist-month').value;
+  if(!yr||!mo) return;
+  var ym=yr+'-'+mo;
+  document.getElementById('hist-tbody').innerHTML='<tr><td colspan="9" class="empty">⏳ กำลังโหลด...</td></tr>';
+  document.getElementById('hist-count').textContent='กำลังโหลด...';
+  if(!FB_URL){
+    document.getElementById('hist-tbody').innerHTML='<tr><td colspan="9" class="empty">กรุณาตั้งค่า Firebase URL</td></tr>';
+    return;
+  }
+  // ตรวจ cache
+  if(HIST_DATA[ym]){renderHistoryTable();return;}
+  fbGet('/history/'+ym,function(err,data){
+    if(err||!data){
+      document.getElementById('hist-tbody').innerHTML='<tr><td colspan="9" class="empty">ไม่มีข้อมูลเดือนนี้</td></tr>';
+      document.getElementById('hist-count').textContent='ไม่มีข้อมูล';
+      return;
+    }
+    HIST_DATA[ym]=Object.values(data);
+    renderHistoryTable();
+  });
+}
+
+function renderHistoryTable(){
+  var yr=document.getElementById('hist-year').value;
+  var mo=document.getElementById('hist-month').value;
+  var ym=yr+'-'+mo;
+  var supFilter=document.getElementById('hist-sup').value;
+  var data=HIST_DATA[ym]||[];
+  if(!data.length){
+    document.getElementById('hist-tbody').innerHTML='<tr><td colspan="9" class="empty">ไม่มีข้อมูล</td></tr>';
+    document.getElementById('hist-count').textContent='ไม่มีข้อมูล';
+    return;
+  }
+  // อัปเดต sup filter options
+  var sups=['all'];
+  data.forEach(function(o){var s=o.sup||'—';if(sups.indexOf(s)<0)sups.push(s);});
+  var supEl=document.getElementById('hist-sup');
+  var curSup=supEl.value;
+  supEl.innerHTML=sups.map(function(s){
+    return '<option value="'+s+'"'+(s===curSup?' selected':'')+'>'+( s==='all'?'ทุกขนส่ง':s)+'</option>';
+  }).join('');
+
+  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
+  var SB2={new:'b-new',pick:'b-pick',qc:'b-qc',ship:'b-ship',done:'b-done',cancel:'b-cancel'};
+
+  var filtered=data.filter(function(o){
+    return supFilter==='all'||o.sup===supFilter;
+  });
+  filtered.sort(function(a,b){return (b.updatedAt||'').localeCompare(a.updatedAt||'');});
+
+  document.getElementById('hist-count').textContent=filtered.length+' orders / เดือน '+mo+'/'+yr;
+  document.getElementById('hist-tbody').innerHTML=filtered.map(function(o){
+    var upd=o.updatedAt?new Date(o.updatedAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):(o.date||'—');
+    var trk=(o.tracking||'—').substring(0,16);
+    var items=o.items&&o.items.length?o.items.length:0;
+    return '<tr style="border-bottom:1px solid var(--border)">'+
+      '<td style="padding:6px;font-size:11px;color:var(--text2);white-space:nowrap">'+( o.date||'—')+'</td>'+
+      '<td style="padding:6px;font-size:12px;font-weight:700;color:var(--primary)">'+(o.sup||'—')+'</td>'+
+      '<td style="padding:6px;font-weight:700;font-family:monospace;font-size:12px">'+o.id+'</td>'+
+      '<td style="padding:6px;font-size:11px;color:var(--text2)">'+(o.consign||'—')+'</td>'+
+      '<td style="padding:6px;font-family:monospace;font-size:11px">'+trk+'</td>'+
+      '<td style="padding:6px;text-align:center;font-size:12px">'+items+'</td>'+
+      '<td style="padding:6px;text-align:center"><span class="badge '+(SB2[o.status]||'b-new')+'">'+(SL2[o.status]||o.status)+'</span></td>'+
+      '<td style="padding:6px;font-size:11px;color:var(--text2)">'+(o.user||'—')+'</td>'+
+      '<td style="padding:6px;font-size:11px;color:var(--text2);white-space:nowrap">'+upd+'</td>'+
+      '</tr>';
+  }).join('');
+}
+
+function exportHistoryCSV(){
+  var yr=document.getElementById('hist-year').value;
+  var mo=document.getElementById('hist-month').value;
+  var ym=yr+'-'+mo;
+  var supFilter=document.getElementById('hist-sup').value;
+  var data=(HIST_DATA[ym]||[]).filter(function(o){return supFilter==='all'||o.sup===supFilter;});
+  if(!data.length){alert('ไม่มีข้อมูล');return;}
+  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
+  var rows=[['วันที่','ขนส่ง','Order ID','SKU','แบรนด์','ขนาด','Qty','Consign','Tracking','สถานะ','พนักงาน','อุปกรณ์','เวลา QC']];
+  data.forEach(function(o){
+    var upd=o.updatedAt?new Date(o.updatedAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):(o.date||'');
+    var items=o.items&&o.items.length?o.items:[{sku:'',name:'',size:'',qty:1,tracking:''}];
+    items.forEach(function(item){
+      var trk=item.tracking||o.tracking||'';
+      rows.push([o.date||'',o.sup||'',o.id,item.sku||'',item.name||'',item.size||'',item.qty||1,o.consign||'','="'+trk+'"',SL2[o.status]||o.status,o.user||'',o.device||'',upd]);
+    });
+  });
+  var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');}).join('\r\n');
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
+  a.download='history_'+ym+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+
+function initHistoryPage(){
+  // ตั้งค่า year selector (ย้อนหลัง 3 ปี)
+  var yrEl=document.getElementById('hist-year');
+  if(yrEl&&!yrEl.options.length){
+    var now=new Date();
+    for(var y=now.getFullYear();y>=now.getFullYear()-3;y--){
+      var opt=document.createElement('option');
+      opt.value=y; opt.textContent=y;
+      if(y===now.getFullYear()) opt.selected=true;
+      yrEl.appendChild(opt);
+    }
+    // ตั้ง month ปัจจุบัน
+    var moEl=document.getElementById('hist-month');
+    if(moEl) moEl.value=String(now.getMonth()+1).padStart(2,'0');
+  }
+  loadHistory();
 }
 
 init();
