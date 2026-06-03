@@ -297,6 +297,17 @@ tr:hover td{background:var(--bg3)}
   <div class="card"><div class="card-t">ข้อมูลตัวอย่าง</div><button class="btn btn-o btn-sm" onclick="loadSample()">โหลดตัวอย่าง</button></div>
 </div>
 
+<!-- CARRIER SUMMARY (ใน dashboard) -->
+<div class="card" style="margin-top:12px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <div class="card-t" style="margin:0">🚚 สรุปตามขนส่ง</div>
+    <button onclick="renderCarrierSummary()" style="font-size:11px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text2)">🔄 รีเฟรช</button>
+  </div>
+  <div id="carrier-summary-table" style="overflow-x:auto">
+    <div class="empty">กำลังโหลด...</div>
+  </div>
+</div>
+
 <!-- ORDERS -->
 <div id="page-orders" class="page">
   <div class="card" style="padding:12px">
@@ -1153,7 +1164,7 @@ function renderOrders(){
   document.getElementById('ord-tbody').innerHTML=orders.length?orders.map(o=>`
     <tr>
       <td><span style="font-weight:700;font-family:monospace">${o.id}</span></td>
-      <td style="font-size:12px;font-weight:600;color:var(--primary)">${detectCarrier(o.tracking||'').short||o.sup||'—'}</td>
+      <td style="font-size:12px;font-weight:600;color:var(--primary)">${getOrderSUP(o)||'—'}</td>
       <td style="font-size:12px">${o.consign||'—'}</td>
       <td class="mono" style="font-size:11px">${
         (o.trackings&&o.trackings.length>0
@@ -1242,6 +1253,7 @@ function filterReport(q){
 
 function refreshAll(){
   renderDashboard();
+  renderCarrierSummary();
   renderDraftList();
   let nb={pick:0,qc:0,ship:0,done:0,draft:0,cancel:0};
   Object.values(ORDERS).forEach(o=>{
@@ -1317,8 +1329,7 @@ function exportCSV(){
     }
     items.forEach(function(item){
       var trk=item.tracking||o.tracking||'';
-      var carrier=detectCarrier(trk);
-      var supVal=carrier.short||(item.sup||'').toUpperCase()||'';
+      var supVal=getOrderSUP(o)||'';
       rows.push([supVal,o.id,item.sku||'',item.name||'',item.qty||1,o.consign||'','="'+trk+'"',SL2[o.status]||o.status,oUsr,oDev,upd]);
     });
   });
@@ -2051,6 +2062,7 @@ function runMatcher(){
   var tBrand=fc2(tc,['แบรนด์','brand','ชื่อสินค้า'])||tc[4]||tc[1];
   var tTrack=fc2(tc,['Tracking','tracking','เลขพัสดุ','เลข tracking'])||tc[tc.length-1];
   var tConsign=fc2(tc,['consign','เลข consign','เลขconsign','Consign'])||tc[2];
+  var tSup=fc2(tc,['Sup','SUP','sup','ขนส่ง','carrier'])||tc[1]; // col B
 
   // Build tracking map {orderId: {sku: {tracking,consign}}}
   var tm={};
@@ -2059,6 +2071,7 @@ function runMatcher(){
     var brand=String(row[tBrand]||'');
     var tracking=String(row[tTrack]||'').trim();
     var consign=String(row[tConsign]||'').trim();
+    var sup=String(row[tSup]||'').trim();
     if(!oid)return;
     var bnorm=brand.split('\n').join(' ');
     var skus=[],m;
@@ -2069,11 +2082,11 @@ function runMatcher(){
       skus.forEach(function(s){
         if(!tm[oid][s]) tm[oid][s]=[];
         // เพิ่มทุก tracking (ไม่ overwrite)
-        tm[oid][s].push({tracking:tracking,consign:consign});
+        tm[oid][s].push({tracking:tracking,consign:consign,sup:sup});
       });
     }else{
       if(!tm[oid]['__nosku']) tm[oid]['__nosku']=[];
-      tm[oid]['__nosku'].push({tracking:tracking,consign:consign});
+      tm[oid]['__nosku'].push({tracking:tracking,consign:consign,sup:sup});
     }
   });
 
@@ -2081,6 +2094,7 @@ function runMatcher(){
   if(matcherOrdRows.length){
     var oc=Object.keys(matcherOrdRows[0]);
     var oOid=fc2(oc,['Order ID','OrderID','order id'])||oc[2]||oc[0];
+    var oSup=fc2(oc,['Sup','SUP','sup','ขนส่ง'])||oc[1]; // col B
     var oSku=fc2(oc,['SKU','sku','SkU'])||oc[3]||oc[1];
     var oBrand=fc2(oc,['แบรนด์','brand','ชื่อสินค้า'])||oc[4]||oc[2];
     var oSize=fc2(oc,['ขนาด','size'])||oc[5];
@@ -2100,12 +2114,12 @@ function runMatcher(){
       if(tList.length>1){
         tList.forEach(function(t){
           var carrier=detectCarrier(t.tracking);
-          rows.push({oid:oid,sku:sku,brand:brand,size:size,qty:1,consign:t.consign,tracking:t.tracking,carrier:carrier,isGift:isGift});
+          rows.push({oid:oid,sku:sku,brand:brand,size:size,qty:1,consign:t.consign,tracking:t.tracking,sup:t.sup||'',carrier:carrier,isGift:isGift});
         });
       } else {
         var t=tList[0];
         var carrier=detectCarrier(t.tracking);
-        rows.push({oid:oid,sku:sku,brand:brand,size:size,qty:qty,consign:t.consign,tracking:t.tracking,carrier:carrier,isGift:isGift});
+        rows.push({oid:oid,sku:sku,brand:brand,size:size,qty:qty,consign:t.consign,tracking:t.tracking,sup:t.sup||'',carrier:carrier,isGift:isGift});
       }
     });
   }else{
@@ -2171,7 +2185,7 @@ function applyMatcherToWMS(){
     if(existItem){
       existItem.qty+=r.qty;
     } else {
-      map[r.oid].items.push({sku:r.sku,name:r.brand,size:r.size,qty:r.qty,tracking:r.tracking,consign:r.consign,sup:(r.carrier&&r.carrier.short)||''});
+      map[r.oid].items.push({sku:r.sku,name:r.brand,size:r.size,qty:r.qty,tracking:r.tracking,consign:r.consign,sup:r.sup||(r.carrier&&r.carrier.short)||''});
     }
   });
   var added=0,updated=0;
@@ -2191,9 +2205,10 @@ function applyMatcherToWMS(){
     var m=map[oid];
     var existSt=ORDERS[oid]?ORDERS[oid].status:'';
     var keepSt=['pick','qc','ship','done'].indexOf(existSt)>=0;
+    var orderSup=m.items.length>0?m.items[0].sup:'';
     newOrders[oid]={
       id:oid,consign:m.consign,tracking:m.tracking,trackings:m.trackings,
-      items:m.items,status:keepSt?existSt:'new',
+      items:m.items,status:keepSt?existSt:'new',sup:orderSup,
       date:now,note:'',timeline:[{time:now,action:'นำเข้าจาก Tracking Matcher',user:'System'}]
     };
     if(ORDERS[oid]) updated++; else added++;
@@ -2479,8 +2494,7 @@ function doExportCSV(){
     if(o.tracking){var bt=allItems.filter(function(x){return x.tracking&&x.tracking===o.tracking;});if(bt.length>0)items=bt;}
     items.forEach(function(item){
       var trk=item.tracking||o.tracking||'';
-      var c=detectCarrier(trk);
-      var supVal=c.short&&c.short!=='OTHER'?c.short:(o.sup||(function(){var cm=(o.consign||'').match(/^([A-Za-zก-ฮ]+(?:\s+[A-Za-z]+)?)/);return cm?cm[1].trim():'';})());
+      var supVal=getOrderSUP(o)||'';
       rows.push([supVal,o.id,item.sku||'',item.name||'',item.qty||1,o.consign||'','="'+trk+'"',SL2[o.status]||o.status,oUsr,oDev,upd2]);
     });
   });
@@ -2493,6 +2507,101 @@ function doExportCSV(){
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   document.getElementById('export-modal').style.display='none';
   ulAlert('✅ Export '+( rows.length-1)+' รายการ','ok');
+}
+
+
+/* ===== CARRIER SUMMARY ===== */
+function getOrderSUP(o){
+  if(!o) return 'ไม่ระบุ';
+  // ใช้ sup จาก Excel col B ก่อน (แม่นที่สุด)
+  if(o.sup&&o.sup.trim()) return o.sup.trim();
+  // ดูจาก items
+  if(o.items&&o.items.length&&o.items[0].sup) return o.items[0].sup.trim();
+  // fallback: detectCarrier จาก tracking
+  var trk=o.tracking||'';
+  var c=detectCarrier(trk);
+  if(c.short&&c.short!=='OTHER') return c.short;
+  // fallback: consign prefix
+  var cm=(o.consign||'').match(/^([A-Za-zก-ฮ]+(?:\s+[A-Za-z]+)?)/);
+  if(cm&&cm[1]) return cm[1].trim();
+  if(!trk&&!o.consign) return 'รับที่คลัง';
+  return 'ไม่ระบุ';
+}
+
+function renderCarrierSummary(){
+  var el=document.getElementById('carrier-summary-table');
+  if(!el) return;
+  var orders=Object.values(ORDERS);
+  if(!orders.length){el.innerHTML='<div class="empty">ยังไม่มีข้อมูล</div>';return;}
+
+  // สร้าง map: carrier → {total, new, pick, qc, ship, done, cancel}
+  var map={};
+  orders.forEach(function(o){
+    var sup=getOrderSUP(o);
+    if(!map[sup]) map[sup]={sup:sup,total:0,new:0,pick:0,qc:0,ship:0,done:0,cancel:0};
+    map[sup].total++;
+    map[sup][o.status]=(map[sup][o.status]||0)+1;
+  });
+
+  var rows=Object.values(map).sort(function(a,b){return b.total-a.total;});
+  var totalAll=orders.length;
+  var qcAll=orders.filter(function(o){return['qc','ship','done'].indexOf(o.status)>=0;}).length;
+  var waitAll=orders.filter(function(o){return['new','pick'].indexOf(o.status)>=0;}).length;
+
+  var TH='style="padding:8px 10px;font-size:11px;font-weight:700;color:var(--text2);text-align:center;white-space:nowrap"';
+  var TD='style="padding:8px 10px;font-size:12px;text-align:center"';
+  var TDL='style="padding:8px 10px;font-size:12px;font-weight:700"';
+
+  var html='<table style="width:100%;border-collapse:collapse">';
+  html+='<thead><tr style="border-bottom:2px solid var(--border)">';
+  html+='<th '+TH+' style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;color:var(--text2)">ขนส่ง</th>';
+  html+='<th '+TH+'>ทั้งหมด</th>';
+  html+='<th '+TH+' style="color:#F59E0B">รอ QC</th>';
+  html+='<th '+TH+' style="color:#0D9488">QC แล้ว</th>';
+  html+='<th '+TH+' style="color:#6366F1">Ship</th>';
+  html+='<th '+TH+' style="color:#22C55E">Done</th>';
+  html+='<th '+TH+' style="color:#EF4444">Cancel</th>';
+  html+='<th '+TH+'">% QC</th>';
+  html+='</tr></thead><tbody>';
+
+  rows.forEach(function(r){
+    var waitQC=(r.new||0)+(r.pick||0);
+    var doneQC=(r.qc||0)+(r.ship||0)+(r.done||0);
+    var pct=r.total>0?Math.round(doneQC/r.total*100):0;
+    var barW=pct+'%';
+    html+='<tr style="border-bottom:1px solid var(--border)">';
+    html+='<td '+TDL+'>'+r.sup+'</td>';
+    html+='<td '+TD+'>'+r.total+'</td>';
+    html+='<td '+TD+' style="text-align:center;color:#F59E0B;font-weight:700">'+(waitQC||'—')+'</td>';
+    html+='<td '+TD+' style="text-align:center;color:#0D9488;font-weight:700">'+(r.qc||'—')+'</td>';
+    html+='<td '+TD+' style="text-align:center;color:#6366F1;font-weight:700">'+(r.ship||'—')+'</td>';
+    html+='<td '+TD+' style="text-align:center;color:#22C55E;font-weight:700">'+(r.done||'—')+'</td>';
+    html+='<td '+TD+' style="text-align:center;color:#EF4444;font-weight:700">'+(r.cancel||'—')+'</td>';
+    html+='<td style="padding:8px 10px;min-width:80px">';
+    html+='<div style="background:var(--bg3);border-radius:4px;height:6px;overflow:hidden">';
+    html+='<div style="background:#0D9488;height:100%;width:'+barW+';transition:.3s"></div></div>';
+    html+='<div style="font-size:10px;color:var(--text2);text-align:center;margin-top:2px">'+pct+'%</div>';
+    html+='</td></tr>';
+  });
+
+  // สรุปรวม
+  var waitAll2=orders.filter(function(o){return['new','pick'].indexOf(o.status)>=0;}).length;
+  var qcAll2=orders.filter(function(o){return o.status==='qc';}).length;
+  var shipAll=orders.filter(function(o){return o.status==='ship';}).length;
+  var doneAll=orders.filter(function(o){return o.status==='done';}).length;
+  var cancelAll=orders.filter(function(o){return o.status==='cancel';}).length;
+  var pctAll=totalAll>0?Math.round((qcAll2+shipAll+doneAll)/totalAll*100):0;
+  html+='<tr style="background:var(--bg3);font-weight:700;border-top:2px solid var(--border)">';
+  html+='<td style="padding:8px 10px;font-size:12px;font-weight:700">รวม</td>';
+  html+='<td '+TD+' style="text-align:center;font-weight:700">'+totalAll+'</td>';
+  html+='<td '+TD+' style="text-align:center;color:#F59E0B;font-weight:700">'+waitAll2+'</td>';
+  html+='<td '+TD+' style="text-align:center;color:#0D9488;font-weight:700">'+qcAll2+'</td>';
+  html+='<td '+TD+' style="text-align:center;color:#6366F1;font-weight:700">'+shipAll+'</td>';
+  html+='<td '+TD+' style="text-align:center;color:#22C55E;font-weight:700">'+doneAll+'</td>';
+  html+='<td '+TD+' style="text-align:center;color:#EF4444;font-weight:700">'+cancelAll+'</td>';
+  html+='<td style="padding:8px 10px"><div style="background:var(--bg3);border-radius:4px;height:6px;overflow:hidden"><div style="background:#0D9488;height:100%;width:'+pctAll+'%;transition:.3s"></div></div><div style="font-size:10px;color:var(--text2);text-align:center;margin-top:2px">'+pctAll+'%</div></td>';
+  html+='</tr></tbody></table>';
+  el.innerHTML=html;
 }
 
 init();
