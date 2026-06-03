@@ -2583,16 +2583,40 @@ function renderCarrierSummary(){
 
   var now=new Date();
   var allOrders=Object.values(ORDERS);
+
+  // parse วันที่หลาย format: "Wed, Jun 3", "3/6/2569", ISO string
+  function parseOrderDate(o){
+    if(o.updatedAt) return new Date(o.updatedAt);
+    var d=String(o.date||'').trim();
+    if(!d||d==='—') return null;
+    // ISO format
+    if(/^\d{4}-/.test(d)) return new Date(d);
+    // "Wed, Jun 03" or "Wed, Jun 3"
+    var m1=d.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
+    if(m1){
+      var months={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+      var mn=months[m1[1]]; if(mn===undefined) return null;
+      var yr=now.getFullYear();
+      return new Date(yr,mn,parseInt(m1[2]));
+    }
+    // "3/6/2569" Thai Buddhist year
+    var m2=d.match(/^(\d+)\/(\d+)\/(\d+)/);
+    if(m2){
+      var yr2=parseInt(m2[3]);
+      if(yr2>2400) yr2-=543; // แปลง พ.ศ. → ค.ศ.
+      return new Date(yr2,parseInt(m2[2])-1,parseInt(m2[1]));
+    }
+    return null;
+  }
+
   var orders=allOrders.filter(function(o){
     if(range==='all') return true;
-    var upd=o.updatedAt?new Date(o.updatedAt):null;
-    var dt=o.date?new Date(o.date):null;
-    var ref=upd||dt;
-    if(!ref) return range==='all';
+    var ref=parseOrderDate(o);
+    if(!ref||isNaN(ref.getTime())) return false;
     if(range==='today'){
       return ref.toDateString()===now.toDateString();
     } else if(range==='week'){
-      var w=new Date(now); w.setDate(w.getDate()-7);
+      var w=new Date(now); w.setDate(w.getDate()-7); w.setHours(0,0,0,0);
       return ref>=w;
     } else if(range==='month'){
       return ref.getMonth()===now.getMonth()&&ref.getFullYear()===now.getFullYear();
