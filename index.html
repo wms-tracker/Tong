@@ -2638,10 +2638,14 @@ function doExportCSV(){
   var timeTo=document.getElementById('ex-time-to')?document.getElementById('ex-time-to').value:'23:59';
   var now=new Date();
   var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
-  var rows=[['วันที่','ขนส่ง','Order ID','SKU','แบรนด์','ขนาด','จำนวน','สถานะ','พนักงาน','เวลา']];
+
+  // header ตามที่ต้องการ
+  var rows=[['วันที่','ขนส่ง','Order ID','SKU','แบรนด์','ขนาด','Qty','Consign','Tracking','สถานะ','พนักงาน']];
+
   Object.values(ORDERS).forEach(function(o){
     if(o.status==='new'||o.status==='pick') return;
     if(stFilter!=='all'&&o.status!==stFilter) return;
+
     // date filter
     if(o.updatedAt){
       var upd=new Date(o.updatedAt);
@@ -2653,27 +2657,49 @@ function doExportCSV(){
         if(dateTo&&upd>new Date(dateTo+'T'+timeTo+':59'))return;
       }
     }
-    var oUsr=o.user||'—';
-    var oDev=o.device||'—';
-    var upd2=o.updatedAt?new Date(o.updatedAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):(o.date||'');
-    var allItems=o.items&&o.items.length?o.items:[{sku:'',name:'',qty:1,tracking:'',sup:''}];
+
+    var oUsr=o.user||'';
+    var sup=getOrderSUP(o)||'';
+    var dateDisp=o.date||'';
+
+    // items
+    var allItems=o.items&&o.items.length?o.items:[{sku:'',name:'',size:'',qty:1,tracking:''}];
+    // filter เฉพาะ tracking ที่ตรงถ้ามี
     var items=allItems;
-    if(o.tracking){var bt=allItems.filter(function(x){return x.tracking&&x.tracking===o.tracking;});if(bt.length>0)items=bt;}
+    if(o.tracking){
+      var bt=allItems.filter(function(x){return x.tracking&&x.tracking===o.tracking;});
+      if(bt.length>0) items=bt;
+    }
+
     items.forEach(function(item){
       var trk=item.tracking||o.tracking||'';
-      var supVal=getOrderSUP(o)||'';
-      rows.push([o.date||'',supVal,o.id,item.sku||'',item.name||'',item.size||'',item.qty||1,SL2[o.status]||o.status,oUsr,upd2]);
+      rows.push([
+        dateDisp,
+        sup,
+        o.id,
+        item.sku||'',
+        item.name||'',
+        item.size||'',
+        item.qty||1,
+        o.consign||'',
+        trk,
+        SL2[o.status]||o.status,
+        oUsr
+      ]);
     });
   });
-  var lines=rows.map(function(r){return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');});
-  var csv=lines.join('\r\n');
-  var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
+
+  if(rows.length<=1){alert('ไม่มีข้อมูล');return;}
+  var csv=rows.map(function(r){
+    return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');
+  }).join('\r\n');
+  var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
   var a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download='wms_report_'+now.toISOString().slice(0,10)+'.csv';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   document.getElementById('export-modal').style.display='none';
-  ulAlert('✅ Export '+( rows.length-1)+' รายการ','ok');
+  ulAlert('✅ Export '+(rows.length-1)+' รายการแล้ว','ok');
 }
 
 
