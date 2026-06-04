@@ -418,7 +418,8 @@ function pdaBatch(keys,offset,size,done){
           ORDERS[oid]={id:oid,consign:o.consign||'',tracking:o.tracking||'',
             trackings:o.trackings||[],items:o.items||[],
             status:keep?ex:(o.status||'new'),
-            date:o.date||'',batchId:o.batchId||''};
+            sup:o.sup||'',date:o.date||'',batchId:o.batchId||'',
+            updatedAt:o.updatedAt||'',editedAt:o.editedAt||''};
           done++;
         }
       }catch(e){}
@@ -882,10 +883,25 @@ function saveDraft(){
 }
 function restoreDraftSC(oid){
   var d=DRAFTS[oid];if(!d||!d.sc)return;
+  var o=ORDERS[oid];
+  // ถ้า order ถูกแก้ไขหลัง draft → ใช้ items จาก order แทน draft
+  if(o&&o.editedAt&&d.ts&&new Date(o.editedAt).getTime()>d.ts){
+    // order ใหม่กว่า draft → ใช้ items จาก order
+    if(d.trk) CUR_TRK=d.trk;
+    var allIt=o.items||[];
+    if(CUR_TRK&&allIt.some(function(it){return it.tracking===CUR_TRK;})){
+      CUR_ITEMS=allIt.filter(function(it){return it.tracking===CUR_TRK;});
+    } else {
+      CUR_ITEMS=allIt;
+    }
+    // reset SC เพราะ items เปลี่ยน
+    Object.keys(SC).forEach(function(k){if(k.indexOf(oid)>=0) delete SC[k];});
+    showAl('⚠️ Order ถูกแก้ไข — รีเซ็ต scan ใหม่','warn');
+    return;
+  }
   Object.keys(d.sc).forEach(function(k){SC[k]=d.sc[k];});
   if(d.trk) CUR_TRK=d.trk;
   if(d.items&&d.items.length){
-    // filter items ตาม tracking ที่สแกน
     if(CUR_TRK&&d.items.some(function(it){return it.tracking===CUR_TRK;})){
       CUR_ITEMS=d.items.filter(function(it){return it.tracking===CUR_TRK;});
     } else {

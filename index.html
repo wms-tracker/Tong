@@ -2423,10 +2423,21 @@ function saveEditOrder(){
   var _sup=document.getElementById('edit-sup'); if(_sup) o.sup=_sup.value.trim();
   var _sd=document.getElementById('edit-shipdate'); if(_sd) o.shipDate=_sd.value;
   o.updatedAt=new Date().toISOString();
+  o.editedAt=new Date().toISOString();
+  o.editedBy=localStorage.getItem('WMS_USR')||'PC';
   saveLocal();refreshAll();
-  // Push full order to Firebase
-  if(FB_URL) fbPut('/orders/'+encodeId(_editOid),o);
-  ulAlert('✅ บันทึก '+_editOid+' แล้ว','ok');
+  if(FB_URL){
+    // Push full order พร้อม items ที่แก้ไขแล้ว
+    fbPut('/orders/'+encodeId(_editOid),o);
+    // ลบ draft เก่าทิ้ง เพื่อให้ PDA โหลด items ใหม่
+    fbPut('/drafts/'+encodeId(_editOid),null);
+  }
+  // ล้าง SC (scan counts) ของ order นี้ในกรณีที่ items เปลี่ยน
+  Object.keys(SC).forEach(function(k){
+    if(k.startsWith(_editOid+'|')||k.startsWith(_editOid+':')) delete SC[k];
+  });
+  saveLocal();
+  ulAlert('✅ บันทึก '+_editOid+' แล้ว — PDA จะโหลด items ใหม่อัตโนมัติ','ok');
   closeEditModal();
 }
 
