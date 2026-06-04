@@ -2664,21 +2664,42 @@ function doExportCSV(){
 /* ===== CARRIER SUMMARY ===== */
 function getOrderSUP(o){
   if(!o) return '—';
-  // 1. sup ที่ order level (จาก col B Excel)
+  // 1. sup field ที่บันทึกจาก Excel col B (ชื่อเต็ม)
   var s=(o.sup||'').trim();
-  if(s&&s!=='-'&&s!=='undefined'&&s!=='null'&&s!=='OTHER') return s;
-  // 2. sup จาก items — ต้องเป็นชื่อขนส่งเต็ม ไม่ใช่ SKU prefix (FRE/LNO/ZCP/LEG)
+  if(s&&s!=='-'&&s!=='undefined'&&s!=='null'&&s!=='OTHER'
+     &&!/^[A-Z]{2,5}\d+/.test(s)&&!/^[A-Z]{2,5}$/.test(s)){
+    return s;
+  }
+  // 2. sup จาก items — กรอง SKU prefix ออก
   var its=o.items||[];
   for(var ii=0;ii<its.length;ii++){
     var is=(its[ii].sup||'').trim();
-    // กรอง: ถ้าเป็น SKU prefix (2-4 ตัวอักษรตามด้วยตัวเลข) → ข้าม
-    if(is&&is!=='-'&&is!=='OTHER'&&!/^[A-Z]{2,4}\d+/.test(is)&&!/^[A-Z]{2,5}$/.test(is)) return is;
+    if(is&&is!=='-'&&is!=='OTHER'
+       &&!/^[A-Z]{2,5}\d+/.test(is)&&!/^[A-Z]{2,5}$/.test(is)){
+      return is;
+    }
   }
-  // 3. tracking → detectCarrier
+  // 3. ดูจาก consign ก่อน tracking (consign บอกชื่อเต็มกว่า)
+  var con=(o.consign||'').trim();
+  if(con){
+    if(/^best/i.test(con)) return 'Best Express Bulky';
+    if(/^flash/i.test(con)) return 'Flash Express';
+    if(/^kerry|^kex/i.test(con)) return 'Kerry Express';
+    if(/^nim/i.test(con)) return 'Nim Express';
+    if(/^spx/i.test(con)) return 'Shopee Express';
+  }
+  // 4. detectCarrier จาก tracking number
   var trk=(o.tracking||'').trim();
   if(trk){
     var c=detectCarrier(trk);
+    if(c.short==='BEST') return 'Best Express Bulky';
     if(c.name&&c.short!=='OTHER') return c.name;
+  }
+  // 5. ถ้าไม่มี tracking และไม่มี consign = Lunio (รับที่คลัง)
+  // แต่ต้องมี items ที่เป็น LNO/FRE prefix → Lunio
+  for(var jj=0;jj<its.length;jj++){
+    var sk=(its[jj].sku||'').trim();
+    if(/^(LNO|FRE|LEG|ZCP)/i.test(sk)&&!trk&&!con) return 'Lunio';
   }
   return '—';
 }
