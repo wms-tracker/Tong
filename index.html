@@ -1763,48 +1763,48 @@ function renderReport(){
 }
 
 function exportReportCSV(){
-  let range=document.getElementById('rpt-range')?document.getElementById('rpt-range').value:'all';
-  let stFilter=document.getElementById('rpt-status')?document.getElementById('rpt-status').value:'all';
-  let srchFilter=(document.getElementById('rpt-search')?document.getElementById('rpt-search').value:'').toLowerCase().trim();
-  let dateFrom=document.getElementById('rpt-date-from')?document.getElementById('rpt-date-from').value:'';
-  let dateTo=document.getElementById('rpt-date-to')?document.getElementById('rpt-date-to').value:'';
-  let timeFrom=document.getElementById('rpt-time-from')?document.getElementById('rpt-time-from').value:'00:00';
-  let timeTo=document.getElementById('rpt-time-to')?document.getElementById('rpt-time-to').value:'23:59';
-  let orders=Object.values(ORDERS).filter(function(o){return o.status!=='new';});
-  if(range==='today'){
-    let todayStr=new Date().toLocaleDateString('th-TH');
-    orders=orders.filter(function(o){return o.updatedAt&&new Date(o.updatedAt).toLocaleDateString('th-TH')===todayStr;});
-  }else if(range==='week'){
-    let wk=new Date();wk.setDate(wk.getDate()-7);
-    orders=orders.filter(function(o){return o.updatedAt&&new Date(o.updatedAt)>=wk;});
-  }
-  let SL2={qc:'QC ผ่าน',pack:'Pack',done:'ส่งแล้ว',cancel:'Cancel',new:'รับแล้ว'};
-  var lines=['SUP,Order ID,SKU,แบรนด์,Qty,Consign,Tracking,สถานะ,พนักงาน,อุปกรณ์,เวลา'];
-  var SL2e={qc:'QC ผ่าน',pack:'Pack',done:'ส่งแล้ว',cancel:'Cancel',new:'รับแล้ว'};
-  orders.forEach(function(o){
-    var upd=o.updatedAt?new Date(o.updatedAt).toLocaleString('th-TH'):'';
-    var st=SL2e[o.status]||o.status;
-    var usr=o.user||localStorage.getItem('WMS_USR')||'';
-    var dev=o.device||localStorage.getItem('WMS_DEV')||'';
-    var items=o.items&&o.items.length?o.items:[{sku:'',name:'',size:'',qty:1}];
-    items.forEach(function(item){
-      var sup=(item.sku||'').replace(/^([A-Z]{2,4})\d+$/,'$1')||'';
-      lines.push([sup,o.id,item.sku||'',item.name||'',item.qty,
-        o.consign||'',o.tracking||'',st,usr,dev,upd].join(','));
-    });
-  });
-  var csv=lines.join('\n');
-  var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement('a');
-  a.href=url;a.download='wms_report_'+new Date().toISOString().slice(0,10)+'.csv';
-  document.body.appendChild(a);a.click();document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  // เรียก confirmExportCSV แทน เพื่อให้ user เลือก filter ก่อน
+  confirmExportCSV();
 }
 
 /* ===== FIREBASE ===== */
 function encodeId(id){return id.replace(/\./g,'_').replace(/\//g,'-').replace(/\[/g,'(').replace(/\]/g,')');}
 function decodeId(id){return id.replace(/_/g,'.');}
+
+function startFBStream(){
+  if(!FB_URL||_fbStream)return;
+  try{
+    _fbStream=new EventSource(FB_URL+'/statuses.json');
+    _fbStream.onmessage=function(e){
+      if(!e.data||e.data==='null')return;
+      try{
+        var msg=JSON.parse(e.data);
+        var data=msg&&msg.data?msg.data:msg;
+        if(!data)return;
+        var changed=false;
+        var rank={new:0,pick:1,qc:2,ship:3,pack:3,done:4,cancel:5};
+        Object.keys(data).forEach(function(rawOid){
+          var oid=decodeId(rawOid);
+          var entry=data[rawOid];
+          var st=typeof entry==='string'?entry:(entry&&entry.status?entry.status:'');
+          if(st&&ORDERS[oid]&&(rank[st]||0)>=(rank[ORDERS[oid].status]||0)&&ORDERS[oid].status!==st){
+            ORDERS[oid].status=st;changed=true;
+            if(entry&&entry.user) ORDERS[oid].user=entry.user;
+            if(entry&&entry.device) ORDERS[oid].device=entry.device;
+            if(entry&&entry.updatedAt) ORDERS[oid].updatedAt=entry.updatedAt;
+            if(entry&&entry.editedAt&&(!ORDERS[oid].editedAt||entry.editedAt>ORDERS[oid].editedAt)){
+              (function(o){fbGet('/orders/'+encodeId(o),function(err,d){
+                if(!err&&d&&d.items){ORDERS[o]=Object.assign({},ORDERS[o],{items:d.items,editedAt:d.editedAt||''});saveLocal();refreshAll();}
+              });})(oid);
+            }
+          }
+        });
+        if(changed){saveLocal();refreshAll();}
+      }catch(ex){}
+    };
+    _fbStream.onerror=function(){_fbStream=null;};
+  }catch(ex){}
+}
 
 function fbGet(path,cb){
   if(!FB_URL)return;
