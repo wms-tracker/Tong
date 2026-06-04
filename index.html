@@ -1424,37 +1424,7 @@ function doNextStatus(){
 
 /* ======= EXPORT ======= */
 function exportCSV(){
-  var now=new Date();
-  var dev=localStorage.getItem('WMS_DEV')||'-';
-  var usr=localStorage.getItem('WMS_USR')||'-';
-  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
-  var rows=[['วันที่','ขนส่ง','Order ID','SKU','แบรนด์','ขนาด','จำนวน','สถานะ','พนักงาน','เวลา']];
-  Object.values(ORDERS).forEach(function(o){
-    if(o.status==='new'||o.status==='pick')return;
-    var oUsr=o.user||usr;
-    var oDev=o.device||dev;
-    var upd=o.updatedAt?new Date(o.updatedAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):(o.date||'');
-    var allItems=o.items&&o.items.length?o.items:[{sku:'',name:'',qty:1,tracking:'',sup:''}];
-    var items=allItems;
-    if(o.tracking){
-      var byTrk=allItems.filter(function(it){return it.tracking&&it.tracking===o.tracking;});
-      if(byTrk.length>0) items=byTrk;
-    }
-    items.forEach(function(item){
-      var trk=item.tracking||o.tracking||'';
-      var supVal=getOrderSUP(o)||'';
-      rows.push([o.date||'',getOrderSUP(o)||'',o.id,item.sku||'',item.name||'',item.qty||1,o.consign||'','="'+trk+'"',SL2[o.status]||o.status,oUsr,oDev,upd]);
-    });
-  });
-  var lines=rows.map(function(r){
-    return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');
-  });
-  var csv=lines.join('\r\n');
-  var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='wms_report_'+now.toISOString().slice(0,10)+'.csv';
-  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  confirmExportCSV();
 }
 
 /* ======= SETTINGS ======= */
@@ -2639,8 +2609,8 @@ function doExportCSV(){
   var now=new Date();
   var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
 
-  // header ตามที่ต้องการ
-  var rows=[['วันที่','ขนส่ง','Order ID','SKU','แบรนด์','ขนาด','Qty','Consign','Tracking','สถานะ','พนักงาน']];
+  // columns ตามที่ต้องการ
+  var rows=[['วันที่','ขนส่ง','Order ID','SKU','แบรนด์','จำนวน','Consign','Tracking']];
 
   Object.values(ORDERS).forEach(function(o){
     if(o.status==='new'||o.status==='pick') return;
@@ -2649,7 +2619,7 @@ function doExportCSV(){
     // date filter
     if(o.updatedAt){
       var upd=new Date(o.updatedAt);
-      if(range==='today'){var t=new Date();if(upd.toDateString()!==t.toDateString())return;}
+      if(range==='today'){var td=new Date();if(upd.toDateString()!==td.toDateString())return;}
       else if(range==='week'){var w=new Date();w.setDate(w.getDate()-7);if(upd<w)return;}
       else if(range==='month'){var nm=new Date();if(upd.getMonth()!==nm.getMonth()||upd.getFullYear()!==nm.getFullYear())return;}
       else if(range==='custom'&&(dateFrom||dateTo)){
@@ -2658,33 +2628,21 @@ function doExportCSV(){
       }
     }
 
-    var oUsr=o.user||'';
     var sup=getOrderSUP(o)||'';
     var dateDisp=o.date||'';
-
-    // items
     var allItems=o.items&&o.items.length?o.items:[{sku:'',name:'',size:'',qty:1,tracking:''}];
-    // filter เฉพาะ tracking ที่ตรงถ้ามี
-    var items=allItems;
-    if(o.tracking){
-      var bt=allItems.filter(function(x){return x.tracking&&x.tracking===o.tracking;});
-      if(bt.length>0) items=bt;
-    }
-
-    items.forEach(function(item){
+    // แสดงทุก items (ไม่ filter tracking เพื่อให้ครบทุกรายการ)
+    allItems.forEach(function(item){
       var trk=item.tracking||o.tracking||'';
       rows.push([
-        dateDisp,
-        sup,
-        o.id,
-        item.sku||'',
-        item.name||'',
-        item.size||'',
-        item.qty||1,
-        o.consign||'',
-        trk,
-        SL2[o.status]||o.status,
-        oUsr
+        dateDisp,           // วันที่
+        sup,                // ขนส่ง
+        o.id,               // Order ID
+        item.sku||'',       // SKU
+        item.name||'',      // แบรนด์
+        item.qty||1,        // จำนวน
+        o.consign||'',      // Consign
+        trk                 // Tracking
       ]);
     });
   });
