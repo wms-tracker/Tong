@@ -1428,7 +1428,7 @@ function exportCSV(){
   var dev=localStorage.getItem('WMS_DEV')||'-';
   var usr=localStorage.getItem('WMS_USR')||'-';
   var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
-  var rows=[['วันที่','ขนส่ง','Order ID','SKU','แบรนด์','Qty','Consign','Tracking','สถานะ','พนักงาน','อุปกรณ์','เวลา']];
+  var rows=[['วันที่','ขนส่ง','Order ID','SKU','แบรนด์','ขนาด','จำนวน','สถานะ','พนักงาน','เวลา']];
   Object.values(ORDERS).forEach(function(o){
     if(o.status==='new'||o.status==='pick')return;
     var oUsr=o.user||usr;
@@ -1777,18 +1777,15 @@ function renderReport(){
       var trkDisplay=item.tracking||o.tracking||'—';
       var dateVal=o.date||'—';
       rows.push('<tr style="border-bottom:1px solid var(--border)">'
-        +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+dateVal+'</td>'
+        +'<td style="padding:6px;font-size:11px;color:var(--text2);white-space:nowrap">'+dateVal+'</td>'
         +'<td style="padding:6px;font-weight:700;font-size:12px;color:var(--primary)">'+supVal+'</td>'
-        +'<td style="padding:6px;font-weight:700;font-family:monospace;font-size:12px">'+o.id+'</td>'
-        +'<td style="padding:6px;font-family:monospace;font-size:11px;color:var(--primary)">'+(item.sku||'—')+'</td>'
-        +'<td style="padding:6px;font-size:12px">'+(item.name||'—').substring(0,30)+'</td>'
-        +'<td style="padding:6px;text-align:center;font-weight:700">'+item.qty+'</td>'
-        +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+(o.consign||'—')+'</td>'
-        +'<td style="padding:6px;font-family:monospace;font-size:11px;word-break:break-all">'+trkDisplay+'</td>'
+        +'<td style="padding:6px;font-weight:700;font-family:monospace;font-size:11px">'+o.id+'</td>'
+        +'<td style="padding:6px;font-family:monospace;font-size:11px;color:#0D9488">'+(item.sku||'—')+'</td>'
+        +'<td style="padding:6px;font-size:12px">'+(item.name||'—')+'</td>'
+        +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+(item.size||'—')+'</td>'
+        +'<td style="padding:6px;text-align:center;font-weight:800;font-size:14px;color:var(--primary)">'+item.qty+'</td>'
         +'<td style="padding:6px;text-align:center">'+st+'</td>'
         +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+usr+'</td>'
-        +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+dev+'</td>'
-        +'<td style="padding:6px;text-align:right;font-size:11px;color:var(--text3)">'+upd+'</td>'
         +'</tr>');
     });
   });
@@ -2641,7 +2638,7 @@ function doExportCSV(){
   var timeTo=document.getElementById('ex-time-to')?document.getElementById('ex-time-to').value:'23:59';
   var now=new Date();
   var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
-  var rows=[['วันที่','ขนส่ง','Order ID','SKU','แบรนด์','Qty','Consign','Tracking','สถานะ','พนักงาน','อุปกรณ์','เวลา']];
+  var rows=[['วันที่','ขนส่ง','Order ID','SKU','แบรนด์','ขนาด','จำนวน','สถานะ','พนักงาน','เวลา']];
   Object.values(ORDERS).forEach(function(o){
     if(o.status==='new'||o.status==='pick') return;
     if(stFilter!=='all'&&o.status!==stFilter) return;
@@ -2665,7 +2662,7 @@ function doExportCSV(){
     items.forEach(function(item){
       var trk=item.tracking||o.tracking||'';
       var supVal=getOrderSUP(o)||'';
-      rows.push([o.date||'',supVal,o.id,item.sku||'',item.name||'',item.qty||1,o.consign||'','="'+trk+'"',SL2[o.status]||o.status,oUsr,oDev,upd2]);
+      rows.push([o.date||'',supVal,o.id,item.sku||'',item.name||'',item.size||'',item.qty||1,SL2[o.status]||o.status,oUsr,upd2]);
     });
   });
   var lines=rows.map(function(r){return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');});
@@ -2683,16 +2680,22 @@ function doExportCSV(){
 /* ===== CARRIER SUMMARY ===== */
 function getOrderSUP(o){
   if(!o) return '—';
-  // 1. ใช้ชื่อจาก col B โดยตรง (ชื่อเต็มตาม Excel เช่น "Best Express Bulky", "Lunio")
+  // 1. sup ที่ order level (จาก col B Excel)
   var s=(o.sup||'').trim();
   if(s&&s!=='-'&&s!=='undefined'&&s!=='null'&&s!=='OTHER') return s;
-  // 2. ดูจาก items
+  // 2. sup จาก items — ต้องเป็นชื่อขนส่งเต็ม ไม่ใช่ SKU prefix (FRE/LNO/ZCP/LEG)
   var its=o.items||[];
   for(var ii=0;ii<its.length;ii++){
     var is=(its[ii].sup||'').trim();
-    if(is&&is!=='-'&&is!=='OTHER') return is;
+    // กรอง: ถ้าเป็น SKU prefix (2-4 ตัวอักษรตามด้วยตัวเลข) → ข้าม
+    if(is&&is!=='-'&&is!=='OTHER'&&!/^[A-Z]{2,4}\d+/.test(is)&&!/^[A-Z]{2,5}$/.test(is)) return is;
   }
-  // 3. ไม่มีข้อมูล
+  // 3. tracking → detectCarrier
+  var trk=(o.tracking||'').trim();
+  if(trk){
+    var c=detectCarrier(trk);
+    if(c.name&&c.short!=='OTHER') return c.name;
+  }
   return '—';
 }
 
