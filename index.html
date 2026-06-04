@@ -1519,6 +1519,12 @@ function doManualRefresh(btn){
         if(entry&&entry.user) ORDERS[oid].user=entry.user;
         if(entry&&entry.device) ORDERS[oid].device=entry.device;
         if(entry&&entry.updatedAt) ORDERS[oid].updatedAt=entry.updatedAt;
+        // ถ้า editedAt ใหม่กว่า → reload items จาก Firebase อัตโนมัติ
+        if(entry&&entry.editedAt&&(!ORDERS[oid].editedAt||entry.editedAt>ORDERS[oid].editedAt)){
+          (function(o){fbGet('/orders/'+encodeId(o),function(err,d){
+            if(!err&&d&&d.items){ORDERS[o]=Object.assign({},ORDERS[o],{items:d.items,editedAt:d.editedAt||''});saveLocal();refreshAll();}
+          });})(oid);
+        }
       }
     });
     if(changed){saveLocal();refreshAll();}
@@ -2427,8 +2433,22 @@ function saveEditOrder(){
   o.editedBy=localStorage.getItem('WMS_USR')||'PC';
   saveLocal();refreshAll();
   if(FB_URL){
+    var _savedOid=_editOid;
     // Push full order พร้อม items ที่แก้ไขแล้ว
-    fbPut('/orders/'+encodeId(_editOid),o);
+    var xhrSave=new XMLHttpRequest();
+    xhrSave.open('PUT',FB_URL+'/orders/'+encodeId(_savedOid)+'.json');
+    xhrSave.setRequestHeader('Content-Type','application/json');
+    xhrSave.onload=function(){
+      // reload order จาก Firebase กลับมา PC
+      fbGet('/orders/'+encodeId(_savedOid),function(err,data){
+        if(!err&&data&&data.id){
+          ORDERS[_savedOid]=data;
+          saveLocal();refreshAll();
+          ulAlert('✅ sync '+_savedOid+' จาก Firebase แล้ว','ok');
+        }
+      });
+    };
+    xhrSave.send(JSON.stringify(o));
     // ลบ draft เก่าทิ้ง เพื่อให้ PDA โหลด items ใหม่
     fbPut('/drafts/'+encodeId(_editOid),null);
   }
@@ -2522,6 +2542,12 @@ function syncStatusesNow(){
         if(entry&&entry.user) ORDERS[oid].user=entry.user;
         if(entry&&entry.device) ORDERS[oid].device=entry.device;
         if(entry&&entry.updatedAt) ORDERS[oid].updatedAt=entry.updatedAt;
+        // ถ้า editedAt ใหม่กว่า → reload items จาก Firebase อัตโนมัติ
+        if(entry&&entry.editedAt&&(!ORDERS[oid].editedAt||entry.editedAt>ORDERS[oid].editedAt)){
+          (function(o){fbGet('/orders/'+encodeId(o),function(err,d){
+            if(!err&&d&&d.items){ORDERS[o]=Object.assign({},ORDERS[o],{items:d.items,editedAt:d.editedAt||''});saveLocal();refreshAll();}
+          });})(oid);
+        }
       }
     });
     if(changed){saveLocal();refreshAll();}
@@ -2746,14 +2772,21 @@ function renderCarrierSummary(){
     var doneQC=(r.qc||0)+(r.ship||0)+(r.done||0);
     var pct=r.total>0?Math.round(doneQC/r.total*100):0;
     var barW=pct+'%';
+    var sup=r.sup;
+    var btn=function(val,st,color){
+      if(!val) return '<td '+TD+' style="text-align:center;color:var(--text3)">—</td>';
+      var onclick='showCSDrill('+JSON.stringify(sup)+','+JSON.stringify(st)+')';
+      return '<td '+TD+' style="text-align:center;color:'+color+';font-weight:700;cursor:pointer;text-decoration:underline;text-decoration-style:dotted" onclick="'+onclick+'">'+val+'</td>';
+    };
     html+='<tr style="border-bottom:1px solid var(--border)">';
-    html+='<td '+TDL+'>'+r.sup+'</td>';
-    html+='<td '+TD+'>'+r.total+'</td>';
-    html+='<td '+TD+' style="text-align:center;color:#F59E0B;font-weight:700">'+(waitQC||'—')+'</td>';
-    html+='<td '+TD+' style="text-align:center;color:#0D9488;font-weight:700">'+(r.qc||'—')+'</td>';
-    html+='<td '+TD+' style="text-align:center;color:#6366F1;font-weight:700">'+(r.ship||'—')+'</td>';
-    html+='<td '+TD+' style="text-align:center;color:#22C55E;font-weight:700">'+(r.done||'—')+'</td>';
-    html+='<td '+TD+' style="text-align:center;color:#EF4444;font-weight:700">'+(r.cancel||'—')+'</td>';
+    var ocAll='showCSDrill('+JSON.stringify(sup)+','+JSON.stringify('all')+')';
+    html+='<td '+TDL+' style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted" onclick="'+ocAll+'">'+r.sup+'</td>';
+    html+='<td '+TD+' style="font-weight:700;cursor:pointer;text-decoration:underline;text-decoration-style:dotted" onclick="'+ocAll+'">'+r.total+'</td>';
+    html+=btn(waitQC,'wait','#F59E0B');
+    html+=btn(r.qc,'qc','#0D9488');
+    html+=btn(r.ship,'ship','#6366F1');
+    html+=btn(r.done,'done','#22C55E');
+    html+=btn(r.cancel,'cancel','#EF4444');
     html+='<td style="padding:8px 10px;min-width:80px">';
     html+='<div style="background:var(--bg3);border-radius:4px;height:6px;overflow:hidden">';
     html+='<div style="background:#0D9488;height:100%;width:'+barW+';transition:.3s"></div></div>';
@@ -2941,6 +2974,96 @@ function initHistoryPage(){
   loadHistory();
 }
 
+
+/* ===== CARRIER DRILL-DOWN ===== */
+var _csDrillData=[];
+
+function showCSDrill(sup,statusFilter){
+  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel',wait:'รอ QC',all:'ทั้งหมด'};
+  var SB2={new:'b-new',pick:'b-pick',qc:'b-qc',ship:'b-ship',done:'b-done',cancel:'b-cancel'};
+
+  // filter orders
+  var all=Object.values(ORDERS).filter(function(o){ return getOrderSUP(o)===sup; });
+  var filtered=all.filter(function(o){
+    if(statusFilter==='all') return true;
+    if(statusFilter==='wait') return o.status==='new'||o.status==='pick';
+    return o.status===statusFilter;
+  });
+
+  _csDrillData=filtered;
+  document.getElementById('cs-modal-title').textContent=sup+' — '+(SL2[statusFilter]||statusFilter);
+  document.getElementById('cs-modal-sub').textContent=filtered.length+' orders | '+
+    filtered.reduce(function(a,o){return a+(o.items||[]).reduce(function(b,i){return b+(i.qty||1);},0);},0)+' ชิ้นรวม';
+
+  // summary badges
+  var statMap={};
+  filtered.forEach(function(o){ statMap[o.status]=(statMap[o.status]||0)+1; });
+  var badgeColors={new:'#3B82F6',pick:'#8B5CF6',qc:'#0D9488',ship:'#6366F1',done:'#22C55E',cancel:'#EF4444'};
+  document.getElementById('cs-modal-summary').innerHTML=Object.keys(statMap).map(function(s){
+    return '<span style="padding:4px 10px;background:'+(badgeColors[s]||'#94A3B8')+';color:#fff;border-radius:20px;font-size:12px;font-weight:700">'+
+      (SL2[s]||s)+': '+statMap[s]+'</span>';
+  }).join('');
+
+  // table rows
+  filtered.sort(function(a,b){return (b.updatedAt||b.date||'').localeCompare(a.updatedAt||a.date||'');});
+  document.getElementById('cs-modal-tbody').innerHTML=filtered.map(function(o){
+    var items=o.items||[];
+    var qtyTotal=items.reduce(function(a,i){return a+(i.qty||1);},0);
+    var trk=(o.tracking||'—').substring(0,16);
+    var upd=o.updatedAt?new Date(o.updatedAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):(o.date||'—');
+    // expand items เป็น tooltip
+    var itemList=items.map(function(it){return (it.sku||'')+(it.name?' '+it.name:'')+(it.size?' ('+it.size+')':'')+'×'+(it.qty||1);}).join('\n');
+    var ocToggle='toggleDrillItems(this,'+JSON.stringify(o.id)+')';
+    return '<tr style="border-bottom:1px solid var(--border);cursor:pointer" title="'+itemList+'" onclick="'+ocToggle+'">'+
+      '<td style="padding:8px 6px;font-weight:700;font-family:monospace;font-size:12px;cursor:pointer;color:var(--primary)">'+o.id+'</td>'+
+      '<td style="padding:8px 6px;font-size:11px;color:var(--text2);white-space:nowrap">'+( o.date||'—')+'</td>'+
+      '<td style="padding:8px 6px;font-size:11px;color:var(--text2)">'+( o.consign||'—')+'</td>'+
+      '<td style="padding:8px 6px;font-family:monospace;font-size:11px">'+trk+'</td>'+
+      '<td style="padding:8px 6px;text-align:center;font-size:12px">'+items.length+'</td>'+
+      '<td style="padding:8px 6px;text-align:center;font-weight:700">'+qtyTotal+'</td>'+
+      '<td style="padding:8px 6px;text-align:center"><span class="badge '+(SB2[o.status]||'b-new')+'">'+( SL2[o.status]||o.status)+'</span></td>'+
+      '</tr>'+
+      '<tr id="drill-items-'+o.id+'" style="display:none;background:var(--bg3)">'+
+      '<td colspan="7" style="padding:8px 16px">'+
+      '<table style="width:100%;font-size:11px;border-collapse:collapse">'+
+      '<tr style="color:var(--text2);font-weight:700"><td style="padding:4px">SKU</td><td style="padding:4px">สินค้า</td><td style="padding:4px">ขนาด</td><td style="padding:4px;text-align:center">Qty</td><td style="padding:4px;font-family:monospace">Tracking</td></tr>'+
+      items.map(function(it){
+        return '<tr style="border-top:1px solid var(--border)">'+
+          '<td style="padding:4px;font-family:monospace;color:var(--primary)">'+(it.sku||'—')+'</td>'+
+          '<td style="padding:4px">'+(it.name||'—')+'</td>'+
+          '<td style="padding:4px;color:var(--text2)">'+(it.size||'—')+'</td>'+
+          '<td style="padding:4px;text-align:center;font-weight:700">'+(it.qty||1)+'</td>'+
+          '<td style="padding:4px;font-family:monospace;font-size:10px">'+(it.tracking||o.tracking||'—')+'</td>'+
+          '</tr>';
+      }).join('')+
+      '</table></td></tr>';
+  }).join('');
+
+  document.getElementById('cs-modal').style.display='flex';
+}
+
+function toggleDrillItems(row,oid){
+  var detail=document.getElementById('drill-items-'+oid);
+  if(detail) detail.style.display=detail.style.display==='none'?'table-row':'none';
+}
+
+function exportCSDrillCSV(){
+  if(!_csDrillData.length){alert('ไม่มีข้อมูล');return;}
+  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
+  var rows=[['ขนส่ง','Order ID','วันที่','SKU','สินค้า','ขนาด','Qty','Consign','Tracking','สถานะ']];
+  _csDrillData.forEach(function(o){
+    var items=o.items&&o.items.length?o.items:[{sku:'',name:'',size:'',qty:1,tracking:''}];
+    items.forEach(function(it){
+      rows.push([o.sup||getOrderSUP(o)||'',o.id,o.date||'',it.sku||'',it.name||'',it.size||'',it.qty||1,o.consign||'','="'+(it.tracking||o.tracking||'')+'"',SL2[o.status]||o.status]);
+    });
+  });
+  var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');}).join('\r\n');
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
+  a.download='carrier_drill_'+Date.now()+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+
 init();
 // เริ่ม auto-sync หลัง init
 setTimeout(function(){
@@ -3033,6 +3156,43 @@ setTimeout(function(){
     <div style="display:flex;gap:8px;margin-top:16px">
       <button onclick="doExportCSV()" style="flex:1;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px">⬇ ดาวน์โหลด CSV</button>
       <button onclick="document.getElementById('export-modal').style.display='none'" style="padding:10px 16px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:8px;cursor:pointer">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<!-- Carrier Drill-down Modal -->
+<div id="cs-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:8000;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto">
+  <div style="background:var(--bg);border-radius:16px;width:95%;max-width:780px;box-shadow:0 20px 60px rgba(0,0,0,.3);margin-bottom:40px">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--bg);border-radius:16px 16px 0 0;z-index:1">
+      <div>
+        <div id="cs-modal-title" style="font-size:16px;font-weight:700"></div>
+        <div id="cs-modal-sub" style="font-size:12px;color:var(--text2);margin-top:2px"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="exportCSDrillCSV()" style="padding:6px 12px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">⬇ CSV</button>
+        <button onclick="document.getElementById('cs-modal').style.display='none'" style="padding:6px 14px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-weight:700">✕</button>
+      </div>
+    </div>
+    <div style="padding:16px 20px">
+      <!-- Summary bar -->
+      <div id="cs-modal-summary" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap"></div>
+      <!-- Orders table -->
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:var(--bg3);border-bottom:2px solid var(--border)">
+              <th style="padding:8px 6px;text-align:left;font-size:11px;color:var(--text2)">Order ID</th>
+              <th style="padding:8px 6px;text-align:left;font-size:11px;color:var(--text2)">วันที่</th>
+              <th style="padding:8px 6px;text-align:left;font-size:11px;color:var(--text2)">Consign</th>
+              <th style="padding:8px 6px;text-align:left;font-size:11px;color:var(--text2)">Tracking</th>
+              <th style="padding:8px 6px;text-align:center;font-size:11px;color:var(--text2)">รายการ</th>
+              <th style="padding:8px 6px;text-align:center;font-size:11px;color:var(--text2)">Qty รวม</th>
+              <th style="padding:8px 6px;text-align:center;font-size:11px;color:var(--text2)">สถานะ</th>
+            </tr>
+          </thead>
+          <tbody id="cs-modal-tbody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
