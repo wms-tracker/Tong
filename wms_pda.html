@@ -706,7 +706,7 @@ function renderItems(){
       +'<div class="pname">'+(item.name||'')+'</div>'
       +(item.size?'<div class="psize">'+item.size+'</div>':'')
       +'</div>'
-      +'<div class="qcol">'      +(over?'<button onclick="reduceScan('+i+')" style="width:28px;height:28px;background:#EF4444;color:#fff;border:none;border-radius:6px;font-size:16px;cursor:pointer;line-height:1;margin-bottom:2px">−</button>':'')      +'<div class="qbig '+qcls+'">'+s+'</div><div class="qtot">/ '+q+'</div></div>'
+      +'<div class="qcol">'      +(s>0?'<button onclick="reduceScan('+i+')" style="width:28px;height:28px;background:'+(over?'#EF4444':'#94A3B8')+';color:#fff;border:none;border-radius:6px;font-size:16px;cursor:pointer;line-height:1;margin-bottom:2px" title="ลบ 1 ชิ้น">−</button>':'')      +'<div class="qbig '+qcls+'">'+s+'</div><div class="qtot">/ '+q+'</div></div>'
       +(skipBtnHtml?'<div style="padding:0 8px 8px">'+skipBtnHtml+'</div>':'')+'</div>';
   }).join('');
 }
