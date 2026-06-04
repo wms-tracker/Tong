@@ -3012,9 +3012,8 @@ function showCSDrill(sup,statusFilter){
     var trk=(o.tracking||'—').substring(0,16);
     var upd=o.updatedAt?new Date(o.updatedAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):(o.date||'—');
     // expand items เป็น tooltip
-    var itemList=items.map(function(it){return (it.sku||'')+(it.name?' '+it.name:'')+(it.size?' ('+it.size+')':'')+'×'+(it.qty||1);}).join('\n');
     var ocToggle='toggleDrillItems(this,'+JSON.stringify(o.id)+')';
-    return '<tr style="border-bottom:1px solid var(--border);cursor:pointer" title="'+itemList+'" onclick="'+ocToggle+'">'+
+    return '<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="'+ocToggle+'">'+
       '<td style="padding:8px 6px;font-weight:700;font-family:monospace;font-size:12px;cursor:pointer;color:var(--primary)">'+o.id+'</td>'+
       '<td style="padding:8px 6px;font-size:11px;color:var(--text2);white-space:nowrap">'+( o.date||'—')+'</td>'+
       '<td style="padding:8px 6px;font-size:11px;color:var(--text2)">'+( o.consign||'—')+'</td>'+
