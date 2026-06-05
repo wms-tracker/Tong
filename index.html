@@ -197,9 +197,6 @@ tr:hover td{background:var(--bg3)}
   <div onclick="goPage('history')" id="mn-history" style="flex:1;padding:8px 4px;text-align:center;cursor:pointer;color:rgba(255,255,255,.6);font-size:10px;font-weight:600">
     <div style="font-size:20px;margin-bottom:2px">📚</div>History
   </div>
-  <div onclick="goPage('report')" id="mn-report" style="flex:1;padding:8px 4px;text-align:center;cursor:pointer;color:rgba(255,255,255,.6);font-size:10px;font-weight:600">
-    <div style="font-size:20px;margin-bottom:2px">📈</div>รีพอร์ต
-  </div>
 </nav>
 
 <div class="layout">
@@ -533,177 +530,6 @@ tr:hover td{background:var(--bg3)}
     </table>
   </div>
 </div>
-
-<!-- REPORT -->
-<div id="page-report" class="page">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-    <div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
-        <select id="rpt-range" onchange="onRptRange()" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
-          <option value="today">วันนี้</option>
-          <option value="week">7 วันล่าสุด</option>
-          <option value="month">เดือนนี้</option>
-          <option value="custom">กำหนดเอง</option>
-          <option value="all" selected>ทั้งหมด</option>
-        </select>
-        <select id="rpt-status" onchange="renderReport()" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
-          <option value="all">ทุกสถานะ</option>
-          <option value="qc">QC ผ่าน</option>
-          <option value="ship">Ship</option>
-          <option value="done">Done</option>
-          <option value="cancel">Cancel</option>
-        </select>
-        <input type="text" id="rpt-search" placeholder="ค้นหา Order ID, SUP..." oninput="renderReport()" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text);width:150px">
-        <div id="rpt-custom" style="display:none;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px">
-          <input type="date" id="rpt-date-from" onchange="renderReport()" style="padding:6px 8px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
-          <input type="time" id="rpt-time-from" onchange="renderReport()" value="00:00" style="padding:6px 8px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
-          <span style="color:var(--text2);font-size:12px">ถึง</span>
-          <input type="date" id="rpt-date-to" onchange="renderReport()" style="padding:6px 8px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
-          <input type="time" id="rpt-time-to" onchange="renderReport()" value="23:59" style="padding:6px 8px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
-        </div>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px">
-      <button onclick="exportReportCSV()" style="padding:8px 14px;font-size:13px;font-weight:700;background:var(--teal);color:#fff;border:none;border-radius:var(--rx);cursor:pointer">📥 Export CSV</button>
-      <button onclick="syncReportFromSheets()" style="padding:8px 14px;font-size:13px;font-weight:700;background:var(--primary);color:#fff;border:none;border-radius:var(--rx);cursor:pointer">↻ ดึงข้อมูล</button>
-    </div>
-  </div>
-
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
-    <div class="card" style="text-align:center;padding:12px">
-      <div style="font-size:26px;font-weight:700;color:var(--orange)" id="rpt-qc-cnt">0</div>
-      <div style="font-size:11px;color:var(--text2);margin-top:2px">QC วันนี้</div>
-    </div>
-    <div class="card" style="text-align:center;padding:12px">
-      <div style="font-size:26px;font-weight:700;color:var(--purple)" id="rpt-pack-cnt">0</div>
-      <div style="font-size:11px;color:var(--text2);margin-top:2px">Pack วันนี้</div>
-    </div>
-    <div class="card" style="text-align:center;padding:12px">
-      <div style="font-size:26px;font-weight:700;color:var(--green)" id="rpt-done-cnt">0</div>
-      <div style="font-size:11px;color:var(--text2);margin-top:2px">ส่งแล้ววันนี้</div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-t">ประวัติ QC รายออเดอร์</div>
-    <div style="overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;font-size:12px" id="rpt-table">
-        <thead>
-          <tr style="border-bottom:2px solid var(--border);background:var(--bg3)">
-            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">วันที่</th>
-            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">ขนส่ง</th>
-            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">Order ID</th>
-            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">SKU</th>
-            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">แบรนด์</th>
-            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:center">จำนวน</th>
-            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">Consign</th>
-            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">Tracking</th>
-            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:center">สถานะ</th>
-            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">พนักงาน</th>
-            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">อุปกรณ์</th>
-            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:right">เวลา</th>
-          </tr>
-        </thead>
-        <tbody id="rpt-tbody">
-          <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text3)">กด "ดึงข้อมูล" เพื่อแสดงรายงาน</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<div id="page-matcher" class="page">
-  <div class="card">
-    <div class="card-t">📂 อัปโหลด Excel (2 Sheet: Tracking + ข้อมูลออเดอร์)</div>
-    <div id="xlsx-drop"
-      ondragover="event.preventDefault();this.classList.add('drag')"
-      ondragleave="this.classList.remove('drag')"
-      ondrop="handleMatcherXlsx(event)"
-      onclick="document.getElementById('xlsx-file').click()"
-      style="border:3px dashed var(--border2);border-radius:var(--r);padding:32px;text-align:center;cursor:pointer;background:var(--bg);transition:all .2s">
-      <div style="font-size:36px;margin-bottom:8px">📗</div>
-      <div style="font-weight:700;font-size:15px;margin-bottom:4px">คลิกหรือลากไฟล์ Excel มาวาง</div>
-      <div style="font-size:12px;color:var(--text2)">ไฟล์ .xlsx ที่มี Sheet "Tracking" และ "ข้อมูลออเดอร์"</div>
-      <div id="xlsx-name" style="margin-top:10px;color:var(--primary);font-weight:700;font-size:14px"></div>
-    </div>
-    <input type="file" id="xlsx-file" accept=".xlsx,.xls" style="display:none" onchange="loadMatcherXlsx(this)">
-    <div id="sheet-info" style="display:none;margin-top:10px;padding:10px 12px;background:var(--gb);border:1px solid var(--gbr);border-radius:var(--rx);font-size:13px;color:var(--green)"></div>
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <button class="btn btn-p" onclick="runMatcher()" id="run-matcher-btn" disabled style="opacity:.5;flex:1">⚡ จับคู่ Tracking</button>
-      <button class="btn btn-o btn-sm" onclick="clearMatcher()">🗑 ล้าง</button>
-    </div>
-    <div id="matcher-alert" class="al" style="margin-top:10px"></div>
-  </div>
-
-  <div id="matcher-result-card" style="display:none">
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div>
-          <div class="card-t" style="margin-bottom:2px">ผลการจับคู่</div>
-          <div style="font-size:12px;color:var(--text2)">
-            🔴 สินค้า: <span id="m-prod-cnt" style="font-weight:700;color:var(--red)">0</span>
-            &nbsp;🟡 ของแถม: <span id="m-gift-cnt" style="font-weight:700;color:var(--orange)">0</span>
-            &nbsp;📦 ออเดอร์: <span id="m-ord-cnt" style="font-weight:700;color:var(--primary)">0</span>
-          </div>
-        </div>
-        <div class="brow">
-          <button class="btn btn-sm" style="background:var(--green);color:#fff;font-weight:700" onclick="applyMatcherToWMS()">✅ นำเข้า WMS</button>
-          <button class="btn btn-o btn-sm" onclick="exportMatcherCSV()">📥 Export CSV</button>
-        </div>
-      </div>
-      <div style="overflow-x:auto;max-height:400px;overflow-y:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:12px" id="matcher-table">
-          <thead style="position:sticky;top:0;background:var(--bg3)">
-            <tr style="border-bottom:2px solid var(--border)">
-              <th style="padding:7px 8px;text-align:left;font-weight:700;color:var(--text2)">Order ID</th>
-              <th style="padding:7px 8px;text-align:left;font-weight:700;color:var(--text2)">SKU</th>
-              <th style="padding:7px 8px;text-align:left;font-weight:700;color:var(--text2)">แบรนด์</th>
-              <th style="padding:7px 8px;text-align:center;font-weight:700;color:var(--text2)">Qty</th>
-              <th style="padding:7px 8px;text-align:left;font-weight:700;color:var(--text2)">Consign</th>
-              <th style="padding:7px 8px;text-align:left;font-weight:700;color:var(--text2)">Tracking</th>
-              <th style="padding:7px 8px;text-align:left;font-weight:700;color:var(--text2)">ขนส่ง</th>
-            </tr>
-          </thead>
-          <tbody id="matcher-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="page-settings" class="page">
-  <div class="card">
-    <div class="card-t">🔗 เชื่อมต่อ Google Sheets (Apps Script)</div>
-    <div class="fg"><label class="fl">📋 Apps Script URL (ดึงออเดอร์จาก Sheets)</label><input type="url" id="api-url" placeholder="https://script.google.com/macros/s/..."></div>
-    <div class="fg"><label class="fl">🔥 Firebase Database URL (Sync real-time)</label><input type="url" id="fb-url" placeholder="https://xxx-default-rtdb.firebasedatabase.app"></div>
-    <div class="fg"><label class="fl">🔗 Tracking Matcher URL</label><input type="url" id="matcher-url" placeholder="https://wms-tracker-production.up.railway.app"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="fg"><label class="fl">ชื่ออุปกรณ์</label><input type="text" id="s-device" placeholder="WMS-PC-01"></div>
-      <div class="fg"><label class="fl">ชื่อพนักงาน</label><input type="text" id="s-user" placeholder="สมชาย"></div>
-    </div>
-    <div id="conn-txt" style="font-size:13px;color:var(--text2);margin-bottom:10px"></div>
-    <div class="brow">
-      <button class="btn btn-p btn-sm" onclick="saveSettings()">บันทึกและทดสอบ</button>
-      <button class="btn btn-o btn-sm" onclick="clearSettings()">ล้างค่า</button>
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-t">🗑 ล้างข้อมูล</div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <button class="btn btn-o btn-sm" onclick="if(confirm('ล้างข้อมูลในเครื่องทั้งหมด?')){ORDERS={};DRAFTS={};SC={};saveLocal();refreshAll();alert('ล้างแล้ว')}">🖥 ล้างข้อมูลในเครื่อง</button>
-      <div style="display:flex;gap:6px;align-items:center">
-        <input type="password" id="clear-pin-input" placeholder="รหัส 4 หลัก" maxlength="4" style="width:90px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg);color:var(--text)">
-        <button onclick="saveClearPIN()" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;font-size:12px;cursor:pointer">💾 ตั้งรหัส</button>
-      </div>
-      <button class="btn btn-sm" style="background:#EF4444;color:#fff;border:none;font-weight:700" onclick="clearFirebaseOrders()">🔥 ล้าง Firebase Orders</button>
-    </div>
-  </div>
-</div>
-
-</div><!-- content -->
-</div><!-- main -->
-</div><!-- layout -->
-
 <!-- PASS OVERLAY -->
 <div class="pov" id="pass-ov">
   <div class="pov-box">
@@ -1721,27 +1547,26 @@ function renderReport(){
     if(o.status==='new'||o.status==='pick')return false;
     if(stFilter!=='all'&&o.status!==stFilter)return false;
     if(srchFilter&&!o.id.toLowerCase().includes(srchFilter)&&!(o.consign||'').toLowerCase().includes(srchFilter))return false;
-    // date filter
-    if(range==='custom'&&(dateFrom||dateTo)){
-      let upd=o.updatedAt?new Date(o.updatedAt):null;
-      if(!upd) return false;
-      let timeFrom=document.getElementById('rpt-time-from')?document.getElementById('rpt-time-from').value:'00:00';
-      let timeTo=document.getElementById('rpt-time-to')?document.getElementById('rpt-time-to').value:'23:59';
-      if(dateFrom&&upd<new Date(dateFrom+'T'+timeFrom+':00')) return false;
-      if(dateTo&&upd>new Date(dateTo+'T'+timeTo+':59')) return false;
-    }
-    if(range==='month'){
-      let upd=o.updatedAt?new Date(o.updatedAt):null;
-      if(!upd) return false;
-      let nm=new Date(); if(upd.getMonth()!==nm.getMonth()||upd.getFullYear()!==nm.getFullYear()) return false;
-    }
+    if(range==='all') return true;
+    // ทุก range ที่ไม่ใช่ all ต้องมี updatedAt
+    var updAt=o.updatedAt||'';
+    if(!updAt) return false; // ไม่มี updatedAt = ยังไม่ได้ QC
+    var upd=new Date(updAt);
+    if(isNaN(upd.getTime())) return false;
     if(range==='today'){
-      let d=o.updatedAt?new Date(o.updatedAt).toLocaleDateString('th-TH'):'';
-      return d===todayStr;
+      return upd.toDateString()===now.toDateString();
     }
     if(range==='week'){
-      let wk=new Date();wk.setDate(wk.getDate()-7);
-      return o.updatedAt&&new Date(o.updatedAt)>=wk;
+      var wk=new Date(now);wk.setDate(wk.getDate()-7);wk.setHours(0,0,0,0);
+      return upd>=wk;
+    }
+    if(range==='month'){
+      return upd.getMonth()===now.getMonth()&&upd.getFullYear()===now.getFullYear();
+    }
+    if(range==='custom'){
+      if(dateFrom&&upd<new Date(dateFrom+'T'+timeFrom+':00')) return false;
+      if(dateTo&&upd>new Date(dateTo+'T'+timeTo+':59')) return false;
+      return true;
     }
     return true;
   });
