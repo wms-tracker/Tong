@@ -2407,7 +2407,7 @@ function renderEditItems(items){
       i.placeholder=ph;
       i.style.cssText='padding:6px;border:1px solid var(--border2);border-radius:6px;font-size:12px';
       if(field==='sku')i.style.fontFamily='monospace';
-      i.onchange=function(){updateEditItem(idx,field,isNum?parseInt(this.value)||1:this.value);};
+      i.oninput=function(){updateEditItem(idx,field,isNum?parseInt(this.value)||1:this.value);};
       return i;
     };
     var del=document.createElement('button');
@@ -2459,6 +2459,32 @@ function saveEditOrder(){
   o.tracking=document.getElementById('edit-tracking').value.trim();
   var _sup=document.getElementById('edit-sup'); if(_sup) o.sup=_sup.value.trim();
   var _sd=document.getElementById('edit-shipdate'); if(_sd) o.shipDate=_sd.value;
+
+  // อ่าน items จาก DOM โดยตรง (ป้องกัน onchange ไม่ fire)
+  var list=document.getElementById('edit-items-list');
+  if(list&&list.children.length>0){
+    var newItems=[];
+    Array.from(list.children).forEach(function(row,ri){
+      var inputs=row.querySelectorAll('input');
+      if(inputs.length>=4){
+        var sku=(inputs[0].value||'').trim();
+        var name=(inputs[1].value||'').trim();
+        var size=(inputs[2].value||'').trim();
+        var qty=parseInt(inputs[3].value)||1;
+        if(sku||name){ // เก็บเฉพาะ row ที่มีข้อมูล
+          // เก็บ tracking และ sup จาก item เดิมถ้ามี
+          var oldItem=o.items&&o.items[ri]?o.items[ri]:{};
+          newItems.push({
+            sku:sku,name:name,size:size,qty:qty,
+            tracking:oldItem.tracking||'',
+            sup:oldItem.sup||''
+          });
+        }
+      }
+    });
+    if(newItems.length>0) o.items=newItems;
+  }
+
   o.updatedAt=new Date().toISOString();
   o.editedAt=new Date().toISOString();
   o.editedBy=localStorage.getItem('WMS_USR')||'PC';
@@ -2859,11 +2885,11 @@ function renderCarrierSummary(){
     html+=btn(r.ship,'ship','#6366F1');
     html+=btn(r.done,'done','#22C55E');
     html+=btn(r.cancel,'cancel','#EF4444');
-    html+='<td style="padding:8px 10px;min-width:80px">';
-    html+='<div style="background:var(--bg3);border-radius:4px;height:6px;overflow:hidden">';
-    html+='<div style="background:#0D9488;height:100%;width:'+barW+';transition:.3s"></div></div>';
-    html+='<div style="font-size:10px;color:var(--text2);text-align:center;margin-top:2px">'+pct+'%</div>';
-    html+='</td></tr>';
+    html+='<td style="padding:8px 10px;min-width:80px">'+
+      '<div style="background:var(--bg3);border-radius:4px;height:6px;overflow:hidden">'+
+      '<div style="background:#0D9488;height:100%;width:'+barW+';transition:.3s"></div></div>'+
+      '<div style="font-size:10px;color:var(--text2);text-align:center;margin-top:2px">'+pct+'%</div>'+
+      '</td></tr>';
   });
 
   // สรุปรวม
@@ -2873,6 +2899,7 @@ function renderCarrierSummary(){
   var doneAll=orders.filter(function(o){return o.status==='done';}).length;
   var cancelAll=orders.filter(function(o){return o.status==='cancel';}).length;
   var pctAll=totalAll>0?Math.round((qcAll2+shipAll+doneAll)/totalAll*100):0;
+
   html+='<tr style="background:var(--bg3);font-weight:700;border-top:2px solid var(--border)">';
   html+='<td style="padding:8px 10px;font-size:12px;font-weight:700">รวม</td>';
   html+='<td '+TD+' style="text-align:center;font-weight:700">'+totalAll+'</td>';
@@ -3243,7 +3270,11 @@ function renderDailyReport(){
     kpiTile('QC ผ่าน',qcCount,'orders','#0D9488','✅')+
     kpiTile('Done',doneCount,'orders','#22C55E','🎉')+
     kpiTile('Cancel',cancelCount||'—','orders','#EF4444','🚫')+
-    kpiTile('พนักงาน',Object.keys(workers).length||'—','คน','#8B5CF6','👤');
+    kpiTile('พนักงาน',Object.keys(workers).length||'—','คน','#8B5CF6','👤')+
+    Object.keys(supMap).map(function(s){
+      var c=s.indexOf('Best')>=0?'#2563EB':'#0D9488';
+      return kpiTile(s,supMap[s],'orders',c,'🚚');
+    }).join('');
 
 
 
