@@ -381,8 +381,9 @@ tr:hover td{background:var(--bg3)}
       <select id="ord-f" onchange="filterOrders()" style="width:140px">
         <option value="">ทุกสถานะ</option>
         <option value="new">🆕 รับแล้ว</option>
+        <option value="pick">→ Pick</option>
         <option value="qc">🔍 QC</option>
-        <option value="pack">📦 Pack</option>
+        <option value="ship">🚚 Ship</option>
         <option value="done">✅ ส่งแล้ว</option>
         <option value="cancel">🚫 Cancel</option>
       </select>
@@ -393,7 +394,26 @@ tr:hover td{background:var(--bg3)}
     </div>
   </div>
   <div class="tw">
-    <table><thead><tr><th>Order ID</th><th>SUP</th><th>Consign</th><th class="hide-mobile">Tracking</th><th>รายการ</th><th>สถานะ</th><th class="hide-mobile">จัดส่ง</th><th>Actions</th></tr></thead>
+    <table><thead>
+        <tr id="bulk-toolbar" style="display:none;background:var(--primary)">
+          <td colspan="9" style="padding:8px 12px">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span id="bulk-count" style="color:#fff;font-weight:700;font-size:13px">0 orders เลือก</span>
+              <select id="bulk-status" style="padding:5px 10px;border-radius:6px;border:none;font-size:12px;font-weight:700">
+                <option value="">เปลี่ยนสถานะเป็น...</option>
+                <option value="new">🆕 รับแล้ว</option>
+                <option value="pick">→ Pick</option>
+                <option value="qc">🔍 QC ผ่าน</option>
+                <option value="ship">🚚 Ship</option>
+                <option value="done">✅ ส่งแล้ว</option>
+                <option value="cancel">🚫 Cancel</option>
+              </select>
+              <button onclick="applyBulkStatus()" style="padding:5px 14px;background:#fff;color:var(--primary);border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px">✓ ยืนยัน</button>
+              <button onclick="clearBulkSelect()" style="padding:5px 12px;background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">✕ ยกเลิก</button>
+            </div>
+          </td>
+        </tr>
+        <tr><th style="width:36px"><input type="checkbox" id="check-all" onchange="toggleAllOrders(this.checked)" style="width:16px;height:16px;cursor:pointer"></th><th>Order ID</th><th>SUP</th><th>Consign</th><th class="hide-mobile">Tracking</th><th>รายการ</th><th>สถานะ</th><th class="hide-mobile">จัดส่ง</th><th>Actions</th></tr></thead>
     <tbody id="ord-tbody"><tr><td colspan="7" class="empty">ยังไม่มีข้อมูล</td></tr></tbody></table>
   </div>
 </div>
@@ -1309,7 +1329,8 @@ function renderOrders(){
   });
   document.getElementById('nb-new').textContent=Object.values(ORDERS).filter(o=>o.status==='new').length;
   document.getElementById('ord-tbody').innerHTML=orders.length?orders.map(o=>`
-    <tr>
+    <tr onclick="handleRowClick(event,'${o.id}')" style="cursor:pointer">
+      <td onclick="event.stopPropagation()"><input type="checkbox" class="ord-cb" data-oid="${o.id}" onchange="handleCheckbox(this)" style="width:16px;height:16px;cursor:pointer"></td>
       <td><span style="font-weight:700;font-family:monospace">${o.id}</span></td>
       <td style="font-size:12px;font-weight:600;color:var(--primary)">${getOrderSUP(o)||'—'}</td>
       <td style="font-size:12px">${o.consign||'—'}</td>
@@ -2583,55 +2604,84 @@ function doExportCSV(){
   var now=new Date();
   var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
 
-  // columns ตามที่ต้องการ
+  // แปลงวันที่จาก order ให้เป็น Date object
+  function parseDate(o){
+    // ใช้ updatedAt ก่อน (วันที่ QC จริง)
+    if(o.updatedAt){
+      var d=new Date(o.updatedAt);
+      if(!isNaN(d.getTime())) return d;
+    }
+    // fallback: o.date เช่น "Thu, Jun 04" หรือ "3/6/2569"
+    var ds=String(o.date||'').trim();
+    if(!ds) return null;
+    // "Wed, Jun 03" format
+    var m1=ds.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
+    if(m1){
+      var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+      var mn=MN[m1[1]];
+      if(mn!==undefined) return new Date(now.getFullYear(),mn,parseInt(m1[2]));
+    }
+    // "3/6/2569" format
+    var m2=ds.match(/^(\d+)\/(\d+)\/(\d+)/);
+    if(m2){
+      var yr=parseInt(m2[3]); if(yr>2400) yr-=543;
+      return new Date(yr,parseInt(m2[2])-1,parseInt(m2[1]));
+    }
+    return null;
+  }
+
   var rows=[['วันที่','ขนส่ง','Order ID','SKU','แบรนด์','จำนวน','Consign','Tracking']];
+  var count=0;
 
   Object.values(ORDERS).forEach(function(o){
     if(o.status==='new'||o.status==='pick') return;
     if(stFilter!=='all'&&o.status!==stFilter) return;
 
     // date filter
-    if(o.updatedAt){
-      var upd=new Date(o.updatedAt);
-      if(range==='today'){var td=new Date();if(upd.toDateString()!==td.toDateString())return;}
-      else if(range==='week'){var w=new Date();w.setDate(w.getDate()-7);if(upd<w)return;}
-      else if(range==='month'){var nm=new Date();if(upd.getMonth()!==nm.getMonth()||upd.getFullYear()!==nm.getFullYear())return;}
-      else if(range==='custom'&&(dateFrom||dateTo)){
-        if(dateFrom&&upd<new Date(dateFrom+'T'+timeFrom+':00'))return;
-        if(dateTo&&upd>new Date(dateTo+'T'+timeTo+':59'))return;
+    if(range!=='all'){
+      var ref=parseDate(o);
+      if(!ref) return; // ไม่มีวันที่ → ข้าม
+      if(range==='today'){
+        if(ref.toDateString()!==now.toDateString()) return;
+      } else if(range==='week'){
+        var w=new Date(now); w.setDate(w.getDate()-7); w.setHours(0,0,0,0);
+        if(ref<w) return;
+      } else if(range==='month'){
+        if(ref.getMonth()!==now.getMonth()||ref.getFullYear()!==now.getFullYear()) return;
+      } else if(range==='custom'&&(dateFrom||dateTo)){
+        if(dateFrom&&ref<new Date(dateFrom+'T'+timeFrom+':00')) return;
+        if(dateTo&&ref>new Date(dateTo+'T'+timeTo+':59')) return;
       }
     }
 
     var sup=getOrderSUP(o)||'';
     var dateDisp=o.date||'';
     var allItems=o.items&&o.items.length?o.items:[{sku:'',name:'',size:'',qty:1,tracking:''}];
-    // แสดงทุก items (ไม่ filter tracking เพื่อให้ครบทุกรายการ)
+
     allItems.forEach(function(item){
       var trk=item.tracking||o.tracking||'';
-      rows.push([
-        dateDisp,           // วันที่
-        sup,                // ขนส่ง
-        o.id,               // Order ID
-        item.sku||'',       // SKU
-        item.name||'',      // แบรนด์
-        item.qty||1,        // จำนวน
-        o.consign||'',      // Consign
-        trk                 // Tracking
-      ]);
+      rows.push([dateDisp,sup,o.id,item.sku||'',item.name||'',item.qty||1,o.consign||'',trk]);
+      count++;
     });
   });
 
-  if(rows.length<=1){alert('ไม่มีข้อมูล');return;}
+  if(rows.length<=1){ulAlert('ไม่มีข้อมูลในช่วงที่เลือก','warn');return;}
+
   var csv=rows.map(function(r){
     return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');
   }).join('\r\n');
+
+  var fname='wms_report_'+now.toISOString().slice(0,10);
+  if(range==='today') fname+='_today';
+  else if(range==='custom'&&dateFrom) fname+='_'+dateFrom+(dateTo&&dateTo!==dateFrom?'_to_'+dateTo:'');
+
   var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
   var a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download='wms_report_'+now.toISOString().slice(0,10)+'.csv';
+  a.download=fname+'.csv';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   document.getElementById('export-modal').style.display='none';
-  ulAlert('✅ Export '+(rows.length-1)+' รายการแล้ว','ok');
+  ulAlert('✅ Export '+count+' รายการ ('+( rows.length-1)+' rows)','ok');
 }
 
 
@@ -3364,6 +3414,65 @@ function saveClearPIN(){
   if(pin.length!==4||!/^\d{4}$/.test(pin)){alert('รหัสต้องเป็นตัวเลข 4 หลักครับ');return;}
   localStorage.setItem('WMS_CLEAR_PIN',pin);
   alert('✅ บันทึกรหัสแล้ว: '+pin);
+}
+
+
+/* ===== BULK SELECT ===== */
+var _selectedOids=new Set();
+
+function toggleAllOrders(checked){
+  _selectedOids.clear();
+  document.querySelectorAll('.ord-cb').forEach(function(cb){
+    cb.checked=checked;
+    if(checked) _selectedOids.add(cb.dataset.oid);
+  });
+  updateBulkToolbar();
+}
+
+function handleCheckbox(cb){
+  if(cb.checked) _selectedOids.add(cb.dataset.oid);
+  else _selectedOids.delete(cb.dataset.oid);
+  // update check-all state
+  var all=document.querySelectorAll('.ord-cb');
+  var checked=document.querySelectorAll('.ord-cb:checked');
+  var chkAll=document.getElementById('check-all');
+  if(chkAll){chkAll.checked=all.length>0&&checked.length===all.length;chkAll.indeterminate=checked.length>0&&checked.length<all.length;}
+  updateBulkToolbar();
+}
+
+function handleRowClick(e,oid){
+  // คลิก row → toggle checkbox (ยกเว้นคลิกที่ปุ่ม Actions)
+  if(e.target.tagName==='BUTTON'||e.target.tagName==='SELECT'||e.target.tagName==='INPUT') return;
+  var cb=document.querySelector('.ord-cb[data-oid="'+oid+'"]');
+  if(cb){cb.checked=!cb.checked;handleCheckbox(cb);}
+}
+
+function updateBulkToolbar(){
+  var toolbar=document.getElementById('bulk-toolbar');
+  var cnt=document.getElementById('bulk-count');
+  if(toolbar) toolbar.style.display=_selectedOids.size>0?'table-row':'none';
+  if(cnt) cnt.textContent=_selectedOids.size+' orders เลือก';
+}
+
+function applyBulkStatus(){
+  var st=document.getElementById('bulk-status').value;
+  if(!st){alert('กรุณาเลือกสถานะที่ต้องการ');return;}
+  if(!_selectedOids.size){alert('กรุณาเลือก orders ก่อน');return;}
+  if(!confirm('เปลี่ยนสถานะ '+_selectedOids.size+' orders เป็น "'+st+'"?')) return;
+  _selectedOids.forEach(function(oid){
+    if(ORDERS[oid]) setStatus(oid,st);
+  });
+  clearBulkSelect();
+  renderOrders();
+  ulAlert('✅ เปลี่ยนสถานะ '+_selectedOids.size+' orders แล้ว','ok');
+}
+
+function clearBulkSelect(){
+  _selectedOids.clear();
+  document.querySelectorAll('.ord-cb').forEach(function(cb){cb.checked=false;});
+  var chkAll=document.getElementById('check-all');
+  if(chkAll){chkAll.checked=false;chkAll.indeterminate=false;}
+  updateBulkToolbar();
 }
 
 init();
