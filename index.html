@@ -197,6 +197,12 @@ tr:hover td{background:var(--bg3)}
   <div onclick="goPage('history')" id="mn-history" style="flex:1;padding:8px 4px;text-align:center;cursor:pointer;color:rgba(255,255,255,.6);font-size:10px;font-weight:600">
     <div style="font-size:20px;margin-bottom:2px">📚</div>History
   </div>
+  <div onclick="goPage('report')" id="mn-report" style="flex:1;padding:8px 4px;text-align:center;cursor:pointer;color:rgba(255,255,255,.6);font-size:10px;font-weight:600">
+    <div style="font-size:20px;margin-bottom:2px">📈</div>รีพอร์ต
+  </div>
+  <div onclick="goPage('settings')" id="mn-settings" style="flex:1;padding:8px 4px;text-align:center;cursor:pointer;color:rgba(255,255,255,.6);font-size:10px;font-weight:600">
+    <div style="font-size:20px;margin-bottom:2px">⚙️</div>ตั้งค่า
+  </div>
 </nav>
 
 <div class="layout">
@@ -249,6 +255,7 @@ tr:hover td{background:var(--bg3)}
   <div class="flow">
     <div class="fs fs-new" onclick="goPage('orders')"><span class="fc" id="f-new">0</span>รับออเดอร์</div>
     <div class="fs fs-qc" onclick="goPage('qcscan')"><span class="fc" id="f-qc">0</span>QC</div>
+    <div class="fs fs-qc" onclick="goPage('qc')"><span class="fc" id="f-qc">0</span>QC</div>
     <div class="fs fs-pack" onclick="goPage('pack')"><span class="fc" id="f-pack">0</span>Pack</div>
     <div class="fs fs-done" onclick="goPage('ship')"><span class="fc" id="f-done">0</span>ส่งแล้ว</div>
     <div class="fs fs-cancel" onclick="goPage('orders')"><span class="fc" id="f-cancel">0</span>Cancel</div>
@@ -488,6 +495,189 @@ tr:hover td{background:var(--bg3)}
   </div>
 </div>
 
+<!-- MATCHER -->
+<div id="page-matcher" class="page">
+  <div class="card">
+    <div class="card-t">🔗 Tracking Matcher</div>
+    <div style="margin-bottom:10px">
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">อัปโหลดไฟล์ Excel (.xlsx)</label>
+      <input type="file" id="xlsx-file" accept=".xlsx,.xls" onchange="loadXlsxFile(this.files[0])" style="font-size:13px">
+      <span id="xlsx-name" style="font-size:12px;color:var(--text2);margin-left:8px"></span>
+    </div>
+    <div id="sheet-info" style="display:none;margin-bottom:10px;font-size:12px;color:var(--text2)"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-p btn-sm" onclick="runMatcher()">🔗 จับคู่</button>
+      <button class="btn btn-o btn-sm" onclick="applyMatcherToWMS()">✅ นำเข้า WMS</button>
+      <button class="btn btn-o btn-sm" onclick="exportMatcherCSV()">⬇ CSV</button>
+      <button class="btn btn-o btn-sm" onclick="clearMatcher()">🗑 ล้าง</button>
+    </div>
+  </div>
+  <div class="card" style="margin-top:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div class="card-t" style="margin:0">ผลการจับคู่</div>
+      <div id="matcher-stats" style="font-size:12px;color:var(--text2)">
+        สินค้า: <b id="m-prod-cnt">0</b> | ของแถม: <b id="m-gift-cnt">0</b> | Orders: <b id="m-ord-cnt">0</b>
+      </div>
+    </div>
+    <div class="tw" style="overflow-x:auto;max-height:400px;overflow-y:auto">
+      <table>
+        <thead><tr>
+          <th>Order ID</th><th>SUP</th><th>SKU</th><th>แบรนด์</th><th>ขนาด</th><th>Qty</th><th>Consign</th><th>Tracking</th>
+        </tr></thead>
+        <tbody id="matcher-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- QC -->
+<div id="page-qc" class="page">
+  <div class="card">
+    <div class="card-t">🔍 ตรวจ QC + Scan</div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;color:var(--text2)">สแกน / พิมพ์ Order ID หรือ Tracking</label>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <input type="search" id="qc-in1" class="big-inp" placeholder="Order ID หรือ Tracking..." autocomplete="off" oninput="onQCIn1(this.value)" onkeydown="if(event.key==='Enter')confirmQC1()" style="flex:1">
+        <button class="btn btn-p" onclick="confirmQC1()">ยืนยัน</button>
+      </div>
+      <div id="qc-hint1" class="hint" style="margin-top:6px"></div>
+    </div>
+    <div id="qc-search-results" style="display:none;margin-bottom:12px"></div>
+    <div id="qc-order-info" style="display:none">
+      <div style="background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:10px">
+        <div style="font-size:11px;color:var(--text2)">Order ID</div>
+        <div id="qc-oid-label" style="font-weight:700;font-family:monospace"></div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px">Consign</div>
+        <div id="qc-consign-label" style="font-size:13px"></div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px">Tracking</div>
+        <div id="qc-tracking-label" style="font-size:13px;font-family:monospace"></div>
+      </div>
+      <div id="qc-step1-label" style="font-size:13px;font-weight:700;margin-bottom:8px">สแกน SKU</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input type="search" id="qc-in-sku" class="big-inp" placeholder="สแกน SKU..." autocomplete="off" oninput="onQCSkuIn(this.value)" onkeydown="if(event.key==='Enter')doQCScan()" style="flex:1">
+        <button class="btn btn-p" onclick="doQCScan()">สแกน</button>
+      </div>
+      <div id="qc-sku-hint" class="hint" style="margin-bottom:8px"></div>
+      <div id="qc-prog-text" style="font-size:12px;color:var(--text2);margin-bottom:4px"></div>
+      <div id="qc-prog-bar" style="background:var(--bg3);border-radius:4px;height:6px;overflow:hidden;margin-bottom:10px">
+        <div id="qc-prog-pct" style="background:var(--primary);height:100%;width:0%;transition:.3s"></div>
+      </div>
+      <div id="qc-prod-list"></div>
+      <button class="btn btn-p" onclick="passQC()" style="width:100%;margin-top:10px">✅ QC ผ่าน</button>
+    </div>
+  </div>
+</div>
+
+<!-- PACK -->
+<div id="page-pack" class="page">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="card-t" style="margin:0">📦 ออเดอร์ผ่าน QC แล้ว — กด Pack เพื่อส่งต่อ</div>
+      <span id="nb-qc" class="badge b-qc">0</span>
+    </div>
+    <div class="tw" style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Order ID</th><th>Consign</th><th class="hide-mobile">Tracking</th><th>รายการ</th><th>Actions</th></tr></thead>
+        <tbody id="pack-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div id="page-settings" class="page">
+  <div class="card">
+    <div class="card-t">⚙️ ตั้งค่าการเชื่อมต่อ</div>
+    <div style="margin-bottom:10px">
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Google Apps Script URL</label>
+      <input id="api-url" type="url" placeholder="https://script.google.com/..." style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;box-sizing:border-box">
+    </div>
+    <div style="margin-bottom:10px">
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Firebase Realtime Database URL</label>
+      <input id="fb-url" type="url" placeholder="https://xxx.firebasedatabase.app" style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;box-sizing:border-box">
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <div style="flex:1">
+        <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">ชื่อผู้ใช้</label>
+        <input id="dev-name-st" type="text" placeholder="user01" style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;box-sizing:border-box">
+      </div>
+      <div style="flex:1">
+        <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">ชื่ออุปกรณ์</label>
+        <input id="dev-device-st" type="text" placeholder="WMS-PC" style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;box-sizing:border-box">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-p btn-sm" onclick="saveSettings()">บันทึกและทดสอบ</button>
+      <button class="btn btn-o btn-sm" onclick="clearSettings()">ล้างค่า</button>
+      <button class="btn btn-o btn-sm" onclick="genPdaLink()" title="สร้างลิงค์พร้อม config สำหรับ PDA">📱 ลิงค์ PDA</button>
+    </div>
+    <div id="conn-txt" style="margin-top:8px;font-size:12px;color:var(--text2)"></div>
+  </div>
+  <div class="card" style="margin-top:10px">
+    <div class="card-t">🗑 ล้างข้อมูล</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-o btn-sm" onclick="if(confirm('ล้างข้อมูลในเครื่องทั้งหมด?')){ORDERS={};DRAFTS={};SC={};saveLocal();refreshAll();alert('ล้างแล้ว')}">🖥 ล้างข้อมูลในเครื่อง</button>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="password" id="clear-pin-input" placeholder="รหัส 4 หลัก" maxlength="4" style="width:90px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg);color:var(--text)">
+        <button onclick="saveClearPIN()" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;font-size:12px;cursor:pointer">💾 ตั้งรหัส</button>
+      </div>
+      <button class="btn btn-sm" style="background:#EF4444;color:#fff;border:none;font-weight:700" onclick="clearFirebaseOrders()">🔥 ล้าง Firebase Orders</button>
+    </div>
+  </div>
+</div>
+
+<!-- REPORT -->
+<div id="page-report" class="page">
+  <div class="card" style="padding:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:15px;font-weight:700">📈 รีพอร์ต</div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <select id="rpt-range" onchange="onRptRange()" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
+          <option value="today">วันนี้</option>
+          <option value="week">7 วันล่าสุด</option>
+          <option value="month">เดือนนี้</option>
+          <option value="custom">กำหนดเอง</option>
+          <option value="all" selected>ทั้งหมด</option>
+        </select>
+        <select id="rpt-status" onchange="renderReport()" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
+          <option value="all">ทุกสถานะ</option>
+          <option value="qc">QC ผ่าน</option>
+          <option value="ship">Ship</option>
+          <option value="done">Done</option>
+          <option value="cancel">Cancel</option>
+        </select>
+        <input type="text" id="rpt-search" placeholder="ค้นหา Order ID..." oninput="renderReport()" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text);width:150px">
+        <button onclick="confirmExportCSV()" style="padding:6px 12px;background:var(--primary);color:#fff;border:none;border-radius:var(--rx);font-size:13px;font-weight:700;cursor:pointer">⬇ Export CSV</button>
+        <div id="rpt-custom" style="display:none;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px">
+          <input type="date" id="rpt-date-from" onchange="renderReport()" style="padding:6px 8px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
+          <input type="time" id="rpt-time-from" onchange="renderReport()" value="00:00" style="padding:6px 8px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
+          <span style="color:var(--text2);font-size:12px">ถึง</span>
+          <input type="date" id="rpt-date-to" onchange="renderReport()" style="padding:6px 8px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
+          <input type="time" id="rpt-time-to" onchange="renderReport()" value="23:59" style="padding:6px 8px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
+        </div>
+      </div>
+    </div>
+    <div class="tw" style="overflow-x:auto;max-height:70vh;overflow-y:auto">
+      <table>
+        <thead>
+          <tr style="border-bottom:2px solid var(--border);background:var(--bg3)">
+            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left;white-space:nowrap">วันที่</th>
+            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">ขนส่ง</th>
+            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">Order ID</th>
+            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">SKU</th>
+            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">แบรนด์</th>
+            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">ขนาด</th>
+            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:center">จำนวน</th>
+            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:center">สถานะ</th>
+            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">พนักงาน</th>
+          </tr>
+        </thead>
+        <tbody id="rpt-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <!-- HISTORY -->
 <div id="page-history" class="page">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -626,8 +816,9 @@ function goPage(p){
   if(p==='pack')renderPack();
   if(p==='ship')renderShip();
   if(p==='draft')renderDrafts();
-  if(p==='report')renderReport();
+
   if(p==='dashboard')renderDashboard();
+  if(p==='report'){renderReport();}
   // update mobile nav highlight
   ['dashboard','qcscan','pack','orders','report'].forEach(id=>{
     let el=document.getElementById('mn-'+id);
@@ -1190,14 +1381,7 @@ function renderShip(){
 
 
 
-function renderRptRows(rows){
-  document.getElementById('rpt-tbody').innerHTML=rows.length?rows.slice(0,300).map(r=>`
-    <tr><td style="font-size:12px">${r.date||'—'}</td><td class="mono">${r.oid}</td><td class="mono">${r.sku||'—'}</td>
-    <td style="font-size:12px">${(r.name||'').substring(0,25)}</td><td style="text-align:center">${r.qty}</td>
-    <td style="font-size:12px">${r.consign||'—'}</td><td class="mono" style="font-size:11px">${r.tracking||'—'}</td>
-    <td><span class="badge ${SB[r.status]}">${SL[r.status]||r.status}</span></td></tr>`).join('')
-    :'<tr><td colspan="8" class="empty">ยังไม่มีข้อมูล</td></tr>';
-}
+
 
 function filterReport(q){
   let ql=q.toLowerCase();
@@ -1487,128 +1671,16 @@ function syncReportFromSheets(){
   jFetch(API_URL+'?action=getScans').then(function(r){
     if(btn){btn.textContent='↻ ดึงข้อมูล';btn.disabled=false;}
     if(!r||!r.ok){alert('ไม่สามารถดึงข้อมูลได้');return;}
-    renderReport();
   }).catch(function(){
     if(btn){btn.textContent='↻ ดึงข้อมูล';btn.disabled=false;}
   });
 }
 
-function onRptRange(){
-  var range=document.getElementById('rpt-range').value;
-  var customDiv=document.getElementById('rpt-custom');
-  if(customDiv){
-    customDiv.style.cssText=range==='custom'?
-      'display:flex!important;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px':
-      'display:none';
-  }
-  if(range==='custom'){
-    var today=new Date().toISOString().slice(0,10);
-    var f=document.getElementById('rpt-date-from');
-    var t=document.getElementById('rpt-date-to');
-    var tf=document.getElementById('rpt-time-from');
-    var tt=document.getElementById('rpt-time-to');
-    if(f&&!f.value) f.value=today;
-    if(t&&!t.value) t.value=today;
-    if(tf) tf.value='00:00';
-    if(tt) tt.value='23:59';
-  }
-  renderReport();
-}
 
-function renderReport(){
-  let range=document.getElementById('rpt-range')?document.getElementById('rpt-range').value:'all';
-  let stFilter=document.getElementById('rpt-status')?document.getElementById('rpt-status').value:'all';
-  let srchFilter=(document.getElementById('rpt-search')?document.getElementById('rpt-search').value:'').toLowerCase().trim();
-  let dateFrom=document.getElementById('rpt-date-from')?document.getElementById('rpt-date-from').value:'';
-  let dateTo=document.getElementById('rpt-date-to')?document.getElementById('rpt-date-to').value:'';
-  let timeFrom=document.getElementById('rpt-time-from')?document.getElementById('rpt-time-from').value:'00:00';
-  let timeTo=document.getElementById('rpt-time-to')?document.getElementById('rpt-time-to').value:'23:59';
-  let orders=Object.values(ORDERS);
-  let now=new Date();
-  let todayStr=now.toLocaleDateString('th-TH');
 
-  // Today stats
-  let qcToday=0,packToday=0,doneToday=0,cancelCount=0;
-  orders.forEach(function(o){
-    if(o.status==='cancel'){cancelCount++;return;}
-    let d=o.updatedAt?new Date(o.updatedAt).toLocaleDateString('th-TH'):'';
-    if(d===todayStr){
-      if(['qc','ship','done'].indexOf(o.status)>=0)qcToday++;
-      if(['ship','done'].indexOf(o.status)>=0)packToday++;
-      if(o.status==='done')doneToday++;
-    }
-  });
-  document.getElementById('rpt-qc-cnt').textContent=qcToday;
-  document.getElementById('rpt-pack-cnt').textContent=packToday;
-  document.getElementById('rpt-done-cnt').textContent=doneToday;
 
-  // Filter
-  let filtered=orders.filter(function(o){
-    if(o.status==='new'||o.status==='pick')return false;
-    if(stFilter!=='all'&&o.status!==stFilter)return false;
-    if(srchFilter&&!o.id.toLowerCase().includes(srchFilter)&&!(o.consign||'').toLowerCase().includes(srchFilter))return false;
-    if(range==='all') return true;
-    // ทุก range ที่ไม่ใช่ all ต้องมี updatedAt
-    var updAt=o.updatedAt||'';
-    if(!updAt) return false; // ไม่มี updatedAt = ยังไม่ได้ QC
-    var upd=new Date(updAt);
-    if(isNaN(upd.getTime())) return false;
-    if(range==='today'){
-      return upd.toDateString()===now.toDateString();
-    }
-    if(range==='week'){
-      var wk=new Date(now);wk.setDate(wk.getDate()-7);wk.setHours(0,0,0,0);
-      return upd>=wk;
-    }
-    if(range==='month'){
-      return upd.getMonth()===now.getMonth()&&upd.getFullYear()===now.getFullYear();
-    }
-    if(range==='custom'){
-      if(dateFrom&&upd<new Date(dateFrom+'T'+timeFrom+':00')) return false;
-      if(dateTo&&upd>new Date(dateTo+'T'+timeTo+':59')) return false;
-      return true;
-    }
-    return true;
-  });
-  filtered.sort(function(a,b){return (b.updatedAt||'').localeCompare(a.updatedAt||'');});
 
-  let SB2={new:'b-new',pick:'b-pick',qc:'b-qc',ship:'b-ship',done:'b-done',cancel:'b-cancel'};
-  let SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
 
-  let tbody=document.getElementById('rpt-tbody');
-  if(!tbody)return;
-  // แสดง item-level (เหมือนรูป Excel)
-  let rows=[];
-  filtered.forEach(function(o){
-    let upd=o.updatedAt?new Date(o.updatedAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
-    let dev=o.device||localStorage.getItem('WMS_DEV')||'—';
-    let usr=o.user||localStorage.getItem('WMS_USR')||'—';
-    let st='<span class="badge '+(SB2[o.status]||'b-new')+'">'+(SL2[o.status]||o.status)+'</span>';
-    let items=o.items&&o.items.length?o.items:[{sku:'',name:'',size:'',qty:1}];
-    items.forEach(function(item){
-      var supVal=getOrderSUP(o)||'—';
-      var trkDisplay=item.tracking||o.tracking||'—';
-      var dateVal=o.date||'—';
-      rows.push('<tr style="border-bottom:1px solid var(--border)">'
-        +'<td style="padding:6px;font-size:11px;color:var(--text2);white-space:nowrap">'+dateVal+'</td>'
-        +'<td style="padding:6px;font-weight:700;font-size:12px;color:var(--primary)">'+supVal+'</td>'
-        +'<td style="padding:6px;font-weight:700;font-family:monospace;font-size:11px">'+o.id+'</td>'
-        +'<td style="padding:6px;font-family:monospace;font-size:11px;color:#0D9488">'+(item.sku||'—')+'</td>'
-        +'<td style="padding:6px;font-size:12px">'+(item.name||'—')+'</td>'
-        +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+(item.size||'—')+'</td>'
-        +'<td style="padding:6px;text-align:center;font-weight:800;font-size:14px;color:var(--primary)">'+item.qty+'</td>'
-        +'<td style="padding:6px;text-align:center">'+st+'</td>'
-        +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+usr+'</td>'
-        +'</tr>');
-    });
-  });
-  tbody.innerHTML=rows.length?rows.join(''):'<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--text3)">ไม่มีข้อมูล</td></tr>';
-}
-
-function exportReportCSV(){
-  // เรียก confirmExportCSV แทน เพื่อให้ user เลือก filter ก่อน
-  confirmExportCSV();
-}
 
 /* ===== FIREBASE ===== */
 function encodeId(id){return id.replace(/\./g,'_').replace(/\//g,'-').replace(/\[/g,'(').replace(/\]/g,')');}
@@ -2995,6 +3067,23 @@ function exportCSDrillCSV(){
 /* ===== DAILY / MONTHLY REPORT ===== */
 var _rptMode='day'; // 'day' | 'month'
 
+function initRptPickers(){
+  var now=new Date();
+  var dd=document.getElementById('daily-date');
+  if(dd&&!dd.value) dd.value=now.toISOString().slice(0,10);
+  var yrEl=document.getElementById('monthly-year');
+  if(yrEl&&!yrEl.options.length){
+    for(var y=now.getFullYear();y>=now.getFullYear()-3;y--){
+      var o=document.createElement('option');
+      o.value=y;o.textContent=y;
+      if(y===now.getFullYear()) o.selected=true;
+      yrEl.appendChild(o);
+    }
+  }
+  var moEl=document.getElementById('monthly-month');
+  if(moEl&&!moEl.value) moEl.value=String(now.getMonth()+1).padStart(2,'0');
+}
+
 function switchRptTab(mode){
   _rptMode=mode;
   var dayBtn=document.getElementById('rpt-tab-day');
@@ -3016,22 +3105,7 @@ function switchRptTab(mode){
   }
 }
 
-function initRptPickers(){
-  var now=new Date();
-  var dd=document.getElementById('daily-date');
-  if(dd&&!dd.value) dd.value=now.toISOString().slice(0,10);
-  var yrEl=document.getElementById('monthly-year');
-  if(yrEl&&!yrEl.options.length){
-    for(var y=now.getFullYear();y>=now.getFullYear()-3;y--){
-      var o=document.createElement('option');
-      o.value=y;o.textContent=y;
-      if(y===now.getFullYear()) o.selected=true;
-      yrEl.appendChild(o);
-    }
-  }
-  var moEl=document.getElementById('monthly-month');
-  if(moEl) moEl.value=String(now.getMonth()+1).padStart(2,'0');
-}
+
 
 function exportActiveReport(){
   if(_rptMode==='day') exportDailyCSV();
