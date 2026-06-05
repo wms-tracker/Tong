@@ -382,6 +382,9 @@ tr:hover td{background:var(--bg3)}
         <option value="done">✅ ส่งแล้ว</option>
         <option value="cancel">🚫 Cancel</option>
       </select>
+      <select id="ord-sup" onchange="filterOrders()" style="width:160px">
+        <option value="">ทุกขนส่ง</option>
+      </select>
       <button class="btn btn-o btn-sm" onclick="confirmExportCSV()">⬇ Export CSV</button>
     </div>
   </div>
@@ -1265,10 +1268,25 @@ function renderDashboard(){
 }
 
 function renderOrders(){
+  // อัปเดต SUP dropdown options จาก orders จริง
+  var supEl=document.getElementById('ord-sup');
+  if(supEl){
+    var sups=[''];
+    Object.values(ORDERS).forEach(function(o){
+      var s=getOrderSUP(o);
+      if(s&&s!=='—'&&sups.indexOf(s)<0) sups.push(s);
+    });
+    var curSup=supEl.value;
+    supEl.innerHTML=sups.map(function(s){
+      return '<option value="'+s+'"'+(s===curSup?' selected':'')+'>'+(s===''?'ทุกขนส่ง':s)+'</option>';
+    }).join('');
+  }
   let q=(document.getElementById('ord-q')?.value||'').toLowerCase();
   let f=document.getElementById('ord-f')?.value||'';
+  let supF=document.getElementById('ord-sup')?document.getElementById('ord-sup').value:'';
   let orders=Object.values(ORDERS).filter(o=>{
     if(f&&o.status!==f)return false;
+    if(supF&&getOrderSUP(o)!==supF)return false;
     if(!q)return true;
     return o.id.toLowerCase().includes(q)||(o.consign||'').toLowerCase().includes(q)||(o.tracking||'').toLowerCase().includes(q)||o.items.some(i=>(i.sku||'').toLowerCase().includes(q)||(i.name||'').toLowerCase().includes(q));
   });
