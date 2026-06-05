@@ -244,34 +244,7 @@ tr:hover td{background:var(--bg3)}
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
     <div style="font-size:13px;color:var(--text2)" id="last-sync-txt">ยังไม่ได้ sync</div>
     <button onclick="doManualRefresh(this)" style="padding:6px 14px;font-size:12px;font-weight:700;background:var(--bg2);border:1.5px solid var(--border2);border-radius:var(--rx);cursor:pointer;color:var(--text2)">↻ Refresh</button>
-  
-<!-- CARRIER SUMMARY (ใน dashboard) -->
-<div class="card" style="margin-top:12px">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-    <div class="card-t" style="margin:0">🚚 สรุปตามขนส่ง</div>
-    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-      <select id="cs-range" onchange="renderCarrierSummary()" style="padding:5px 8px;font-size:12px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text)">
-        <option value="today">วันนี้</option>
-        <option value="week">7 วันล่าสุด</option>
-        <option value="month">เดือนนี้</option>
-        <option value="custom">กำหนดเอง</option>
-        <option value="all" selected>ทั้งหมด</option>
-      </select>
-      <div id="cs-custom" style="display:none;gap:4px;align-items:center">
-        <input type="date" id="cs-date-from" onchange="renderCarrierSummary()" style="padding:4px 6px;font-size:12px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text)">
-        <span style="color:var(--text2);font-size:11px">ถึง</span>
-        <input type="date" id="cs-date-to" onchange="renderCarrierSummary()" style="padding:4px 6px;font-size:12px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text)">
-      </div>
-      <button onclick="renderCarrierSummary()" style="font-size:11px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text2)">🔄</button>
-    </div>
   </div>
-  <div id="carrier-summary-table" style="overflow-x:auto">
-    <div class="empty">กำลังโหลด...</div>
-  </div>
-</div>
-
-
-</div>
   <div class="stat-grid">
     <div class="sc" style="border-top:3px solid var(--primary)"><div class="sc-val" id="d-total">0</div><div class="sc-lbl">ทั้งหมด</div></div>
     <div class="sc" style="border-top:3px solid #3B82F6"><div class="sc-val" style="color:var(--primary)" id="d-new">0</div><div class="sc-lbl">🆕 รับแล้ว</div></div>
@@ -331,9 +304,8 @@ tr:hover td{background:var(--bg3)}
   <div class="card"><div class="card-t">ข้อมูลตัวอย่าง</div><button class="btn btn-o btn-sm" onclick="loadSample()">โหลดตัวอย่าง</button></div>
 </div>
 
-
 <!-- DAILY/MONTHLY REPORT (ใน dashboard) -->
-<div class="card" style="margin-top:14px;padding:0;overflow:hidden;border-radius:14px;box-shadow:0 2px 16px rgba(0,0,0,.08);grid-column:1/-1;width:100%">
+<div class="card" style="margin-top:14px;padding:0;overflow:hidden;border-radius:14px;box-shadow:0 2px 16px rgba(0,0,0,.08)">
   <div style="background:linear-gradient(135deg,#1E293B 0%,#0F172A 100%);padding:16px 20px">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
       <div>
@@ -372,6 +344,32 @@ tr:hover td{background:var(--bg3)}
     <div class="empty" style="padding:32px">เลือกวันที่ต้องการดูครับ</div>
   </div>
 </div>
+
+<!-- CARRIER SUMMARY (ใน dashboard) -->
+<div class="card" style="margin-top:12px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+    <div class="card-t" style="margin:0">🚚 สรุปตามขนส่ง</div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <select id="cs-range" onchange="renderCarrierSummary()" style="padding:5px 8px;font-size:12px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text)">
+        <option value="today">วันนี้</option>
+        <option value="week">7 วันล่าสุด</option>
+        <option value="month">เดือนนี้</option>
+        <option value="custom">กำหนดเอง</option>
+        <option value="all" selected>ทั้งหมด</option>
+      </select>
+      <div id="cs-custom" style="display:none;gap:4px;align-items:center">
+        <input type="date" id="cs-date-from" onchange="renderCarrierSummary()" style="padding:4px 6px;font-size:12px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text)">
+        <span style="color:var(--text2);font-size:11px">ถึง</span>
+        <input type="date" id="cs-date-to" onchange="renderCarrierSummary()" style="padding:4px 6px;font-size:12px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text)">
+      </div>
+      <button onclick="renderCarrierSummary()" style="font-size:11px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text2)">🔄</button>
+    </div>
+  </div>
+  <div id="carrier-summary-table" style="overflow-x:auto">
+    <div class="empty">กำลังโหลด...</div>
+  </div>
+</div>
+
 <!-- ORDERS -->
 <div id="page-orders" class="page">
   <div class="card" style="padding:12px">
