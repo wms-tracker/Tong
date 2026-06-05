@@ -334,7 +334,7 @@ tr:hover td{background:var(--bg3)}
   <!-- KPI row -->
   <div id="rpt-kpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));background:var(--bg)"></div>
   <!-- Bar chart -->
-  <div id="rpt-chart" style="padding:14px 20px;background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border)"></div>
+
   <!-- Table -->
   <div id="daily-table" style="overflow-x:auto;max-height:360px;overflow-y:auto;background:var(--bg)">
     <div class="empty" style="padding:32px">เลือกวันที่ต้องการดูครับ</div>
@@ -3245,16 +3245,7 @@ function renderDailyReport(){
     kpiTile('Cancel',cancelCount||'—','orders','#EF4444','🚫')+
     kpiTile('พนักงาน',Object.keys(workers).length||'—','คน','#8B5CF6','👤');
 
-  // Bar chart by sup
-  var supData=Object.keys(supMap).map(function(k){return {k:k,v:supMap[k]};});
-  var supColors=['#2563EB','#0D9488','#8B5CF6','#F59E0B','#EF4444'];
-  var chartEl=document.getElementById('rpt-chart');
-  if(chartEl){
-    if(!supData.length){chartEl.innerHTML='<div style="color:var(--text3);font-size:12px;text-align:center">ไม่มีข้อมูล</div>';return;}
-    var ci=0;
-    chartEl.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">จำนวน Orders ตามขนส่ง</div>'+
-      miniBarChart(supData,function(d){return supColors[(ci++)%supColors.length];});
-  }
+
 
   // Table
   if(!orders.length){
@@ -3323,14 +3314,7 @@ function renderMonthlyReport(){
     kpiTile('Cancel',cancelCount||'—','orders','#EF4444','🚫')+
     kpiTile('เฉลี่ย/วัน',orders.length?Math.round(orders.length/Object.keys(dayMap).length)+'':'—','orders/day','#8B5CF6','📅');
 
-  // Bar chart by day
-  var days=Object.keys(dayMap).sort(function(a,b){return a-b;}).map(function(d){return {k:d,v:dayMap[d]};});
-  var chartEl=document.getElementById('rpt-chart');
-  if(chartEl){
-    if(!days.length){chartEl.innerHTML='<div style="color:var(--text3);font-size:12px;text-align:center">ไม่มีข้อมูล</div>';return;}
-    chartEl.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Orders ต่อวัน</div>'+
-      miniBarChart(days,function(){return '#2563EB';});
-  }
+
 
   // Table — group by day
   if(!orders.length){
