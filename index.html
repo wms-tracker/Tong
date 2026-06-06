@@ -387,7 +387,7 @@ tr:hover td{background:var(--bg3)}
         <option value="done">✅ ส่งแล้ว</option>
         <option value="cancel">🚫 Cancel</option>
       </select>
-      <select id="ord-sup" onchange="filterOrders()" style="width:160px">
+      <select id="ord-sup" style="width:160px">
         <option value="">ทุกขนส่ง</option>
       </select>
       <button class="btn btn-o btn-sm" onclick="confirmExportCSV()">⬇ Export CSV</button>
@@ -793,6 +793,11 @@ const SNL={'new':'→ Pick','pick':'→ QC','qc':'→ Ship','ship':'→ Done'};
 
 /* ======= INIT ======= */
 function init(){
+  // Bind ord-sup เพื่อป้องกัน loop จาก innerHTML rebuild
+  setTimeout(function(){
+    var supEl=document.getElementById('ord-sup');
+    if(supEl) supEl.addEventListener('change',function(){renderOrders();});
+  },500);
   API_URL=localStorage.getItem('WMS_URL')||'';
   FB_URL=localStorage.getItem('WMS_FB')||'';
   if(FB_URL&&Object.keys(ORDERS).length===0){
