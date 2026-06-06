@@ -3292,19 +3292,20 @@ function miniBarChart(data,colorFn){
 
 // ===== DAILY REPORT =====
 function renderDailyReport(){
+  var now=new Date();
   initRptPickers();
   var dateEl=document.getElementById('daily-date');
-  var selDate=dateEl?dateEl.value:new Date().toISOString().slice(0,10);
+  var selDate=dateEl?dateEl.value:now.toISOString().slice(0,10);
   var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
   var SB2={new:'b-new',pick:'b-pick',qc:'b-qc',ship:'b-ship',done:'b-done',cancel:'b-cancel'};
 
+  var _now=new Date();
   var orders=Object.values(ORDERS).filter(function(o){
     var ds=String(o.date||'').trim();
     if(!ds) return false;
-    // parse "Wed, Jun 03" หรือ "3/6/2569"
     var ref=null;
     var m1=ds.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
-    if(m1){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m1[1]];if(mn!==undefined)ref=new Date(now.getFullYear(),mn,parseInt(m1[2]));}
+    if(m1){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m1[1]];if(mn!==undefined)ref=new Date(_now.getFullYear(),mn,parseInt(m1[2]));}
     if(!ref){var m2=ds.match(/^(\d+)\/(\d+)\/(\d+)/);if(m2){var yr2=parseInt(m2[3]);if(yr2>2400)yr2-=543;ref=new Date(yr2,parseInt(m2[2])-1,parseInt(m2[1]));}}
     if(!ref) return false;
     return ref.toISOString().slice(0,10)===selDate;
@@ -3367,6 +3368,7 @@ function renderDailyReport(){
 
 // ===== MONTHLY REPORT =====
 function renderMonthlyReport(){
+  var now=new Date();
   initRptPickers();
   var yr=document.getElementById('monthly-year')?document.getElementById('monthly-year').value:'';
   var mo=document.getElementById('monthly-month')?document.getElementById('monthly-month').value:'';
@@ -3374,12 +3376,13 @@ function renderMonthlyReport(){
   var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
   var SB2={new:'b-new',pick:'b-pick',qc:'b-qc',ship:'b-ship',done:'b-done',cancel:'b-cancel'};
 
+  var _now2=new Date();
   var orders=Object.values(ORDERS).filter(function(o){
     var ds=String(o.date||'').trim();
     if(!ds) return false;
     var ref=null;
     var m1=ds.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
-    if(m1){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m1[1]];if(mn!==undefined)ref=new Date(now.getFullYear(),mn,parseInt(m1[2]));}
+    if(m1){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m1[1]];if(mn!==undefined)ref=new Date(_now2.getFullYear(),mn,parseInt(m1[2]));}
     if(!ref){var m2=ds.match(/^(\d+)\/(\d+)\/(\d+)/);if(m2){var yr3=parseInt(m2[3]);if(yr3>2400)yr3-=543;ref=new Date(yr3,parseInt(m2[2])-1,parseInt(m2[1]));}}
     if(!ref) return false;
     return ref.getFullYear()===parseInt(yr)&&(ref.getMonth()+1)===parseInt(mo);
