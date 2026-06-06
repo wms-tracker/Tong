@@ -2689,81 +2689,63 @@ function doExportCSV(){
   var now=new Date();
   var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
 
-  // แปลงวันที่จาก o.date (Excel col A) เป็น Date object
-  function parseDate(o){
-    var ds=String(o.date||'').trim();
-    if(!ds) return null;
-    // "Wed, Jun 03" / "Thu, Jun 04"
+  function parseDateStr(ds){
+    ds=String(ds||'').trim(); if(!ds) return null;
     var m1=ds.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
-    if(m1){
-      var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-      var mn=MN[m1[1]];
-      if(mn!==undefined) return new Date(now.getFullYear(),mn,parseInt(m1[2]));
-    }
-    // "3/6/2569" Thai Buddhist year
+    if(m1){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m1[1]];if(mn!==undefined)return new Date(now.getFullYear(),mn,parseInt(m1[2]));}
     var m2=ds.match(/^(\d+)\/(\d+)\/(\d+)/);
-    if(m2){
-      var yr=parseInt(m2[3]); if(yr>2400) yr-=543;
-      return new Date(yr,parseInt(m2[2])-1,parseInt(m2[1]));
-    }
-    // ISO string fallback
-    var d=new Date(ds);
-    if(!isNaN(d.getTime())) return d;
-    return null;
+    if(m2){var yr=parseInt(m2[3]);if(yr>2400)yr-=543;return new Date(yr,parseInt(m2[2])-1,parseInt(m2[1]));}
+    var d=new Date(ds); return isNaN(d.getTime())?null:d;
   }
 
-  var rows=[['วันที่','ขนส่ง','Order ID','SKU','แบรนด์','จำนวน','Consign','Tracking']];
-  var count=0;
+  // columns ครบ
+  var rows=[['วันที่','ขนส่ง','Order ID','SKU','แบรนด์','ขนาด','จำนวน','Consign','Tracking','สถานะ','พนักงาน']];
 
   Object.values(ORDERS).forEach(function(o){
     if(o.status==='new'||o.status==='pick') return;
     if(stFilter!=='all'&&o.status!==stFilter) return;
-
-    // date filter
     if(range!=='all'){
-      var ref=parseDate(o);
-      if(!ref) return; // ไม่มีวันที่ → ข้าม
-      if(range==='today'){
-        if(ref.toDateString()!==now.toDateString()) return;
-      } else if(range==='week'){
-        var w=new Date(now); w.setDate(w.getDate()-7); w.setHours(0,0,0,0);
-        if(ref<w) return;
-      } else if(range==='month'){
-        if(ref.getMonth()!==now.getMonth()||ref.getFullYear()!==now.getFullYear()) return;
-      } else if(range==='custom'&&(dateFrom||dateTo)){
-        if(dateFrom&&ref<new Date(dateFrom+'T'+timeFrom+':00')) return;
-        if(dateTo&&ref>new Date(dateTo+'T'+timeTo+':59')) return;
+      var ref=parseDateStr(o.date);
+      if(!ref) return;
+      if(range==='today'&&ref.toDateString()!==now.toDateString()) return;
+      if(range==='week'){var w=new Date(now);w.setDate(w.getDate()-7);w.setHours(0,0,0,0);if(ref<w)return;}
+      if(range==='month'&&(ref.getMonth()!==now.getMonth()||ref.getFullYear()!==now.getFullYear()))return;
+      if(range==='custom'){
+        if(dateFrom&&ref<new Date(dateFrom)) return;
+        if(dateTo&&ref>new Date(dateTo+'T23:59:59')) return;
       }
     }
-
     var sup=getOrderSUP(o)||'';
-    var dateDisp=o.date||'';
     var allItems=o.items&&o.items.length?o.items:[{sku:'',name:'',size:'',qty:1,tracking:''}];
-
     allItems.forEach(function(item){
       var trk=item.tracking||o.tracking||'';
-      rows.push([dateDisp,sup,o.id,item.sku||'',item.name||'',item.qty||1,o.consign||'',trk]);
-      count++;
+      rows.push([
+        o.date||'',
+        sup,
+        o.id,
+        item.sku||'',
+        item.name||'',
+        item.size||'',
+        item.qty||1,
+        o.consign||'',
+        trk,
+        SL2[o.status]||o.status,
+        o.user||''
+      ]);
     });
   });
 
   if(rows.length<=1){ulAlert('ไม่มีข้อมูลในช่วงที่เลือก','warn');return;}
-
   var csv=rows.map(function(r){
     return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');
   }).join('\r\n');
-
   var fname='wms_report_'+now.toISOString().slice(0,10);
-  if(range==='today') fname+='_today';
-  else if(range==='custom'&&dateFrom) fname+='_'+dateFrom+(dateTo&&dateTo!==dateFrom?'_to_'+dateTo:'');
-
-  var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
   var a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
   a.download=fname+'.csv';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   document.getElementById('export-modal').style.display='none';
-  ulAlert('✅ Export '+count+' รายการ ('+( rows.length-1)+' rows)','ok');
+  ulAlert('✅ Export '+(rows.length-1)+' รายการ','ok');
 }
 
 
@@ -3510,21 +3492,27 @@ var _selectedOids=new Set();
 
 function toggleAllOrders(checked){
   _selectedOids.clear();
-  document.querySelectorAll('.ord-cb').forEach(function(cb){
+  var cbs=document.querySelectorAll('.ord-cb');
+  cbs.forEach(function(cb){
     cb.checked=checked;
     if(checked&&cb.dataset.oid) _selectedOids.add(cb.dataset.oid);
   });
+  var chkAll=document.getElementById('check-all');
+  if(chkAll){chkAll.checked=checked&&cbs.length>0;chkAll.indeterminate=false;}
   updateBulkToolbar();
 }
 
 function handleCheckbox(cb){
   if(cb.checked) _selectedOids.add(cb.dataset.oid);
   else _selectedOids.delete(cb.dataset.oid);
-  // update check-all state
-  var all=document.querySelectorAll('.ord-cb');
-  var checked=document.querySelectorAll('.ord-cb:checked');
+  // อัปเดต check-all โดยไม่ querySelectorAll ซ้ำ
   var chkAll=document.getElementById('check-all');
-  if(chkAll){chkAll.checked=all.length>0&&checked.length===all.length;chkAll.indeterminate=checked.length>0&&checked.length<all.length;}
+  if(chkAll){
+    var total=document.querySelectorAll('.ord-cb').length;
+    var sel=_selectedOids.size;
+    chkAll.checked=total>0&&sel===total;
+    chkAll.indeterminate=sel>0&&sel<total;
+  }
   updateBulkToolbar();
 }
 
