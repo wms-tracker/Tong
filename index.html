@@ -2503,27 +2503,107 @@ function renderDraftList(){
   el.innerHTML='';
   keys.forEach(function(oid){
     var d=DRAFTS[oid];
-    var sc=Object.values(d.sc||{}).reduce(function(a,b){return a+b;},0);
+    var o=ORDERS[oid]||{};
+    var items=d.items||o.items||[];
+    var sc=d.sc||{};
+    var scanned=Object.values(sc).reduce(function(a,b){return a+b;},0);
+    var total=items.reduce(function(a,it){return a+(it.qty||1);},0);
+    var pct=total>0?Math.round(scanned/total*100):0;
     var dt=d.ts?new Date(d.ts).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
-    var row=document.createElement('div');
-    row.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:11px 4px;border-bottom:1px solid var(--border)';
+
+    var wrap=document.createElement('div');
+    wrap.style.cssText='background:var(--bg);border:1.5px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px';
+
+    // Header
+    var hdr=document.createElement('div');
+    hdr.style.cssText='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;flex-wrap:wrap;gap:6px';
     var info=document.createElement('div');
-    var devBadge=d.device?('<span style="font-size:10px;padding:2px 6px;background:var(--bg3);border-radius:4px;color:var(--text2)">'+d.device+'</span>'):'';
-    info.innerHTML='<div style="font-weight:700;font-size:14px;font-family:monospace">'+oid+' '+devBadge+'</div>'
-      +'<div style="font-size:11px;color:var(--text2);margin-top:2px">'+(d.items||[]).length+' รายการ · สแกน '+sc+' ชิ้น'+(d.user?' · '+d.user:'')+' · '+dt+'</div>';
+    info.innerHTML='<span style="font-weight:800;font-family:monospace;font-size:15px;color:var(--primary)">'+oid+'</span>'
+      +(d.device?'<span style="font-size:10px;padding:2px 8px;background:#EFF6FF;color:#2563EB;border-radius:10px;font-weight:600;margin-left:6px">'+d.device+'</span>':'')
+      +(d.user?'<span style="font-size:10px;padding:2px 8px;background:#F0FDF4;color:#16A34A;border-radius:10px;font-weight:600;margin-left:4px">'+d.user+'</span>':'')
+      +'<div style="font-size:11px;color:var(--text2);margin-top:3px">อัปเดต: '+dt+'</div>';
+
     var btns=document.createElement('div');
-    btns.style.cssText='display:flex;gap:6px';
-    var b1=document.createElement('button');
-    b1.textContent='ดู QC';
-    b1.style.cssText='padding:6px 12px;background:var(--teal);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer';
-    b1.onclick=function(){goQCScan(oid);};
-    var b2=document.createElement('button');
-    b2.textContent='🗑';
-    b2.style.cssText='padding:6px 10px;background:var(--rb);color:var(--red);border:1.5px solid var(--rbr);border-radius:6px;font-size:12px;cursor:pointer';
-    b2.onclick=function(){delDraftPC(oid);};
-    btns.appendChild(b1);btns.appendChild(b2);
-    row.appendChild(info);row.appendChild(btns);
-    el.appendChild(row);
+    btns.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
+
+    var bReset=document.createElement('button');
+    bReset.textContent='↺ Reset';
+    bReset.style.cssText='padding:5px 10px;background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer';
+    bReset.onclick=(function(o2){return function(){resetDraftScan(o2);};})(oid);
+
+    var bPass=document.createElement('button');
+    bPass.textContent='✅ QC ผ่าน';
+    bPass.style.cssText='padding:5px 10px;background:#DCFCE7;color:#166534;border:1px solid #86EFAC;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer';
+    bPass.onclick=(function(o2){return function(){completeDraftManual(o2);};})(oid);
+
+    var bDel=document.createElement('button');
+    bDel.textContent='🗑 ลบ';
+    bDel.style.cssText='padding:5px 10px;background:#FEE2E2;color:#DC2626;border:1px solid #FCA5A5;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer';
+    bDel.onclick=(function(o2){return function(){delDraftPC(o2);};})(oid);
+
+    btns.appendChild(bReset);btns.appendChild(bPass);btns.appendChild(bDel);
+    hdr.appendChild(info);hdr.appendChild(btns);
+    wrap.appendChild(hdr);
+
+    // Progress
+    var progWrap=document.createElement('div');
+    progWrap.style.cssText='background:var(--bg3);border-radius:6px;height:8px;overflow:hidden;margin-bottom:6px';
+    var progBar=document.createElement('div');
+    progBar.style.cssText='background:'+(pct>=100?'#16A34A':'#2563EB')+';height:100%;width:'+pct+'%;transition:.3s;border-radius:6px';
+    progWrap.appendChild(progBar);
+    wrap.appendChild(progWrap);
+    var progTxt=document.createElement('div');
+    progTxt.style.cssText='font-size:11px;color:var(--text2);margin-bottom:8px';
+    progTxt.textContent='สแกน '+scanned+'/'+total+' ชิ้น ('+pct+'%)';
+    wrap.appendChild(progTxt);
+
+    // Items list
+    var itemWrap=document.createElement('div');
+    itemWrap.style.cssText='background:var(--bg3);border-radius:8px;padding:8px 10px';
+    var itemTitle=document.createElement('div');
+    itemTitle.style.cssText='font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px';
+    itemTitle.textContent='รายการสินค้า';
+    itemWrap.appendChild(itemTitle);
+
+    items.forEach(function(it,ix){
+      var skuKey=it.sku||('__skip_'+ix);
+      var k=Object.keys(sc).find(function(k2){return k2.split('||')[1]===skuKey||k2.includes(skuKey);});
+      var done=k?sc[k]:0;
+      var qty=it.qty||1;
+      var over=done>qty; var ok=done>=qty;
+      var c=over?'#EF4444':ok?'#16A34A':done>0?'#F59E0B':'#94A3B8';
+
+      var row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border)';
+
+      var skuEl=document.createElement('div');
+      skuEl.style.cssText='font-family:monospace;font-size:11px;color:#0D9488;min-width:110px';
+      skuEl.textContent=it.sku||'—';
+
+      var nameEl=document.createElement('div');
+      nameEl.style.cssText='flex:1;font-size:12px;color:var(--text2)';
+      nameEl.textContent=(it.name||'').substring(0,30);
+
+      var cntEl=document.createElement('div');
+      cntEl.style.cssText='font-size:12px;font-weight:700;color:'+c+';min-width:45px;text-align:right';
+      cntEl.textContent=done+'/'+qty;
+
+      var bAdd=document.createElement('button');
+      bAdd.textContent='+';
+      bAdd.style.cssText='padding:2px 8px;background:#E0F2FE;color:#0369A1;border:none;border-radius:4px;cursor:pointer;font-size:12px';
+      bAdd.onclick=(function(o2,sk){return function(){adjustDraftScan(o2,sk,1);};})(oid,skuKey);
+
+      var bSub=document.createElement('button');
+      bSub.textContent='−';
+      bSub.style.cssText='padding:2px 8px;background:#FEE2E2;color:#DC2626;border:none;border-radius:4px;cursor:pointer;font-size:12px';
+      bSub.onclick=(function(o2,sk){return function(){adjustDraftScan(o2,sk,-1);};})(oid,skuKey);
+
+      row.appendChild(skuEl);row.appendChild(nameEl);row.appendChild(cntEl);
+      row.appendChild(bAdd);row.appendChild(bSub);
+      itemWrap.appendChild(row);
+    });
+    wrap.appendChild(itemWrap);
+    el.appendChild(wrap);
   });
 }
 
@@ -3468,6 +3548,62 @@ function clearBulkSelect(){
   var chkAll=document.getElementById('check-all');
   if(chkAll){chkAll.checked=false;chkAll.indeterminate=false;}
   updateBulkToolbar();
+}
+
+
+/* ===== DRAFT EDIT FUNCTIONS ===== */
+function adjustDraftScan(oid,sku,delta){
+  if(!DRAFTS[oid]) return;
+  if(!DRAFTS[oid].sc) DRAFTS[oid].sc={};
+  // หา key ที่ตรงกับ sku
+  var sc=DRAFTS[oid].sc;
+  var key=Object.keys(sc).find(function(k){return k.includes(sku);});
+  if(!key){
+    // หา key format จาก pattern: oid||sku หรือ oid||sku||trk
+    key=Object.keys(sc).find(function(k){return k.split('||')[1]===sku;});
+  }
+  if(!key&&delta>0){
+    // สร้าง key ใหม่
+    key=oid+'||'+sku;
+  }
+  if(!key) return;
+  var cur=sc[key]||0;
+  var newVal=Math.max(0,cur+delta);
+  if(newVal===0) delete sc[key];
+  else sc[key]=newVal;
+  // push ขึ้น Firebase
+  if(FB_URL) fbPut('/drafts/'+encodeId(oid),DRAFTS[oid]);
+  saveLocal();
+  renderDraftList();
+}
+
+function resetDraftScan(oid){
+  if(!confirm('รีเซ็ตการสแกนของ '+oid+'? PDA จะต้องสแกนใหม่ทั้งหมด')) return;
+  if(!DRAFTS[oid]) return;
+  DRAFTS[oid].sc={};
+  DRAFTS[oid].ts=Date.now();
+  if(FB_URL) fbPut('/drafts/'+encodeId(oid),DRAFTS[oid]);
+  saveLocal();
+  renderDraftList();
+  ulAlert('↺ รีเซ็ต '+oid+' แล้ว — PDA จะเริ่มสแกนใหม่','warn');
+}
+
+function completeDraftManual(oid){
+  if(!confirm('ยืนยัน QC ผ่าน '+oid+' โดยไม่ต้องสแกนครบ?')) return;
+  if(!ORDERS[oid]) return;
+  ORDERS[oid].status='qc';
+  ORDERS[oid].updatedAt=new Date().toISOString();
+  ORDERS[oid].user=localStorage.getItem('WMS_USR')||'PC';
+  // push status
+  if(FB_URL){
+    fbPatch('/statuses/'+encodeId(oid),{status:'qc',updatedAt:ORDERS[oid].updatedAt,
+      user:ORDERS[oid].user,device:localStorage.getItem('WMS_DEV')||'WMS-PC'});
+    fbPut('/drafts/'+encodeId(oid),null);
+  }
+  delete DRAFTS[oid];
+  saveLocal();refreshAll();
+  renderDraftList();
+  ulAlert('✅ QC ผ่าน: '+oid,'ok');
 }
 
 init();
