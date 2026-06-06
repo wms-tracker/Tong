@@ -2684,29 +2684,26 @@ function doExportCSV(){
   var now=new Date();
   var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
 
-  // แปลงวันที่จาก order ให้เป็น Date object
+  // แปลงวันที่จาก o.date (Excel col A) เป็น Date object
   function parseDate(o){
-    // ใช้ updatedAt ก่อน (วันที่ QC จริง)
-    if(o.updatedAt){
-      var d=new Date(o.updatedAt);
-      if(!isNaN(d.getTime())) return d;
-    }
-    // fallback: o.date เช่น "Thu, Jun 04" หรือ "3/6/2569"
     var ds=String(o.date||'').trim();
     if(!ds) return null;
-    // "Wed, Jun 03" format
+    // "Wed, Jun 03" / "Thu, Jun 04"
     var m1=ds.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
     if(m1){
       var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
       var mn=MN[m1[1]];
       if(mn!==undefined) return new Date(now.getFullYear(),mn,parseInt(m1[2]));
     }
-    // "3/6/2569" format
+    // "3/6/2569" Thai Buddhist year
     var m2=ds.match(/^(\d+)\/(\d+)\/(\d+)/);
     if(m2){
       var yr=parseInt(m2[3]); if(yr>2400) yr-=543;
       return new Date(yr,parseInt(m2[2])-1,parseInt(m2[1]));
     }
+    // ISO string fallback
+    var d=new Date(ds);
+    if(!isNaN(d.getTime())) return d;
     return null;
   }
 
@@ -2860,24 +2857,15 @@ function renderCarrierSummary(){
   var orders=allOrders.filter(function(o){
     if(range==='all') return true;
     // ลอง updatedAt ก่อน ถ้าไม่มีใช้ date จาก Excel
-    var ref=parseOrderDate(o);
-    // ถ้าไม่มี updatedAt แต่มี date → ใช้ date (orders ที่ยังไม่ได้ QC)
-    if(!ref||isNaN(ref.getTime())){
-      var d2=String(o.date||'').trim();
-      if(d2){
-        var m1=d2.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
-        if(m1){
-          var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-          var mn=MN[m1[1]];
-          if(mn!==undefined) ref=new Date(now.getFullYear(),mn,parseInt(m1[2]));
-        }
-        if(!ref){
-          var m2=d2.match(/^(\d+)\/(\d+)\/(\d+)/);
-          if(m2){var yr2=parseInt(m2[3]);if(yr2>2400)yr2-=543;ref=new Date(yr2,parseInt(m2[2])-1,parseInt(m2[1]));}
-        }
-      }
+    // ใช้ o.date จาก Excel เป็นหลัก
+    var ds2=String(o.date||'').trim();
+    var ref=null;
+    if(ds2){
+      var m1=ds2.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
+      if(m1){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m1[1]];if(mn!==undefined)ref=new Date(now.getFullYear(),mn,parseInt(m1[2]));}
+      if(!ref){var m2=ds2.match(/^(\d+)\/(\d+)\/(\d+)/);if(m2){var yr2=parseInt(m2[3]);if(yr2>2400)yr2-=543;ref=new Date(yr2,parseInt(m2[2])-1,parseInt(m2[1]));}}
     }
-    if(!ref||isNaN(ref.getTime())) return false;
+    if(!ref) return false;
     if(range==='today'){
       return ref.toDateString()===now.toDateString();
     } else if(range==='week'){
@@ -3311,8 +3299,15 @@ function renderDailyReport(){
   var SB2={new:'b-new',pick:'b-pick',qc:'b-qc',ship:'b-ship',done:'b-done',cancel:'b-cancel'};
 
   var orders=Object.values(ORDERS).filter(function(o){
-    if(!o.updatedAt) return false;
-    return new Date(o.updatedAt).toISOString().slice(0,10)===selDate;
+    var ds=String(o.date||'').trim();
+    if(!ds) return false;
+    // parse "Wed, Jun 03" หรือ "3/6/2569"
+    var ref=null;
+    var m1=ds.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
+    if(m1){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m1[1]];if(mn!==undefined)ref=new Date(now.getFullYear(),mn,parseInt(m1[2]));}
+    if(!ref){var m2=ds.match(/^(\d+)\/(\d+)\/(\d+)/);if(m2){var yr2=parseInt(m2[3]);if(yr2>2400)yr2-=543;ref=new Date(yr2,parseInt(m2[2])-1,parseInt(m2[1]));}}
+    if(!ref) return false;
+    return ref.toISOString().slice(0,10)===selDate;
   });
 
   // KPI
@@ -3380,9 +3375,14 @@ function renderMonthlyReport(){
   var SB2={new:'b-new',pick:'b-pick',qc:'b-qc',ship:'b-ship',done:'b-done',cancel:'b-cancel'};
 
   var orders=Object.values(ORDERS).filter(function(o){
-    if(!o.updatedAt) return false;
-    var d=new Date(o.updatedAt);
-    return d.getFullYear()=== parseInt(yr) && (d.getMonth()+1)===parseInt(mo);
+    var ds=String(o.date||'').trim();
+    if(!ds) return false;
+    var ref=null;
+    var m1=ds.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
+    if(m1){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m1[1]];if(mn!==undefined)ref=new Date(now.getFullYear(),mn,parseInt(m1[2]));}
+    if(!ref){var m2=ds.match(/^(\d+)\/(\d+)\/(\d+)/);if(m2){var yr3=parseInt(m2[3]);if(yr3>2400)yr3-=543;ref=new Date(yr3,parseInt(m2[2])-1,parseInt(m2[1]));}}
+    if(!ref) return false;
+    return ref.getFullYear()===parseInt(yr)&&(ref.getMonth()+1)===parseInt(mo);
   });
 
   var totalQty=orders.reduce(function(a,o){return a+(o.items||[]).reduce(function(b,i){return b+(i.qty||1);},0);},0);
@@ -3604,6 +3604,77 @@ function completeDraftManual(oid){
   saveLocal();refreshAll();
   renderDraftList();
   ulAlert('✅ QC ผ่าน: '+oid,'ok');
+}
+
+
+function renderReport(){
+  var now=new Date();
+  var range=document.getElementById('rpt-range')?document.getElementById('rpt-range').value:'all';
+  var stFilter=document.getElementById('rpt-status')?document.getElementById('rpt-status').value:'all';
+  var srchFilter=(document.getElementById('rpt-search')?document.getElementById('rpt-search').value:'').toLowerCase().trim();
+  var dateFrom=document.getElementById('rpt-date-from')?document.getElementById('rpt-date-from').value:'';
+  var dateTo=document.getElementById('rpt-date-to')?document.getElementById('rpt-date-to').value:'';
+  var timeFrom=document.getElementById('rpt-time-from')?document.getElementById('rpt-time-from').value:'00:00';
+  var timeTo=document.getElementById('rpt-time-to')?document.getElementById('rpt-time-to').value:'23:59';
+  var tbody=document.getElementById('rpt-tbody');
+  if(!tbody) return;
+  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
+  var SB2={new:'b-new',pick:'b-pick',qc:'b-qc',ship:'b-ship',done:'b-done',cancel:'b-cancel'};
+  var orders=Object.values(ORDERS);
+
+  // parse o.date จาก Excel
+  function parseDateStr(ds){
+    ds=String(ds||'').trim();
+    if(!ds) return null;
+    var m1=ds.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
+    if(m1){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m1[1]];if(mn!==undefined)return new Date(now.getFullYear(),mn,parseInt(m1[2]));}
+    var m2=ds.match(/^(\d+)\/(\d+)\/(\d+)/);
+    if(m2){var yr=parseInt(m2[3]);if(yr>2400)yr-=543;return new Date(yr,parseInt(m2[2])-1,parseInt(m2[1]));}
+    var d=new Date(ds); return isNaN(d.getTime())?null:d;
+  }
+
+  var filtered=orders.filter(function(o){
+    if(o.status==='new'||o.status==='pick') return false;
+    if(stFilter!=='all'&&o.status!==stFilter) return false;
+    if(srchFilter&&!o.id.toLowerCase().includes(srchFilter)&&!(o.consign||'').toLowerCase().includes(srchFilter)) return false;
+    if(range==='all') return true;
+    var ref=parseDateStr(o.date);
+    if(!ref) return false;
+    if(range==='today') return ref.toDateString()===now.toDateString();
+    if(range==='week'){var wk=new Date(now);wk.setDate(wk.getDate()-7);wk.setHours(0,0,0,0);return ref>=wk;}
+    if(range==='month') return ref.getMonth()===now.getMonth()&&ref.getFullYear()===now.getFullYear();
+    if(range==='custom'){
+      if(dateFrom&&ref<new Date(dateFrom)) return false;
+      if(dateTo&&ref>new Date(dateTo+'T23:59:59')) return false;
+      return true;
+    }
+    return true;
+  });
+
+  var rows=[];
+  filtered.forEach(function(o){
+    var sup=getOrderSUP(o)||'—';
+    var dateVal=o.date||'—';
+    var upd=o.updatedAt?new Date(o.updatedAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+    var usr=o.user||'—';
+    var st='<span class="badge '+(SB2[o.status]||'b-new')+'">'+(SL2[o.status]||o.status)+'</span>';
+    var allItems=o.items&&o.items.length?o.items:[{sku:'',name:'',size:'',qty:1}];
+    allItems.forEach(function(item){
+      rows.push('<tr style="border-bottom:1px solid var(--border)">'
+        +'<td style="padding:6px;font-size:11px;color:var(--text2);white-space:nowrap">'+dateVal+'</td>'
+        +'<td style="padding:6px;font-weight:700;font-size:12px;color:var(--primary)">'+sup+'</td>'
+        +'<td style="padding:6px;font-weight:700;font-family:monospace;font-size:11px">'+o.id+'</td>'
+        +'<td style="padding:6px;font-family:monospace;font-size:11px;color:#0D9488">'+(item.sku||'—')+'</td>'
+        +'<td style="padding:6px;font-size:12px">'+(item.name||'—')+'</td>'
+        +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+(item.size||'—')+'</td>'
+        +'<td style="padding:6px;text-align:center;font-weight:800;font-size:14px;color:var(--primary)">'+(item.qty||1)+'</td>'
+        +'<td style="padding:6px;text-align:center">'+st+'</td>'
+        +'<td style="padding:6px;font-size:11px;color:var(--text2)">'+usr+'</td>'
+        +'</tr>');
+    });
+  });
+
+  tbody.innerHTML=rows.length?rows.join(''):'<tr><td colspan="9" class="empty">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>';
 }
 
 init();
