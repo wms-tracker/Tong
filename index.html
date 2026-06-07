@@ -82,7 +82,7 @@ tr:hover td{background:var(--bg3)}
 .b-qc{background:var(--ob);color:var(--orange);border:1px solid var(--obr)}
 .b-pick{background:#E0F2FE;color:#0369A1;border:1px solid #BAE6FD}.b-pack{background:var(--pb);color:var(--purple);border:1px solid var(--pbr)}.b-ship{background:#F3E8FF;color:#7C3AED;border:1px solid #DDD6FE}
 .b-done{background:var(--gb);color:var(--green);border:1px solid var(--gbr)}
-.b-cancel{background:var(--rb);color:var(--red);border:1px solid var(--rbr)}
+.b-cancel{background:var(--rb);color:var(--red);border:1px solid var(--rbr)}.b-postponed{background:#FEF3C7;color:#92400E;border:1px solid #FCD34D}
 .b-hold{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
 .b-draft{background:var(--tb);color:var(--teal);border:1px solid var(--tbr)}
 /* SCAN UI */
@@ -386,6 +386,7 @@ tr:hover td{background:var(--bg3)}
         <option value="ship">🚚 Ship</option>
         <option value="done">✅ ส่งแล้ว</option>
         <option value="cancel">🚫 Cancel</option>
+        <option value="postponed">📅 เลื่อนจัดส่ง</option>
       </select>
       <select id="ord-sup" style="width:160px">
         <option value="">ทุกขนส่ง</option>
@@ -786,9 +787,9 @@ tr:hover td{background:var(--bg3)}
 /* ======= STATE ======= */
 let ORDERS={}, SC={}, DRAFTS={}, API_URL='', FB_URL='';
 let qcMode='tracking', curQCOid='', curQCTracking='', curQCItems=[], pendingData=[], curOid='';
-const SL={'new':'🆕 รับแล้ว','pick':'🔍 Pick','qc':'✅ QC ผ่าน','ship':'🚚 Ship','done':'✔ Done','cancel':'🚫 Cancel'};
-const SB={'new':'b-new','pick':'b-pick','qc':'b-qc','ship':'b-ship','done':'b-done','cancel':'b-cancel'};
-const SN={'new':'pick','pick':'qc','qc':'ship','ship':'done'}
+const SL={'new':'🆕 รับแล้ว','pick':'🔍 Pick','qc':'✅ QC ผ่าน','ship':'🚚 Ship','done':'✔ Done','cancel':'🚫 Cancel','postponed':'📅 เลื่อน'};
+const SB={'new':'b-new','pick':'b-pick','qc':'b-qc','ship':'b-ship','done':'b-done','cancel':'b-cancel','postponed':'b-postponed'};
+const SN={'new':'pick','pick':'qc','postponed':'new','qc':'ship','ship':'done'}
 const SNL={'new':'→ Pick','pick':'→ QC','qc':'→ Ship','ship':'→ Done'};
 
 /* ======= INIT ======= */
@@ -1327,7 +1328,8 @@ function renderOrders(){
   let f=document.getElementById('ord-f')?.value||'';
   let supF=document.getElementById('ord-sup')?document.getElementById('ord-sup').value:'';
   let orders=Object.values(ORDERS).filter(o=>{
-    if(f&&o.status!==f)return false;
+    if(f==='postponed'){if(!o.postponedFrom)return false;}
+    else if(f&&o.status!==f)return false;
     if(supF&&getOrderSUP(o)!==supF)return false;
     if(!q)return true;
     return o.id.toLowerCase().includes(q)||(o.consign||'').toLowerCase().includes(q)||(o.tracking||'').toLowerCase().includes(q)||o.items.some(i=>(i.sku||'').toLowerCase().includes(q)||(i.name||'').toLowerCase().includes(q));
@@ -1345,7 +1347,7 @@ function renderOrders(){
           : (o.tracking||'—').substring(0,16))
       }</td>
       <td>${o.items.length} รายการ</td>
-      <td><span class="badge ${SB[o.status]}">${SL[o.status]}</span></td>
+      <td><span class="badge ${SB[o.status]}">${SL[o.status]}</span>${o.postponedFrom?'<span style="font-size:9px;padding:1px 5px;background:#FEF3C7;color:#92400E;border-radius:6px;margin-left:3px;font-weight:700">เลื่อน</span>':''}</td>
       <td style="font-size:12px">${o.shipDate||o.date||'—'}</td>
       <td><div class="brow">
         <button class="btn btn-xs btn-o" onclick="openOrder('${o.id}')">ดู</button>
@@ -2098,7 +2100,17 @@ function runMatcher(){
   var tc=Object.keys(matcherTrkRows[0]);
   var tOid=fc2(tc,['Order ID','OrderID','order id'])||tc[2]||tc[0];
   var tBrand=fc2(tc,['แบรนด์','brand','ชื่อสินค้า'])||tc[5]||tc[1];
-  var tTrack=fc2(tc,['Tracking','tracking','เลขพัสดุ','เลข tracking'])||tc[tc.length-1];
+  // หา Tracking column — รองรับกรณีมี col ว่างก่อน Tracking
+  var tTrack=fc2(tc,['Tracking','tracking','เลขพัสดุ','เลข tracking','track','เลข']);
+  if(!tTrack){
+    // fallback: หา col สุดท้ายที่ไม่ใช่ None/empty
+    for(var _ti=tc.length-1;_ti>=0;_ti--){
+      if(tc[_ti]&&tc[_ti]!=='__EMPTY__'&&tc[_ti]!='None'&&tc[_ti]!='null'){
+        tTrack=tc[_ti]; break;
+      }
+    }
+  }
+  console.log('tTrack=',tTrack,'sample=',matcherTrkRows[0]?matcherTrkRows[0][tTrack]:'');
   var tConsign=fc2(tc,['consign','เลข consign','เลขconsign','Consign'])||tc[3];
   var tSup=fc2(tc,['Sup','SUP','sup','ขนส่ง','carrier'])||tc[1];
   var tQty=fc2(tc,['Qty','qty','Qty.','จำนวน'])||tc[6];
@@ -2282,13 +2294,30 @@ function applyMatcherToWMS(){
     var m=map[oid];
     var existSt=ORDERS[oid]?ORDERS[oid].status:'';
     var keepSt=['pick','qc','ship','done'].indexOf(existSt)>=0;
+    var isPostponed=false;
+    var newStatus='new';
+    if(keepSt){
+      // อยู่ระหว่างดำเนินการ → คงสถานะ
+      newStatus=existSt;
+    } else if(existSt==='postponed'){
+      // เคยกด "เลื่อนจัดส่ง" → โผล่ในไฟล์ใหม่ → reset เป็น new
+      newStatus='new';
+      isPostponed=true;
+    }
+    var oldOrder=ORDERS[oid]||{};
     newOrders[oid]={
       id:oid,consign:m.consign,tracking:m.tracking,trackings:m.trackings,
-      items:m.items,status:keepSt?existSt:'new',
+      items:m.items,status:newStatus,
       sup:m.sup||'',date:m.date||now,
-      note:'',timeline:[{time:now,action:'นำเข้าจาก Tracking Matcher',user:'System'}]
+      note:isPostponed?('เลื่อนจัดส่ง จาก '+(oldOrder.date||'ไม่ทราบวัน')+' → '+( m.date||now)):(oldOrder.note||''),
+      postponedFrom:isPostponed?(oldOrder.date||''):'',
+      postponedAt:isPostponed?new Date().toISOString():'',
+      timeline:[{time:now,action:isPostponed?'เลื่อนจัดส่ง — นำเข้าจากไฟล์ใหม่':'นำเข้าจาก Tracking Matcher',user:'System'}]
     };
-    if(ORDERS[oid]) updated++; else added++;
+    if(isPostponed){
+      updated++;
+      console.log('📅 เลื่อนจัดส่ง: '+oid+' ('+( oldOrder.date||'?')+' → '+( m.date||now)+')');
+    } else if(ORDERS[oid]) updated++; else added++;
   });
   ORDERS=newOrders;
   saveLocal();refreshAll();
@@ -2308,7 +2337,11 @@ function applyMatcherToWMS(){
   // Push batch metadata
   if(FB_URL) fbPut('/currentBatch',{id:batchId,date:now,count:Object.keys(newOrders).length,uploadedBy:localStorage.getItem('WMS_USR')||'PC'});
   var fbNote=FB_URL?' (sync ขึ้น Firebase แล้ว — PDA ดึงได้เลย)':'';
-  alert('✅ นำเข้า WMS สำเร็จ!\nออเดอร์ใหม่: '+added+'\nอัปเดต: '+updated+'\nรวม: '+Object.keys(newOrders).length+' orders'+fbNote);
+  var postponedCount=Object.values(newOrders).filter(function(o){return o.postponedFrom;}).length;
+  var msg='✅ นำเข้า WMS สำเร็จ!\nออเดอร์ใหม่: '+added+'\nอัปเดต: '+updated;
+  if(postponedCount>0) msg+='\n📅 เลื่อนจัดส่ง: '+postponedCount+' orders';
+  msg+='\nรวม: '+Object.keys(newOrders).length+' orders'+fbNote;
+  alert(msg);
   goPage('orders');
 }
 
@@ -2648,6 +2681,28 @@ function syncStatusesNow(){
 }
 
 
+
+
+function postponeOrderFromEdit(){
+  if(!_editOid||!ORDERS[_editOid]) return;
+  if(!confirm('เลื่อนจัดส่ง '+_editOid+' ออกไปก่อน?')) return;
+  var o=ORDERS[_editOid];
+  o.status='postponed';
+  o.postponedFrom=o.date||'';
+  o.postponedAt=new Date().toISOString();
+  o.updatedAt=new Date().toISOString();
+  o.user=localStorage.getItem('WMS_USR')||'PC';
+  if(FB_URL){
+    fbPut('/orders/'+encodeId(_editOid),o);
+    fbPatch('/statuses/'+encodeId(_editOid),{status:'postponed',updatedAt:o.updatedAt});
+    fbPut('/drafts/'+encodeId(_editOid),null);
+  }
+  delete DRAFTS[_editOid];
+  saveLocal();refreshAll();
+  document.getElementById('edit-order-modal').style.display='none';
+  ulAlert('📅 '+_editOid+' เลื่อนจัดส่งแล้ว — รอไฟล์วันใหม่','warn');
+}
+
 function cancelOrderFromEdit(){
   if(!_editOid) return;
   if(!confirm('ยืนยันยกเลิก Order '+_editOid+'?')) return;
@@ -2687,7 +2742,7 @@ function doExportCSV(){
   var timeFrom=document.getElementById('ex-time-from')?document.getElementById('ex-time-from').value:'00:00';
   var timeTo=document.getElementById('ex-time-to')?document.getElementById('ex-time-to').value:'23:59';
   var now=new Date();
-  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
+  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel',postponed:'เลื่อน'};
 
   function parseDateStr(ds){
     ds=String(ds||'').trim(); if(!ds) return null;
@@ -3043,7 +3098,7 @@ function renderHistoryTable(){
     return '<option value="'+s+'"'+(s===curSup?' selected':'')+'>'+( s==='all'?'ทุกขนส่ง':s)+'</option>';
   }).join('');
 
-  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
+  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel',postponed:'เลื่อน'};
   var SB2={new:'b-new',pick:'b-pick',qc:'b-qc',ship:'b-ship',done:'b-done',cancel:'b-cancel'};
 
   var filtered=data.filter(function(o){
@@ -3077,7 +3132,7 @@ function exportHistoryCSV(){
   var supFilter=document.getElementById('hist-sup').value;
   var data=(HIST_DATA[ym]||[]).filter(function(o){return supFilter==='all'||o.sup===supFilter;});
   if(!data.length){alert('ไม่มีข้อมูล');return;}
-  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
+  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel',postponed:'เลื่อน'};
   var rows=[['วันที่','ขนส่ง','Order ID','SKU','แบรนด์','ขนาด','Qty','Consign','Tracking','สถานะ','พนักงาน','อุปกรณ์','เวลา QC']];
   data.forEach(function(o){
     var upd=o.updatedAt?new Date(o.updatedAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):(o.date||'');
@@ -3186,7 +3241,7 @@ function toggleDrillItems(row,oid){
 
 function exportCSDrillCSV(){
   if(!_csDrillData.length){alert('ไม่มีข้อมูล');return;}
-  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
+  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel',postponed:'เลื่อน'};
   var rows=[['ขนส่ง','Order ID','วันที่','SKU','สินค้า','ขนาด','Qty','Consign','Tracking','สถานะ']];
   _csDrillData.forEach(function(o){
     var items=o.items&&o.items.length?o.items:[{sku:'',name:'',size:'',qty:1,tracking:''}];
@@ -3283,7 +3338,7 @@ function renderDailyReport(){
   initRptPickers();
   var dateEl=document.getElementById('daily-date');
   var selDate=dateEl?dateEl.value:now.toISOString().slice(0,10);
-  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
+  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel',postponed:'เลื่อน'};
   var SB2={new:'b-new',pick:'b-pick',qc:'b-qc',ship:'b-ship',done:'b-done',cancel:'b-cancel'};
 
   var _now=new Date();
@@ -3360,7 +3415,7 @@ function renderMonthlyReport(){
   var yr=document.getElementById('monthly-year')?document.getElementById('monthly-year').value:'';
   var mo=document.getElementById('monthly-month')?document.getElementById('monthly-month').value:'';
   if(!yr||!mo) return;
-  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
+  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel',postponed:'เลื่อน'};
   var SB2={new:'b-new',pick:'b-pick',qc:'b-qc',ship:'b-ship',done:'b-done',cancel:'b-cancel'};
 
   var _now2=new Date();
@@ -3442,7 +3497,7 @@ function renderMonthlyReport(){
 function exportDailyCSV(){
   var dateEl=document.getElementById('daily-date');
   var selDate=dateEl?dateEl.value:new Date().toISOString().slice(0,10);
-  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
+  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel',postponed:'เลื่อน'};
   var orders=Object.values(ORDERS).filter(function(o){
     return o.updatedAt&&new Date(o.updatedAt).toISOString().slice(0,10)===selDate;
   });
@@ -3453,7 +3508,7 @@ function exportDailyCSV(){
 function exportMonthlyCSV(){
   var yr=document.getElementById('monthly-year')?document.getElementById('monthly-year').value:'';
   var mo=document.getElementById('monthly-month')?document.getElementById('monthly-month').value:'';
-  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
+  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel',postponed:'เลื่อน'};
   var orders=Object.values(ORDERS).filter(function(o){
     if(!o.updatedAt) return false;
     var d=new Date(o.updatedAt);
@@ -3614,7 +3669,7 @@ function renderReport(){
   var timeTo=document.getElementById('rpt-time-to')?document.getElementById('rpt-time-to').value:'23:59';
   var tbody=document.getElementById('rpt-tbody');
   if(!tbody) return;
-  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel'};
+  var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel',postponed:'เลื่อน'};
   var SB2={new:'b-new',pick:'b-pick',qc:'b-qc',ship:'b-ship',done:'b-done',cancel:'b-cancel'};
   var orders=Object.values(ORDERS);
 
@@ -3723,6 +3778,7 @@ setTimeout(function(){
       <button onclick="resetOrderToPick()" style="padding:10px 18px;background:#F59E0B;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700">↩ Reset → Pick</button>
       <button onclick="saveEditOrder()" style="padding:10px 24px;background:var(--primary);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700">💾 บันทึก</button>
       <button onclick="cancelOrderFromEdit()" style="padding:10px 20px;background:#EF4444;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700">🚫 ยกเลิก Order</button>
+      <button onclick="postponeOrderFromEdit()" style="padding:10px 20px;background:#F59E0B;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700">📅 เลื่อนจัดส่ง</button>
       <button onclick="document.getElementById('edit-order-modal').style.display='none'" style="padding:10px 20px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:8px;cursor:pointer">ปิด</button>
     </div>
   </div>
