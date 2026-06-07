@@ -2137,15 +2137,17 @@ function runMatcher(){
       // multi-item in one cell, split each line
       brandLines.forEach(function(bLine,bi2){
         var qty2=qtyLines[bi2]||1;
+        // ลบ SKU code ออกจาก brand name
+        var cleanName=bLine.replace(/\s*\([A-Z]{2,5}\d+\)/g,'').trim();
         var skus2=[]; var re2=/\(([A-Z]{2,5}\d+)\)/g; var m2;
         while((m2=re2.exec(bLine))!==null) skus2.push(m2[1]);
         if(skus2.length){
           skus2.forEach(function(sku){
-            trkMap[oid].push({sku:sku,brand:bLine,qty:qty2,tracking:tracking,
+            trkMap[oid].push({sku:sku,brand:cleanName,qty:qty2,tracking:tracking,
               consign:consign,sup:sup,date:date,size:'',fromTrk:true});
           });
         } else {
-          trkMap[oid].push({sku:'',brand:bLine,qty:qty2,tracking:tracking,
+          trkMap[oid].push({sku:'',brand:cleanName,qty:qty2,tracking:tracking,
             consign:consign,sup:sup,date:date,size:'',fromTrk:true});
         }
       });
@@ -2155,13 +2157,14 @@ function runMatcher(){
       var qty=qtyLines[0]||1;
       var skus=[]; var re_sku=/\(([A-Z]{2,5}\d+)\)/g; var m;
       while((m=re_sku.exec(brand))!==null) skus.push(m[1]);
+      var cleanBrand=brand.replace(/\s*\([A-Z]{2,5}\d+\)/g,'').trim();
       if(skus.length){
         skus.forEach(function(sku){
-          trkMap[oid].push({sku:sku,brand:brand,qty:qty,tracking:tracking,
+          trkMap[oid].push({sku:sku,brand:cleanBrand,qty:qty,tracking:tracking,
             consign:consign,sup:sup,date:date,size:'',fromTrk:true});
         });
       } else {
-        trkMap[oid].push({sku:'',brand:brand,qty:qty,tracking:tracking,
+        trkMap[oid].push({sku:'',brand:cleanBrand,qty:qty,tracking:tracking,
           consign:consign,sup:sup,date:date,size:'',fromTrk:true});
       }
     }
