@@ -651,12 +651,21 @@ function selOrder(oid){
   var o=ORDERS[oid];if(!o)return;
   CUR_OID=oid;CUR_TRK=o.tracking||'';CUR_ITEMS=o.items;
   var h=document.getElementById('h1');
+  if(o.status==='postponed'){
+    showAl('📅 Order นี้ถูกเลื่อนจัดส่ง — รอ update จากระบบ','warn');
+    return;
+  }
   if(o.status==='cancel'){h.className='hint h-err';h.textContent='🚫 ถูก Cancel';}
+  else if(o.status==='postponed'){h.className='hint h-warn';h.textContent='📅 เลื่อนจัดส่ง — รอไฟล์วันใหม่';}
   else{h.className='hint h-ok';h.textContent='✓ '+oid+' · '+o.items.length+' รายการ'+(DRAFTS[oid]?' [Draft]':'');}
 }
 function confirm1(){
   if(!CUR_OID){var h=document.getElementById('h1');h.className='hint h-err';h.textContent='กรุณาสแกนหรือเลือก Order';return;}
   var o=ORDERS[CUR_OID];if(!o)return;
+  if(o.status==='postponed'){
+    showAl('📅 Order นี้ถูกเลื่อนจัดส่ง — รอ update จากระบบ','warn');
+    return;
+  }
   if(o.status==='cancel'){document.getElementById('cancel-ban').style.display='block';CUR_OID='';CUR_TRK='';CUR_ITEMS=[];return;}
   if(DRAFTS[CUR_OID]) restoreDraftSC(CUR_OID);
   showOrderInfo();
