@@ -2767,8 +2767,6 @@ function doExportCSV(){
   var stFilter=document.getElementById('ex-status').value;
   var dateFrom=document.getElementById('ex-date-from')?document.getElementById('ex-date-from').value:'';
   var dateTo=document.getElementById('ex-date-to')?document.getElementById('ex-date-to').value:'';
-  var timeFrom=document.getElementById('ex-time-from')?document.getElementById('ex-time-from').value:'00:00';
-  var timeTo=document.getElementById('ex-time-to')?document.getElementById('ex-time-to').value:'23:59';
   var now=new Date();
   var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel',postponed:'เลื่อน'};
 
@@ -2778,11 +2776,10 @@ function doExportCSV(){
     if(m1){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m1[1]];if(mn!==undefined)return new Date(now.getFullYear(),mn,parseInt(m1[2]));}
     var m2=ds.match(/^(\d+)\/(\d+)\/(\d+)/);
     if(m2){var yr=parseInt(m2[3]);if(yr>2400)yr-=543;return new Date(yr,parseInt(m2[2])-1,parseInt(m2[1]));}
-    var d=new Date(ds); return isNaN(d.getTime())?null:d;
+    return null;
   }
 
-  // columns ครบ
-  var rows=[['วันที่','ขนส่ง','Order ID','SKU','แบรนด์','ขนาด','จำนวน','Consign','Tracking','สถานะ','พนักงาน']];
+  var rows=[['วันที่','ขนส่ง','Order ID','SKU','แบรนด์','ขนาด','จำนวน','Consign','Tracking','สถานะ','เวลา QC','พนักงาน']];
 
   Object.values(ORDERS).forEach(function(o){
     if(o.status==='new'||o.status==='pick') return;
@@ -2799,6 +2796,7 @@ function doExportCSV(){
       }
     }
     var sup=getOrderSUP(o)||'';
+    var qcTime=o.updatedAt?new Date(o.updatedAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
     var allItems=o.items&&o.items.length?o.items:[{sku:'',name:'',size:'',qty:1,tracking:''}];
     allItems.forEach(function(item){
       var trk=item.tracking||o.tracking||'';
@@ -2813,6 +2811,7 @@ function doExportCSV(){
         o.consign||'',
         trk,
         SL2[o.status]||o.status,
+        qcTime,
         o.user||''
       ]);
     });
@@ -2820,7 +2819,10 @@ function doExportCSV(){
 
   if(rows.length<=1){ulAlert('ไม่มีข้อมูลในช่วงที่เลือก','warn');return;}
   var csv=rows.map(function(r){
-    return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');
+    return r.map(function(c){
+      // ป้องกัน newline ใน cell ทำให้ CSV แตกแถว
+      return '"'+String(c||'').replace(/"/g,'""').replace(/\r?\n/g,' ')+'"';
+    }).join(',');
   }).join('\r\n');
   var fname='wms_report_'+now.toISOString().slice(0,10);
   var a=document.createElement('a');
@@ -3632,28 +3634,38 @@ function clearBulkSelect(){
 
 /* ===== DRAFT EDIT FUNCTIONS ===== */
 function adjustDraftScan(oid,sku,delta){
-  if(!DRAFTS[oid]) return;
+  if(!DRAFTS[oid]){
+    // สร้าง draft ใหม่ถ้าไม่มี
+    var o=ORDERS[oid]||{};
+    DRAFTS[oid]={oid:oid,sc:{},ts:Date.now(),items:o.items||[],
+      device:localStorage.getItem('WMS_DEV')||'WMS-PC',
+      user:localStorage.getItem('WMS_USR')||'PC'};
+  }
   if(!DRAFTS[oid].sc) DRAFTS[oid].sc={};
-  // หา key ที่ตรงกับ sku
   var sc=DRAFTS[oid].sc;
-  var key=Object.keys(sc).find(function(k){return k.includes(sku);});
-  if(!key){
-    // หา key format จาก pattern: oid||sku หรือ oid||sku||trk
-    key=Object.keys(sc).find(function(k){return k.split('||')[1]===sku;});
-  }
-  if(!key&&delta>0){
-    // สร้าง key ใหม่
-    key=oid+'||'+sku;
-  }
+  // หา key ที่ตรงกับ sku (รองรับทุก format)
+  var key=Object.keys(sc).find(function(k){
+    var parts=k.split('||');
+    return parts[1]===sku||k.includes('||'+sku+'||')||k.includes('||'+sku);
+  });
+  if(!key&&delta>0) key=oid+'||'+sku;
   if(!key) return;
   var cur=sc[key]||0;
   var newVal=Math.max(0,cur+delta);
   if(newVal===0) delete sc[key];
   else sc[key]=newVal;
-  // push ขึ้น Firebase
-  if(FB_URL) fbPut('/drafts/'+encodeId(oid),DRAFTS[oid]);
+  DRAFTS[oid].ts=Date.now();
+  // push ขึ้น Firebase พร้อม items
+  if(FB_URL){
+    if(!DRAFTS[oid].items||!DRAFTS[oid].items.length){
+      var o2=ORDERS[oid]||{};
+      DRAFTS[oid].items=o2.items||[];
+    }
+    fbPut('/drafts/'+encodeId(oid),DRAFTS[oid]);
+  }
   saveLocal();
   renderDraftList();
+  ulAlert('✅ อัปเดต '+sku+' → '+newVal+' ชิ้น','ok');
 }
 
 function resetDraftScan(oid){
@@ -3764,6 +3776,8 @@ setTimeout(function(){
     startFirebaseStream();
     // Sync drafts from Firebase on startup
     setTimeout(function(){syncDraftsFromFB();},2000);
+    // Sync drafts ทุก 10 วิ
+    setInterval(function(){syncDraftsFromFB();},10000);
   }
 },1200);
 
