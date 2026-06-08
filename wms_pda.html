@@ -325,11 +325,12 @@ function init(){
   if(FB){
     setTimeout(function(){syncOrdersFromFirebase();},800);
     setTimeout(function(){syncDraftsFromFB();},2500);
+    setTimeout(function(){syncEditedOrders();},3500);
   }
   if(API) setTimeout(startAutoSync,2000);
   if(FB) setTimeout(startCancelSSE,3000);
   _timer=setInterval(function(){
-    if(FB){syncDraftsFromFB();syncCancels();}
+    if(FB){syncDraftsFromFB();syncCancels();syncEditedOrders();}
     if(API) syncStatus();
   },30000);
 }
@@ -439,18 +440,51 @@ function pdaBatch(keys,offset,size,done){
 function syncDraftsFromFB(){
   if(!FB) return;
   fbGet('/drafts',function(err,data){
-    if(err||!data) return;
+    if(err) return;
+    data=data||{};
     var changed=false;
+    var remoteOids={};
     Object.keys(data).forEach(function(rawOid){
       var d=data[rawOid];
       if(!d||!d.oid) return;
       var oid=d.oid;
+      remoteOids[oid]=true;
       // Pull from all devices — show newer
       if(!DRAFTS[oid]||(d.ts||0)>DRAFTS[oid].ts){
         DRAFTS[oid]=d; changed=true;
       }
     });
+    // ลบ draft ที่ถูกลบ/ทำเสร็จจากเครื่องอื่นแล้ว ให้หายไปทุกเครื่อง
+    Object.keys(DRAFTS).forEach(function(oid){
+      if(!remoteOids[oid]){ delete DRAFTS[oid]; changed=true; }
+    });
     if(changed){save();refreshStats();renderDrafts();}
+  });
+}
+
+/* ===== SYNC EDITED ITEMS (รับการแก้ไข/เปลี่ยนสินค้าจาก WMS) ===== */
+function syncEditedOrders(){
+  if(!FB) return;
+  fbGet('/statuses',function(err,data){
+    if(err||!data) return;
+    Object.keys(data).forEach(function(rawOid){
+      var oid=decId(rawOid);
+      var entry=data[rawOid];
+      var o=ORDERS[oid];
+      if(!o||!entry||!entry.editedAt) return;
+      if(!o.editedAt||entry.editedAt>o.editedAt){
+        (function(targetOid){
+          fbGet('/orders/'+encId(targetOid),function(e2,d2){
+            if(!e2&&d2&&d2.items){
+              ORDERS[targetOid]=Object.assign({},ORDERS[targetOid],{items:d2.items,editedAt:d2.editedAt||entry.editedAt});
+              Object.keys(SC).forEach(function(k){if(k.indexOf(targetOid)>=0) delete SC[k];});
+              save();refreshStats();renderDashboard();
+              if(MODE&&CUR_OID===targetOid) showAl('⚠️ Order '+targetOid+' ถูกแก้ไขสินค้า — โหลดรายการใหม่แล้ว','warn');
+            }
+          });
+        })(oid);
+      }
+    });
   });
 }
 

@@ -2543,17 +2543,24 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
 function syncDraftsFromFB(){
   if(!FB_URL)return;
   fbGet('/drafts',function(err,data){
-    if(err||!data)return;
+    if(err)return;
+    data=data||{};
     var changed=false;
+    var remoteOids={};
     Object.keys(data).forEach(function(rawOid){
       var d=data[rawOid];
       if(!d||!d.oid)return;
       var oid=d.oid;
+      remoteOids[oid]=true;
       if(!DRAFTS[oid]||(d.ts||0)>DRAFTS[oid].ts){
         DRAFTS[oid]=d;changed=true;
       }
     });
-    if(changed){saveLocal();refreshAll();}
+    // ลบ draft ที่ถูกลบ/ทำเสร็จจากเครื่องอื่นแล้ว ให้หายไปทุกเครื่อง
+    Object.keys(DRAFTS).forEach(function(oid){
+      if(!remoteOids[oid]){ delete DRAFTS[oid]; changed=true; }
+    });
+    if(changed){saveLocal();refreshAll();renderDraftList();}
   });
 }
 
