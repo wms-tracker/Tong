@@ -101,6 +101,27 @@ input:focus{outline:none;border-color:var(--primary)}
 </style>
 </head>
 <body>
+<div id="login-screen" style="position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);display:flex;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,.35)">
+    <div style="text-align:center;margin-bottom:18px">
+      <div style="font-size:24px;font-weight:800;color:#0F172A">🔐 เข้าสู่ระบบ</div>
+      <div style="font-size:12px;color:#64748B;margin-top:4px">PDA QC Scan</div>
+    </div>
+    <div id="login-existing">
+      <div class="fg"><label class="fl">ผู้ใช้</label><select id="login-user-select"></select></div>
+      <div class="fg"><label class="fl">รหัส PIN (4 หลัก)</label><input type="password" id="login-pin" maxlength="4" inputmode="numeric" placeholder="••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <button class="btn btn-p" style="width:100%;justify-content:center" onclick="doLogin()">เข้าสู่ระบบ</button>
+      <div style="text-align:center;margin-top:10px"><a href="javascript:void(0)" onclick="showRegisterForm()" style="font-size:12px;color:var(--primary)">+ เพิ่มผู้ใช้ใหม่</a></div>
+    </div>
+    <div id="login-register" style="display:none">
+      <div class="fg"><label class="fl">ชื่อผู้ใช้ใหม่</label><input type="text" id="reg-user-name" placeholder="เช่น somchai"></div>
+      <div class="fg"><label class="fl">ตั้งรหัส PIN (4 หลัก)</label><input type="password" id="reg-user-pin" maxlength="4" inputmode="numeric" placeholder="••••" onkeydown="if(event.key==='Enter')doRegister()"></div>
+      <button class="btn btn-g" style="width:100%;justify-content:center" onclick="doRegister()">สร้างผู้ใช้</button>
+      <div style="text-align:center;margin-top:10px"><a href="javascript:void(0)" onclick="showLoginForm()" style="font-size:12px;color:var(--text2)">← กลับไปเข้าสู่ระบบ</a></div>
+    </div>
+    <div id="login-msg" style="margin-top:10px;font-size:12px;text-align:center;min-height:16px"></div>
+  </div>
+</div>
 <div class="topnav">
   <div>
     <div class="topnav-title">🔍 PDA QC Scan</div>
@@ -108,6 +129,8 @@ input:focus{outline:none;border-color:var(--primary)}
   </div>
   <div style="display:flex;gap:8px;align-items:center">
     <span id="dev-badge" style="font-size:11px;padding:2px 8px;border-radius:99px;background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);font-weight:600">PDA</span>
+    <span id="cur-user-badge" style="font-size:11px;padding:2px 8px;border-radius:99px;background:rgba(255,255,255,.15);color:#fff;font-weight:700">👤 —</span>
+    <button onclick="logoutUser()" style="background:none;border:none;color:rgba(255,255,255,.6);font-size:14px;cursor:pointer">⏻</button>
     <button onclick="goPage('settings')" style="background:none;border:none;color:rgba(255,255,255,.6);font-size:18px;cursor:pointer">⚙️</button>
   </div>
 </div>
@@ -302,6 +325,116 @@ function save(){ls('PDA_O',JSON.stringify(ORDERS));ls('PDA_SC',JSON.stringify(SC
 function scKey(oid,sku,trk){return oid+'||'+sku+(trk?'||'+trk:'');}
 function encId(id){return (id||'').replace(/\./g,'_').replace(/\//g,'-').replace(/\[/g,'(').replace(/\]/g,')');}
 function decId(id){return (id||'').replace(/_/g,'.');}
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+/* ===== LOGIN / USERS ===== */
+var PDA_USERS={};
+var CUR_USER='';
+function loadUsersLocal(){
+  try{var d=ls('PDA_USERS');if(d)PDA_USERS=JSON.parse(d)||{};}catch(_){PDA_USERS={};}
+}
+function saveUsersLocal(){
+  try{ls('PDA_USERS',JSON.stringify(PDA_USERS));}catch(_){}
+}
+function syncUsersFromFB(cb){
+  if(!FB){if(cb)cb();return;}
+  fbGet('/users',function(err,data){
+    if(!err&&data){
+      Object.keys(data).forEach(function(name){
+        if(data[name]&&data[name].pin) PDA_USERS[name]=data[name];
+      });
+      saveUsersLocal();
+    }
+    populateLoginUserSelect();
+    if(cb)cb();
+  });
+}
+function populateLoginUserSelect(){
+  var sel=document.getElementById('login-user-select');
+  if(!sel)return;
+  var names=Object.keys(PDA_USERS).sort();
+  sel.innerHTML='<option value="">— เลือกชื่อผู้ใช้ —</option>'+names.map(function(n){return '<option value="'+escHtml(n)+'">'+escHtml(n)+'</option>';}).join('');
+}
+function showRegisterForm(){
+  var a=document.getElementById('login-existing'), b=document.getElementById('login-register'), m=document.getElementById('login-msg');
+  if(a)a.style.display='none';
+  if(b)b.style.display='';
+  if(m)m.textContent='';
+}
+function showLoginForm(){
+  var a=document.getElementById('login-existing'), b=document.getElementById('login-register'), m=document.getElementById('login-msg');
+  if(a)a.style.display='';
+  if(b)b.style.display='none';
+  if(m)m.textContent='';
+  populateLoginUserSelect();
+}
+function doRegister(){
+  var nameEl=document.getElementById('reg-user-name');
+  var pinEl=document.getElementById('reg-user-pin');
+  var m=document.getElementById('login-msg');
+  var name=(nameEl&&nameEl.value||'').trim();
+  var pin=(pinEl&&pinEl.value||'').trim();
+  if(!name||!pin){ if(m)m.textContent='กรุณากรอกชื่อและ PIN'; return; }
+  if(!/^\d{4}$/.test(pin)){ if(m)m.textContent='PIN ต้องเป็นตัวเลข 4 หลัก'; return; }
+  if(PDA_USERS[name]){ if(m)m.textContent='มีชื่อนี้อยู่แล้ว กรุณาเข้าสู่ระบบแทน'; return; }
+  var rec={pin:pin,createdAt:Date.now()};
+  PDA_USERS[name]=rec;
+  saveUsersLocal();
+  if(FB) fbPut('/users/'+encId(name),rec);
+  completeLogin(name);
+}
+function doLogin(){
+  var sel=document.getElementById('login-user-select');
+  var pinEl=document.getElementById('login-pin');
+  var m=document.getElementById('login-msg');
+  var name=(sel&&sel.value||'').trim();
+  var pin=(pinEl&&pinEl.value||'').trim();
+  if(!name){ if(m)m.textContent='กรุณาเลือกชื่อผู้ใช้'; return; }
+  if(!pin){ if(m)m.textContent='กรุณากรอก PIN'; return; }
+  var rec=PDA_USERS[name];
+  if(!rec){ if(m)m.textContent='ไม่พบผู้ใช้นี้'; return; }
+  if(String(rec.pin)!==pin){ if(m)m.textContent='PIN ไม่ถูกต้อง'; return; }
+  completeLogin(name);
+}
+function completeLogin(name){
+  CUR_USER=name;
+  try{ls('PDA_SESSION',name);}catch(_){}
+  ls('PDA_USR',name);
+  USR=name;
+  var usrEl=document.getElementById('usr-name');
+  if(usrEl)usrEl.value=name;
+  var ov=document.getElementById('login-screen');
+  if(ov)ov.style.display='none';
+  var badge=document.getElementById('cur-user-badge');
+  if(badge)badge.textContent='👤 '+name;
+  var m=document.getElementById('login-msg');
+  if(m)m.textContent='';
+}
+function logoutUser(){
+  if(!confirm('ออกจากระบบ?'))return;
+  CUR_USER='';
+  try{ls('PDA_SESSION',null);}catch(_){}
+  var badge=document.getElementById('cur-user-badge');
+  if(badge)badge.textContent='👤 —';
+  showLoginScreen();
+}
+function showLoginScreen(){
+  var ov=document.getElementById('login-screen');
+  if(ov)ov.style.display='flex';
+  showLoginForm();
+}
+function checkLogin(){
+  loadUsersLocal();
+  populateLoginUserSelect();
+  syncUsersFromFB();
+  var saved='';
+  try{saved=ls('PDA_SESSION')||'';}catch(_){}
+  if(saved&&PDA_USERS[saved]){
+    completeLogin(saved);
+  }else{
+    showLoginScreen();
+  }
+}
 
 /* ===== INIT ===== */
 function init(){
@@ -322,6 +455,7 @@ function init(){
   document.getElementById('dev-badge').textContent=DEV;
   setSyncOk(FB?'Firebase: '+DEV:'ออฟไลน์');
   refreshStats();renderDashboard();
+  checkLogin();
   if(FB){
     setTimeout(function(){syncOrdersFromFirebase();},800);
     setTimeout(function(){syncDraftsFromFB();},2500);
