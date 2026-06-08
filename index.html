@@ -264,46 +264,6 @@ tr:hover td{background:var(--bg3)}
     <div class="card"><div class="card-t">งานรอดำเนินการ</div><div id="d-urgent"><div class="empty">✅ ไม่มีงานค้าง</div></div></div>
     <div class="card"><div class="card-t">กิจกรรมล่าสุด</div><div id="d-recent"><div class="empty">📭 ยังไม่มีข้อมูล</div></div></div>
   </div>
-</div>
-
-<!-- UPLOAD -->
-<div id="page-upload" class="page">
-  <div class="card">
-    <div class="card-t">📊 Sync จาก Google Sheets</div>
-    <p style="font-size:12px;color:var(--text2);margin-bottom:12px">ดึงข้อมูล Orders จาก Sheet <b>OrderData</b> โดยตรง (ต้องเชื่อมต่อ API ใน ตั้งค่า)</p>
-    <button class="btn btn-p" onclick="syncFromSheets()">📋 Sync จาก Sheets</button>
-    <button class="btn" style="background:#F57C00;color:#fff;font-weight:700" onclick="syncFromFirebase()">🔥 Sync จาก Firebase</button>
-    <button class="btn" style="background:#0EA5E9;color:#fff;font-weight:700;margin-top:8px" onclick="showMatcherDialog()">🔗 ดึง Tracking จาก Matcher</button>
-  </div>
-  <div class="card">
-    <div class="card-t">📄 อัปโหลดไฟล์ CSV / Excel</div>
-    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('fi').click()"
-      ondragover="event.preventDefault();this.classList.add('drag')"
-      ondragleave="this.classList.remove('drag')"
-      ondrop="handleDrop(event)">
-      <div style="font-size:36px;margin-bottom:8px">📄</div>
-      <div style="font-size:15px;font-weight:600;margin-bottom:4px">ลากไฟล์มาวาง หรือคลิกเลือก</div>
-      <div style="font-size:12px;color:var(--text2)">รองรับ .csv และ .xlsx</div>
-    </div>
-    <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
-    <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
-      คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-    </div>
-    <div id="ul-alert" style="margin-top:10px"></div>
-  </div>
-  <div id="prev-card" class="card" style="display:none">
-    <div class="card-t">ตัวอย่าง — <span id="prev-cnt">0</span> รายการ · <span id="prev-oids">0</span> ออเดอร์</div>
-    <div class="tw"><table id="prev-tbl"></table></div>
-    <div id="merge-warn" class="al al-warn" style="display:none;margin-bottom:10px">⚠ มีข้อมูลเดิม — เลือก "เพิ่ม/อัปเดต" เพื่อคงสถานะ QC/Pack เดิม</div>
-    <div class="brow">
-      <button class="btn btn-p" id="btn-merge" onclick="confirmUpload('merge')" style="display:none">➕ เพิ่ม/อัปเดต</button>
-      <button class="btn btn-o" onclick="confirmUpload('replace')">🔄 โหลดใหม่ทั้งหมด</button>
-      <button class="btn btn-o" onclick="cancelUpload()">ยกเลิก</button>
-    </div>
-  </div>
-  <div class="card"><div class="card-t">ข้อมูลตัวอย่าง</div><button class="btn btn-o btn-sm" onclick="loadSample()">โหลดตัวอย่าง</button></div>
-</div>
-
 <!-- DAILY/MONTHLY REPORT (ใน dashboard) -->
 <div class="card" style="margin-top:14px;padding:0;overflow:hidden;border-radius:14px;box-shadow:0 2px 16px rgba(0,0,0,.08)">
   <div style="background:linear-gradient(135deg,#1E293B 0%,#0F172A 100%);padding:16px 20px">
@@ -368,6 +328,46 @@ tr:hover td{background:var(--bg3)}
   <div id="carrier-summary-table" style="overflow-x:auto">
     <div class="empty">กำลังโหลด...</div>
   </div>
+</div>
+
+</div>
+
+<!-- UPLOAD -->
+<div id="page-upload" class="page">
+  <div class="card">
+    <div class="card-t">📊 Sync จาก Google Sheets</div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:12px">ดึงข้อมูล Orders จาก Sheet <b>OrderData</b> โดยตรง (ต้องเชื่อมต่อ API ใน ตั้งค่า)</p>
+    <button class="btn btn-p" onclick="syncFromSheets()">📋 Sync จาก Sheets</button>
+    <button class="btn" style="background:#F57C00;color:#fff;font-weight:700" onclick="syncFromFirebase()">🔥 Sync จาก Firebase</button>
+    <button class="btn" style="background:#0EA5E9;color:#fff;font-weight:700;margin-top:8px" onclick="showMatcherDialog()">🔗 ดึง Tracking จาก Matcher</button>
+  </div>
+  <div class="card">
+    <div class="card-t">📄 อัปโหลดไฟล์ CSV / Excel</div>
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('fi').click()"
+      ondragover="event.preventDefault();this.classList.add('drag')"
+      ondragleave="this.classList.remove('drag')"
+      ondrop="handleDrop(event)">
+      <div style="font-size:36px;margin-bottom:8px">📄</div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:4px">ลากไฟล์มาวาง หรือคลิกเลือก</div>
+      <div style="font-size:12px;color:var(--text2)">รองรับ .csv และ .xlsx</div>
+    </div>
+    <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
+    <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
+      คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
+    </div>
+    <div id="ul-alert" style="margin-top:10px"></div>
+  </div>
+  <div id="prev-card" class="card" style="display:none">
+    <div class="card-t">ตัวอย่าง — <span id="prev-cnt">0</span> รายการ · <span id="prev-oids">0</span> ออเดอร์</div>
+    <div class="tw"><table id="prev-tbl"></table></div>
+    <div id="merge-warn" class="al al-warn" style="display:none;margin-bottom:10px">⚠ มีข้อมูลเดิม — เลือก "เพิ่ม/อัปเดต" เพื่อคงสถานะ QC/Pack เดิม</div>
+    <div class="brow">
+      <button class="btn btn-p" id="btn-merge" onclick="confirmUpload('merge')" style="display:none">➕ เพิ่ม/อัปเดต</button>
+      <button class="btn btn-o" onclick="confirmUpload('replace')">🔄 โหลดใหม่ทั้งหมด</button>
+      <button class="btn btn-o" onclick="cancelUpload()">ยกเลิก</button>
+    </div>
+  </div>
+  <div class="card"><div class="card-t">ข้อมูลตัวอย่าง</div><button class="btn btn-o btn-sm" onclick="loadSample()">โหลดตัวอย่าง</button></div>
 </div>
 
 <!-- ORDERS -->
