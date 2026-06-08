@@ -50,9 +50,13 @@ input:focus{outline:none;border-color:var(--primary)}
 .b-new{background:var(--pl);color:var(--primary);border:1px solid #BFDBFE}
 .b-pick{background:#E0F2FE;color:#0369A1;border:1px solid #BAE6FD}
 .b-qc{background:var(--ob);color:var(--orange);border:1px solid var(--obr)}
-.b-ship{background:var(--pb);color:var(--purple);border:1px solid var(--pbr)}
+.b-pack{background:var(--pb);color:var(--purple);border:1px solid var(--pbr)}
+.b-ship{background:#F3E8FF;color:#7C3AED;border:1px solid #DDD6FE}
 .b-done{background:var(--gb);color:var(--green);border:1px solid var(--gbr)}
 .b-cancel{background:var(--rb);color:var(--red);border:1px solid var(--rbr)}
+.b-postponed{background:#FEF3C7;color:#92400E;border:1px solid #FCD34D}
+.b-hold{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
+.b-draft{background:#F0FDFA;color:var(--teal);border:1px solid #5EEAD4}
 .prod-list{display:flex;flex-direction:column;gap:6px;margin-top:10px}
 .pi{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--bg)}
 .pi.ok{background:var(--gb);border-color:var(--gbr)}
@@ -289,14 +293,15 @@ input:focus{outline:none;border-color:var(--primary)}
 var ORDERS={},SC={},DRAFTS={};
 var API='',FB='',DEV='PDA-01',USR='user01';
 var MODE='tracking',CUR_OID='',CUR_TRK='',CUR_ITEMS=[];
-var SL={new:'🆕 รับแล้ว',pick:'🔍 Pick',qc:'✅ QC ผ่าน',ship:'🚚 Ship',done:'✔ Done',cancel:'🚫 Cancel'};
-var SB={new:'b-new',pick:'b-pick',qc:'b-qc',ship:'b-ship',done:'b-done',cancel:'b-cancel'};
+var SL={new:'🆕 รับแล้ว',pick:'🔍 Pick',qc:'✅ QC ผ่าน',pack:'📦 Pack',ship:'🚚 Ship',done:'✔ Done',cancel:'🚫 Cancel',postponed:'📅 เลื่อน',hold:'⏸ พักไว้',draft:'📝 ร่าง'};
+var SB={new:'b-new',pick:'b-pick',qc:'b-qc',pack:'b-pack',ship:'b-ship',done:'b-done',cancel:'b-cancel',postponed:'b-postponed',hold:'b-hold',draft:'b-draft'};
 var _timer=null;
 
 function ls(k,v){if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v);}
 function save(){ls('PDA_O',JSON.stringify(ORDERS));ls('PDA_SC',JSON.stringify(SC));ls('PDA_DR',JSON.stringify(DRAFTS));}
 function scKey(oid,sku,trk){return oid+'||'+sku+(trk?'||'+trk:'');}
-function encId(id){return (id||'').replace(/\./g,'_');}
+function encId(id){return (id||'').replace(/\./g,'_').replace(/\//g,'-').replace(/\[/g,'(').replace(/\]/g,')');}
+function decId(id){return (id||'').replace(/_/g,'.');}
 
 /* ===== INIT ===== */
 function init(){
@@ -414,7 +419,7 @@ function pdaBatch(keys,offset,size,done){
           // ข้าม orders เก่า id ตัวเลขล้วน
           if(/^\d+$/.test(oid)){if(--left===0)pdaBatch(keys,offset+size,size,done);return;}
           var ex=ORDERS[oid]?ORDERS[oid].status:'';
-          var keep=['pick','qc','ship','done'].indexOf(ex)>=0;
+          var keep=['pick','qc','pack','ship','done','postponed'].indexOf(ex)>=0;
           ORDERS[oid]={id:oid,consign:o.consign||'',tracking:o.tracking||'',
             trackings:o.trackings||[],items:o.items||[],
             status:keep?ex:(o.status||'new'),
@@ -473,7 +478,7 @@ function syncCancels(){
     if(err||!data) return;
     var changed=false;
     Object.keys(data).forEach(function(rawOid){
-      var oid=(rawOid||'').replace(/_/g,'.');
+      var oid=decId(rawOid);
       if(ORDERS[oid]&&ORDERS[oid].status!=='cancel'){
         ORDERS[oid].status='cancel'; changed=true;
         // แจ้งเตือนทันที
@@ -502,7 +507,7 @@ function startCancelSSE(){
         var data=JSON.parse(e.data);
         if(!data) return;
         Object.keys(data).forEach(function(rawOid){
-          var oid=(rawOid||'').replace(/_/g,'.');
+          var oid=decId(rawOid);
           if(ORDERS[oid]&&ORDERS[oid].status!=='cancel'){
             ORDERS[oid].status='cancel'; save();
             showCancelToast(oid);

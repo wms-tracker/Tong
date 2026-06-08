@@ -255,7 +255,7 @@ tr:hover td{background:var(--bg3)}
   <div class="flow">
     <div class="fs fs-new" onclick="goPage('orders')"><span class="fc" id="f-new">0</span>รับออเดอร์</div>
     <div class="fs fs-qc" onclick="goPage('qcscan')"><span class="fc" id="f-qc">0</span>QC</div>
-    <div class="fs fs-qc" onclick="goPage('qc')"><span class="fc" id="f-qc">0</span>QC</div>
+    <div class="fs fs-qc" onclick="goPage('qc')"><span class="fc" id="f-qc2">0</span>QC</div>
     <div class="fs fs-pack" onclick="goPage('pack')"><span class="fc" id="f-pack">0</span>Pack</div>
     <div class="fs fs-done" onclick="goPage('ship')"><span class="fc" id="f-done">0</span>ส่งแล้ว</div>
     <div class="fs fs-cancel" onclick="goPage('orders')"><span class="fc" id="f-cancel">0</span>Cancel</div>
@@ -787,9 +787,9 @@ tr:hover td{background:var(--bg3)}
 /* ======= STATE ======= */
 let ORDERS={}, SC={}, DRAFTS={}, API_URL='', FB_URL='';
 let qcMode='tracking', curQCOid='', curQCTracking='', curQCItems=[], pendingData=[], curOid='';
-const SL={'new':'🆕 รับแล้ว','pick':'🔍 Pick','qc':'✅ QC ผ่าน','ship':'🚚 Ship','done':'✔ Done','cancel':'🚫 Cancel','postponed':'📅 เลื่อน'};
-const SB={'new':'b-new','pick':'b-pick','qc':'b-qc','ship':'b-ship','done':'b-done','cancel':'b-cancel','postponed':'b-postponed'};
-const SN={'new':'pick','pick':'qc','postponed':'new','qc':'ship','ship':'done'}
+const SL={'new':'🆕 รับแล้ว','pick':'🔍 Pick','qc':'✅ QC ผ่าน','pack':'📦 Pack','ship':'🚚 Ship','done':'✔ Done','cancel':'🚫 Cancel','postponed':'📅 เลื่อน'};
+const SB={'new':'b-new','pick':'b-pick','qc':'b-qc','pack':'b-pack','ship':'b-ship','done':'b-done','cancel':'b-cancel','postponed':'b-postponed'};
+const SN={'new':'pick','pick':'qc','postponed':'new','qc':'pack','pack':'ship','ship':'done'}
 const SNL={'new':'→ Pick','pick':'→ QC','qc':'→ Ship','ship':'→ Done'};
 
 /* ======= INIT ======= */
@@ -1295,6 +1295,7 @@ function renderDashboard(){
   orders.forEach(o=>cnt[o.status]=(cnt[o.status]||0)+1);
   ['total','new','qc','pack','done'].forEach(k=>{document.getElementById('d-'+k).textContent=cnt[k]||0;});
   ['new','qc','pack','done','cancel'].forEach(k=>{document.getElementById('f-'+k).textContent=cnt[k]||0;});
+  document.getElementById('f-qc2').textContent=cnt.qc||0;
   let urgent=orders.filter(o=>o.status==='new'||o.status==='qc');
   document.getElementById('d-urgent').innerHTML=urgent.length?urgent.slice(0,5).map(o=>`
     <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
@@ -1585,7 +1586,7 @@ function doManualRefresh(btn){
     let changed=false;
     Object.keys(r.statuses||{}).forEach(function(oid){
       let st=r.statuses[oid];
-      let rank={new:0,qc:1,pack:2,done:3,cancel:4};
+      let rank={new:0,pick:1,qc:2,ship:3,pack:3,done:4,cancel:5};
       if(st&&ORDERS[oid]&&(rank[st]||0)>=(rank[ORDERS[oid].status]||0)&&ORDERS[oid].status!==st){
         ORDERS[oid].status=st;changed=true;
         if(entry&&entry.user) ORDERS[oid].user=entry.user;
@@ -1618,7 +1619,7 @@ async function autoSyncTick() {
     fbGet('/statuses',function(err,data){
       if(err||!data)return;
       let changed=false;
-      const rank={new:0,qc:1,pack:2,done:3,cancel:4};
+      const rank={new:0,pick:1,qc:2,ship:3,pack:3,done:4,cancel:5};
       Object.keys(data).forEach(function(rawOid){
         const oid=decodeId(rawOid);
         const entry=data[rawOid];
@@ -1641,7 +1642,7 @@ async function autoSyncTick() {
     let changed = false;
     Object.keys(r.statuses).forEach(oid => {
       const st = r.statuses[oid];
-      const rank = {new:0,qc:1,pack:2,done:3,cancel:4};
+      const rank = {new:0,pick:1,qc:2,ship:3,pack:3,done:4,cancel:5};
       if (st && ORDERS[oid] && rank[st] >= (rank[ORDERS[oid].status]||0) && ORDERS[oid].status !== st) {
         ORDERS[oid].status = st; changed = true;
         if(st==='cancel')showCancelNotif(oid);
