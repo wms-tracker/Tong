@@ -932,7 +932,17 @@ function skipItem(itemIdx){
   SC[k]=item.qty||1;
   showAl('ข้าม: '+(item.name||'รายการที่ '+(itemIdx+1)),'warn');
   renderItems();updateProg();save();
-  if(getDone()===CUR_ITEMS.length&&CUR_ITEMS.length>0)setTimeout(autoPass,400);
+  var _skipAllDone=getDone()===CUR_ITEMS.length&&CUR_ITEMS.length>0;
+  // ถ้ายังไม่ครบ → push draft; ถ้าครบแล้ว → ปล่อยให้ autoPass ลบเองเพื่อหลีกเลี่ยง race condition
+  if(FB&&CUR_OID&&!_skipAllDone){
+    var dsc2={};
+    CUR_ITEMS.forEach(function(item){
+      var k2=scKey(CUR_OID,item.sku,item.tracking||'');
+      if(SC[k2]) dsc2[k2]=SC[k2];
+    });
+    fbPut('/drafts/'+encId(CUR_OID),{oid:CUR_OID,trk:CUR_TRK,items:CUR_ITEMS,sc:dsc2,ts:Date.now(),device:DEV,user:USR,updatedAt:new Date().toISOString()});
+  }
+  if(_skipAllDone)setTimeout(autoPass,400);
 }
 function doScan(){
   if(!CUR_OID){showAl('กรุณาเลือก Order ก่อน','err');return;}
@@ -965,8 +975,11 @@ function doScan(){
     document.getElementById('sku-hint').textContent='';
   }
   renderItems();updateProg();save();
+  var _allDoneNow=s<=f.qty&&getDone()===CUR_ITEMS.length&&CUR_ITEMS.length>0;
   // Push draft ทันทีหลัง scan แต่ละชิ้น (ป้องกัน data loss)
-  if(FB&&CUR_OID){
+  // แต่ถ้าครบแล้ว (allDone) → ไม่ต้องบันทึก draft เพราะ autoPass จะลบทันที
+  // (ป้องกัน race condition: save draft กับ delete draft ส่ง Firebase พร้อมกัน)
+  if(FB&&CUR_OID&&!_allDoneNow){
     var dsc={};
     CUR_ITEMS.forEach(function(item){
       var k=scKey(CUR_OID,item.sku,item.tracking||'');
@@ -974,7 +987,7 @@ function doScan(){
     });
     fbPut('/drafts/'+encId(CUR_OID),{oid:CUR_OID,trk:CUR_TRK,items:CUR_ITEMS,sc:dsc,ts:Date.now(),device:DEV,user:USR,updatedAt:new Date().toISOString()});
   }
-  if(s<=f.qty&&getDone()===CUR_ITEMS.length&&CUR_ITEMS.length>0) setTimeout(autoPass,400);
+  if(_allDoneNow) setTimeout(autoPass,400);
   else if(s<f.qty) document.getElementById('in-sku').focus();
 }
 function undoScan(){
