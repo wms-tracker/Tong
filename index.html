@@ -1496,7 +1496,7 @@ function renderOrders(){
       <td><span class="badge ${SB[o.status]}">${SL[o.status]}</span>${o.postponedFrom?'<span style="font-size:9px;padding:1px 5px;background:#FEF3C7;color:#92400E;border-radius:6px;margin-left:3px;font-weight:700">เลื่อน</span>':''}</td>
       <td style="font-size:12px">${o.shipDate||o.date||'—'}</td>
       <td><div class="brow">
-        <button class="btn btn-xs btn-o" onclick="openOrder('${o.id}')">ดู</button>
+        <button class="btn btn-xs" onclick="openOrder('${o.id}')" style="background:var(--primary);color:#fff;border:none;font-weight:700">🔎 ดูรายละเอียด</button>
         ${SN[o.status]?`<button class="btn btn-xs btn-p" onclick="setStatus('${o.id}','${SN[o.status]}');renderOrders()">→${SNL[o.status]}</button>`:''}
         ${o.status==='new'?`<button class="btn btn-xs" style="background:var(--orange);color:#fff;border:none;font-weight:600" onclick="goQCScan('${o.id}')">🔍 QC</button>`:''}
         <button class="btn btn-xs" style="background:#F59E0B;color:#fff;border:none;font-weight:700" onclick="openEditOrder('${o.id}')" title="แก้ไข Order">✏️ แก้ไข</button>
@@ -1528,7 +1528,7 @@ function renderPack(){
       <td class="mono" style="font-size:11px">${o.tracking||'—'}</td>
       <td>${o.items.length} รายการ</td>
       <td><div class="brow">
-        <button class="btn btn-xs btn-o" onclick="openOrder('${o.id}')">ดู</button>
+        <button class="btn btn-xs" onclick="openOrder('${o.id}')" style="background:var(--primary);color:#fff;border:none;font-weight:700">🔎 ดูรายละเอียด</button>
         <button class="btn btn-xs" style="background:var(--purple);color:#fff;border:none;font-weight:600" onclick="setStatus('${o.id}','ship');renderPack()">🚚 Ship แล้ว</button>
       </div></td>
     </tr>`).join(''):'<tr><td colspan="5" class="empty">ไม่มีออเดอร์รอ Pack</td></tr>';
@@ -1545,7 +1545,7 @@ function renderShip(){
       <td class="mono" style="font-size:11px">${o.tracking||'—'}</td>
       <td style="font-size:12px">${t}</td>
       <td><div class="brow">
-        <button class="btn btn-xs btn-o" onclick="openOrder('${o.id}')">ดู</button>
+        <button class="btn btn-xs" onclick="openOrder('${o.id}')" style="background:var(--primary);color:#fff;border:none;font-weight:700">🔎 ดูรายละเอียด</button>
         <button class="btn btn-xs btn-teal" onclick="setStatus('${o.id}','done');renderShip()">🚚 ส่งแล้ว</button>
       </div></td>
     </tr>`;
