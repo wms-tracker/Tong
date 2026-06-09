@@ -260,9 +260,22 @@ input:focus{outline:none;border-color:var(--primary)}
 <!-- ORDERS -->
 <div id="page-orders" class="page">
   <div class="card" style="padding:10px">
-    <input type="search" id="ord-q" placeholder="ค้นหา Order, Tracking..." oninput="renderOrders()" style="font-size:13px">
+    <input type="search" id="ord-q" placeholder="ค้นหา Order, Tracking..." oninput="renderOrds()" style="font-size:13px">
   </div>
   <div id="ord-list"><div class="empty">ยังไม่มีข้อมูล</div></div>
+</div>
+
+<!-- TRACKING EDIT MODAL -->
+<div id="trk-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);align-items:flex-end;justify-content:center">
+  <div style="background:var(--bg);border-radius:16px 16px 0 0;padding:24px;width:100%;max-width:480px">
+    <div style="font-size:16px;font-weight:800;margin-bottom:4px">✏️ แก้ไข Tracking</div>
+    <div id="trk-modal-oid" style="font-size:12px;color:var(--text2);font-family:monospace;margin-bottom:16px"></div>
+    <div id="trk-modal-items"></div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button onclick="saveTrkModal()" class="btn btn-p" style="flex:1;justify-content:center">💾 บันทึก</button>
+      <button onclick="closeTrkModal()" class="btn btn-o" style="flex:1;justify-content:center">ยกเลิก</button>
+    </div>
+  </div>
 </div>
 
 <!-- SETTINGS -->
@@ -1170,8 +1183,68 @@ function renderOrds(){
       +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">'
       +'<span class="badge '+(SB[o.status]||'b-new')+'">'+(SL[o.status]||'—')+'</span>'
       +(o.status!=='cancel'&&o.status!=='done'?'<button onclick="goQC(\''+o.id+'\')" style="padding:7px 14px;background:var(--primary);color:#fff;border:none;border-radius:var(--rx);font-weight:700;font-size:12px;cursor:pointer">🔍 QC</button>':'')
+      +'<button onclick="openTrkModal(\''+o.id+'\')" style="padding:5px 10px;background:var(--bg3);color:var(--text2);border:1px solid var(--border);border-radius:var(--rx);font-size:11px;cursor:pointer">✏️ Tracking</button>'
       +'</div></div></div>';
   }).join('');
+}
+
+/* ===== EDIT TRACKING MODAL ===== */
+var _trkOid='';
+function openTrkModal(oid){
+  var o=ORDERS[oid]; if(!o) return;
+  _trkOid=oid;
+  document.getElementById('trk-modal-oid').textContent=oid;
+  var items=o.items||[];
+  // Group items by tracking for display
+  var html='';
+  if(items.length===0){
+    html='<div class="fg"><label class="fl">Tracking (order)</label>'
+      +'<input type="text" id="trk-inp-order" class="big-inp" value="'+escHtml(o.tracking||'')+'" placeholder="ใส่ Tracking Number" style="font-family:monospace;font-size:13px"></div>';
+  } else {
+    // Per-item tracking
+    html+='<div style="font-size:11px;color:var(--text2);margin-bottom:8px">แก้ไข Tracking รายสินค้า</div>';
+    items.forEach(function(it,i){
+      html+='<div class="fg">'
+        +'<label class="fl" style="font-family:monospace">'+escHtml(it.sku||it.name||'item '+i)+(it.size?' ('+escHtml(it.size)+')':'')+'</label>'
+        +'<input type="text" id="trk-inp-'+i+'" class="big-inp" value="'+escHtml(it.tracking||o.tracking||'')+'" placeholder="Tracking Number" style="font-family:monospace;font-size:13px">'
+        +'</div>';
+    });
+  }
+  document.getElementById('trk-modal-items').innerHTML=html;
+  var m=document.getElementById('trk-modal');
+  m.style.display='flex';
+}
+function closeTrkModal(){
+  document.getElementById('trk-modal').style.display='none';
+  _trkOid='';
+}
+function saveTrkModal(){
+  var o=ORDERS[_trkOid]; if(!o) return;
+  var items=o.items||[];
+  if(items.length===0){
+    var v=(document.getElementById('trk-inp-order').value||'').trim();
+    o.tracking=v;
+  } else {
+    var firstTrk='';
+    items.forEach(function(it,i){
+      var el=document.getElementById('trk-inp-'+i);
+      var v=(el?el.value||'':'').trim();
+      it.tracking=v;
+      if(!firstTrk&&v) firstTrk=v;
+    });
+    // อัปเดต tracking หลักของ order ด้วย (เอาอันแรกที่มีค่า)
+    o.tracking=firstTrk;
+  }
+  o.updatedAt=new Date().toISOString();
+  save();
+  if(FB){
+    // Push items และ tracking ขึ้น Firebase
+    fbPatch('/orders/'+encId(_trkOid),{items:o.items,tracking:o.tracking,updatedAt:o.updatedAt});
+    fbPatch('/statuses/'+encId(_trkOid),{tracking:o.tracking,updatedAt:o.updatedAt});
+  }
+  closeTrkModal();
+  renderOrds();
+  showAl('✅ แก้ Tracking สำเร็จ','ok');
 }
 
 /* ===== RESET ===== */

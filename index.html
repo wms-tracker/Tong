@@ -2550,14 +2550,14 @@ function renderEditItems(items){
   list.innerHTML='';
   items.forEach(function(item,idx){
     var row=document.createElement('div');
-    row.style.cssText='display:grid;grid-template-columns:1fr 2fr 60px 80px 36px;gap:6px;margin-bottom:8px;align-items:center';
+    row.style.cssText='display:grid;grid-template-columns:1fr 1.5fr 55px 55px 1fr 36px;gap:6px;margin-bottom:8px;align-items:center';
     var inp=function(val,ph,field,isNum){
       var i=document.createElement('input');
       i.type=isNum?'number':'text';
       i.value=val||'';
       i.placeholder=ph;
       i.style.cssText='padding:6px;border:1px solid var(--border2);border-radius:6px;font-size:12px';
-      if(field==='sku')i.style.fontFamily='monospace';
+      if(field==='sku'||field==='tracking')i.style.fontFamily='monospace';
       i.oninput=function(){updateEditItem(idx,field,isNum?parseInt(this.value)||1:this.value);};
       return i;
     };
@@ -2569,6 +2569,7 @@ function renderEditItems(items){
     row.appendChild(inp(item.name,'ชื่อสินค้า','name'));
     row.appendChild(inp(item.size,'ขนาด','size'));
     row.appendChild(inp(item.qty||1,'Qty','qty',true));
+    row.appendChild(inp(item.tracking||'','Tracking','tracking'));
     row.appendChild(del);
     list.appendChild(row);
   });
@@ -2622,12 +2623,12 @@ function saveEditOrder(){
         var name=(inputs[1].value||'').trim();
         var size=(inputs[2].value||'').trim();
         var qty=parseInt(inputs[3].value)||1;
+        var trk=inputs.length>=5?(inputs[4].value||'').trim():'';
         if(sku||name){ // เก็บเฉพาะ row ที่มีข้อมูล
-          // เก็บ tracking และ sup จาก item เดิมถ้ามี
           var oldItem=o.items&&o.items[ri]?o.items[ri]:{};
           newItems.push({
             sku:sku,name:name,size:size,qty:qty,
-            tracking:oldItem.tracking||'',
+            tracking:trk||oldItem.tracking||'',
             sup:oldItem.sup||''
           });
         }
@@ -3963,7 +3964,15 @@ setTimeout(function(){
       <button onclick="closeEditModal()" style="padding:8px 16px;border:1.5px solid var(--border2);border-radius:8px;background:var(--bg);cursor:pointer">✕ ปิด</button>
     </div>
     <div style="background:var(--bg3);border-radius:10px;padding:14px;margin-bottom:16px">
-      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">📦 รายการสินค้า</div>
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">📦 รายการสินค้า</div>
+      <div style="display:grid;grid-template-columns:1fr 1.5fr 55px 55px 1fr 36px;gap:6px;margin-bottom:4px;padding:0 2px">
+        <div style="font-size:10px;color:var(--text2);font-weight:700">SKU</div>
+        <div style="font-size:10px;color:var(--text2);font-weight:700">ชื่อสินค้า</div>
+        <div style="font-size:10px;color:var(--text2);font-weight:700">ขนาด</div>
+        <div style="font-size:10px;color:var(--text2);font-weight:700">Qty</div>
+        <div style="font-size:10px;color:var(--text2);font-weight:700">Tracking</div>
+        <div></div>
+      </div>
       <div id="edit-items-list"></div>
       <button onclick="addEditItem()" style="margin-top:10px;padding:8px 16px;background:var(--primary);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px">+ เพิ่มรายการ</button>
     </div>
