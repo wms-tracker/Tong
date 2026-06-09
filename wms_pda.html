@@ -1182,10 +1182,32 @@ function renderOrds(){
       +'<div style="font-size:11px;color:var(--text2);margin-top:1px">'+o.items.length+' รายการ</div></div>'
       +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">'
       +'<span class="badge '+(SB[o.status]||'b-new')+'">'+(SL[o.status]||'—')+'</span>'
-      +(o.status!=='cancel'&&o.status!=='done'?'<button onclick="goQC(\''+o.id+'\')" style="padding:7px 14px;background:var(--primary);color:#fff;border:none;border-radius:var(--rx);font-weight:700;font-size:12px;cursor:pointer">🔍 QC</button>':'')
+      +(o.status==='new'||o.status==='pick'||o.status==='qc'?'<button onclick="goQC(\''+o.id+'\')" style="padding:7px 14px;background:var(--primary);color:#fff;border:none;border-radius:var(--rx);font-weight:700;font-size:12px;cursor:pointer">🔍 QC</button>':'')
+      +(o.status==='pack'?'<button onclick="doShip(\''+o.id+'\')" style="padding:7px 14px;background:#7C3AED;color:#fff;border:none;border-radius:var(--rx);font-weight:700;font-size:12px;cursor:pointer">🚚 ส่งแล้ว</button>':'')
+      +(o.status==='ship'?'<button onclick="doDone(\''+o.id+'\')" style="padding:7px 14px;background:#16A34A;color:#fff;border:none;border-radius:var(--rx);font-weight:700;font-size:12px;cursor:pointer">✔ Done</button>':'')
       +'<button onclick="openTrkModal(\''+o.id+'\')" style="padding:5px 10px;background:var(--bg3);color:var(--text2);border:1px solid var(--border);border-radius:var(--rx);font-size:11px;cursor:pointer">✏️ Tracking</button>'
       +'</div></div></div>';
   }).join('');
+}
+
+/* ===== SHIP / DONE ===== */
+function doShip(oid){
+  if(!ORDERS[oid])return;
+  if(!confirm('ยืนยันส่ง '+oid+'?'))return;
+  ORDERS[oid].status='ship';
+  ORDERS[oid].updatedAt=new Date().toISOString();
+  save();refreshStats();renderOrds();
+  pushStatus(oid,'ship');
+  showAl('🚚 '+oid+' → Ship แล้ว','ok');
+}
+function doDone(oid){
+  if(!ORDERS[oid])return;
+  if(!confirm('ยืนยันปิดงาน '+oid+'?'))return;
+  ORDERS[oid].status='done';
+  ORDERS[oid].updatedAt=new Date().toISOString();
+  save();refreshStats();renderOrds();
+  pushStatus(oid,'done');
+  showAl('✔ '+oid+' → Done!','ok');
 }
 
 /* ===== EDIT TRACKING MODAL ===== */
