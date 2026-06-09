@@ -1109,8 +1109,10 @@ function setStatus(oid,status){
   let now=new Date().toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
   if(!ORDERS[oid].timeline) ORDERS[oid].timeline=[];
   let last=ORDERS[oid].timeline[ORDERS[oid].timeline.length-1];
-  if(!last||last.action!==(SL[status]||status)){
-    ORDERS[oid].timeline.push({time:now,action:SL[status]||status,user:'User'});
+  let _tUsr=localStorage.getItem('WMS_USR')||'PC';
+  let _tDev=localStorage.getItem('WMS_DEV')||'WMS-PC';
+  if(!last||last.status!==status){
+    ORDERS[oid].timeline.push({time:now,status:status,action:SL[status]||status,user:_tUsr,device:_tDev});
   }
   saveLocal();refreshAll();
   // Push to Sheets
@@ -1593,7 +1595,16 @@ function openOrder(oid){
   document.getElementById('m-status').innerHTML=`<span class="badge ${SB[o.status]}">${SL[o.status]}</span>`;
   document.getElementById('m-note').value=o.note||'';
   document.getElementById('m-items').innerHTML=o.items.map((item,i)=>`<tr><td>${i+1}</td><td class="mono">${item.sku||'—'}</td><td>${item.name||'—'}</td><td>${item.size||'—'}</td><td>${item.qty}</td></tr>`).join('');
-  document.getElementById('m-tl').innerHTML=(o.timeline||[]).map(t=>`<div class="tli ok"><div class="tl-t">${t.time}</div><div><div class="tl-a">${t.action}</div><div class="tl-s">${t.user||''}</div></div></div>`).join('');
+  var tl=o.timeline||[];
+  document.getElementById('m-tl').innerHTML=tl.length?tl.map(function(t){
+    return '<div class="tli ok" style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)">'
+      +'<span class="badge '+(SB[t.status]||'b-new')+'" style="flex-shrink:0;font-size:10px">'+(SL[t.status]||t.action||'—')+'</span>'
+      +'<div style="flex:1">'
+      +'<div style="font-size:12px;font-weight:700;color:var(--text)">'+escHtml(t.user||'—')+(t.device?'<span style="font-size:10px;color:var(--text2);font-weight:400"> · '+escHtml(t.device)+'</span>':'')+'</div>'
+      +'<div style="font-size:11px;color:var(--text2)">'+escHtml(t.time||'—')+'</div>'
+      +'</div>'
+      +'</div>';
+  }).join(''):'<div class="empty" style="padding:12px">ยังไม่มีประวัติ</div>';
   let next=SN[o.status];
   let btn=document.getElementById('m-next-btn');
   btn.style.display=next?'inline-flex':'none';if(next)btn.textContent=SNL[o.status]||'→';
@@ -1945,8 +1956,12 @@ function startFirebaseStream(){
 // Push order status to Firebase when changed
 function fbPushStatus(oid,status){
   if(!FB_URL||!oid)return;
-  fbPatch('/statuses/'+encodeId(oid),{status:status,updatedAt:new Date().toISOString(),device:'WMS-PC'});
-  fbPatch('/orders/'+encodeId(oid),{status:status,updatedAt:new Date().toISOString()});
+  var _dev=localStorage.getItem('WMS_DEV')||'WMS-PC';
+  var _usr=localStorage.getItem('WMS_USR')||'PC';
+  var _ts=new Date().toISOString();
+  fbPatch('/statuses/'+encodeId(oid),{status:status,updatedAt:_ts,device:_dev,user:_usr});
+  fbPatch('/orders/'+encodeId(oid),{status:status,updatedAt:_ts,updatedBy:_usr,device:_dev,
+    timeline:ORDERS[oid]?ORDERS[oid].timeline||[]:[]});
 }
 
 // Pull all orders from Firebase (synced from PDA)

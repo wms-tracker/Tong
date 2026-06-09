@@ -745,8 +745,19 @@ function startCancelSSE(){
 /* ===== PUSH STATUS ===== */
 function pushStatus(oid,status){
   var ts=new Date().toISOString();
+  var now=new Date().toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  // บันทึก timeline ใน local order ด้วย
+  if(ORDERS[oid]){
+    if(!ORDERS[oid].timeline) ORDERS[oid].timeline=[];
+    var last=ORDERS[oid].timeline[ORDERS[oid].timeline.length-1];
+    if(!last||last.status!==status){
+      ORDERS[oid].timeline.push({time:now,status:status,action:SL[status]||status,user:USR,device:DEV});
+    }
+    save();
+  }
+  var tl=ORDERS[oid]?ORDERS[oid].timeline||[]:[];
   if(FB) fbPatch('/statuses/'+encId(oid),{status:status,updatedAt:ts,device:DEV,user:USR});
-  if(FB) fbPatch('/orders/'+encId(oid),{status:status,updatedAt:ts,updatedBy:USR,device:DEV});
+  if(FB) fbPatch('/orders/'+encId(oid),{status:status,updatedAt:ts,updatedBy:USR,device:DEV,timeline:tl});
   if(API) jFetch(API+'?action=setStatus&orderId='+encodeURIComponent(oid)+'&status='+encodeURIComponent(status)).catch(function(){});
 }
 function pushScanLog(oid,items){
@@ -1224,7 +1235,19 @@ function renderOrds(){
       +(o.status==='pack'?'<button onclick="doShip(\''+o.id+'\')" style="padding:7px 14px;background:#7C3AED;color:#fff;border:none;border-radius:var(--rx);font-weight:700;font-size:12px;cursor:pointer">🚚 ส่งแล้ว</button>':'')
       +(o.status==='ship'?'<button onclick="doDone(\''+o.id+'\')" style="padding:7px 14px;background:#16A34A;color:#fff;border:none;border-radius:var(--rx);font-weight:700;font-size:12px;cursor:pointer">✔ Done</button>':'')
       +'<button onclick="openTrkModal(\''+o.id+'\')" style="padding:5px 10px;background:var(--bg3);color:var(--text2);border:1px solid var(--border);border-radius:var(--rx);font-size:11px;cursor:pointer">✏️ Tracking</button>'
-      +'</div></div></div>';
+      +'<button onclick="toggleTl(\'tl-'+o.id+'\')" style="padding:5px 10px;background:var(--bg3);color:var(--text2);border:1px solid var(--border);border-radius:var(--rx);font-size:11px;cursor:pointer">📋 ประวัติ</button>'
+      +'</div></div>'
+      +'<div id="tl-'+o.id+'" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px">'
+      +(o.timeline&&o.timeline.length
+        ? o.timeline.map(function(t){
+            return '<div style="display:flex;gap:8px;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border)">'
+              +'<span class="badge '+(SB[t.status]||'b-new')+'" style="flex-shrink:0;font-size:10px">'+(SL[t.status]||t.action||'—')+'</span>'
+              +'<div><div style="font-size:12px;font-weight:700">'+escHtml(t.user||'—')+(t.device?'<span style="font-size:10px;color:var(--text2);font-weight:400"> · '+escHtml(t.device)+'</span>':'')+'</div>'
+              +'<div style="font-size:10px;color:var(--text2)">'+escHtml(t.time||'—')+'</div></div></div>';
+          }).join('')
+        : '<div style="font-size:11px;color:var(--text2);padding:4px">ยังไม่มีประวัติ</div>')
+      +'</div>'
+      +'</div>';
   }).join('');
 }
 
@@ -1315,6 +1338,8 @@ function quickDone(oid){
 }
 // wire camera for ship
 var _origStartCam=null;
+
+function toggleTl(id){var el=document.getElementById(id);if(el)el.style.display=el.style.display==='none'?'':'none';}
 
 /* ===== SHIP / DONE ===== */
 function doShip(oid){
