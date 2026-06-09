@@ -21,16 +21,24 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
 .layout{display:grid;grid-template-columns:210px 1fr;min-height:100vh}
-.sidebar{background:#0F172A;color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar{background:#0F172A;color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow:hidden;width:240px;flex-shrink:0}
 .main{overflow-y:auto;height:100vh}
-.sidebar-logo{padding:18px 20px;border-bottom:1px solid rgba(255,255,255,.08)}
-.logo-t{font-size:17px;font-weight:700}.logo-s{font-size:11px;color:rgba(255,255,255,.4);margin-top:1px}
-.sidebar-sec{padding:6px 0}
-.sidebar-lbl{font-size:10px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.8px;padding:8px 18px 3px}
-.ni{display:flex;align-items:center;gap:9px;padding:8px 18px;cursor:pointer;color:rgba(255,255,255,.65);font-size:13px;font-weight:500;transition:all .15s;border-left:3px solid transparent}
-.ni:hover{background:rgba(255,255,255,.05);color:#fff}
-.ni.active{background:rgba(37,99,235,.25);color:#fff;border-left-color:#3B82F6}
-.ni .ic{font-size:15px;width:18px;text-align:center}
+.sidebar-logo{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0}
+.logo-t{font-size:15px;font-weight:700}.logo-s{font-size:10px;color:rgba(255,255,255,.4);margin-top:1px}
+/* 2-column nav */
+.sb2{display:flex;flex:1;overflow:hidden}
+.sb2-cat{width:76px;background:#0F172A;flex-shrink:0;padding:6px 0;display:flex;flex-direction:column;gap:1px;overflow-y:auto;border-right:1px solid rgba(255,255,255,.07)}
+.sb2-ci{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:11px 4px;cursor:pointer;color:rgba(255,255,255,.45);font-size:9px;font-weight:600;text-align:center;border-radius:8px;margin:1px 5px;transition:all .15s;line-height:1.2}
+.sb2-ci .si{font-size:19px;line-height:1}
+.sb2-ci:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.75)}
+.sb2-ci.act{background:rgba(37,99,235,.3);color:#fff}
+.sb2-sub{flex:1;background:#1E293B;overflow-y:auto;padding:6px 0}
+.sb2-panel{display:none}.sb2-panel.act{display:block}
+.sb2-title{font-size:10px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.7px;padding:10px 12px 4px}
+.ni{display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;color:rgba(255,255,255,.65);font-size:12px;font-weight:500;transition:all .15s;border-radius:6px;margin:1px 6px}
+.ni:hover{background:rgba(255,255,255,.07);color:#fff}
+.ni.active{background:rgba(37,99,235,.3);color:#fff}
+.ni .ic{font-size:14px;width:16px;text-align:center;flex-shrink:0}
 .nbadge{margin-left:auto;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;background:#EF4444;color:#fff}
 .topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 22px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;box-shadow:var(--sh)}
 .tb-title{font-size:17px;font-weight:700}.tb-sub{font-size:11px;color:var(--text2);margin-top:1px}
@@ -230,24 +238,49 @@ tr:hover td{background:var(--bg3)}
 <div class="layout">
 <nav class="sidebar">
   <div class="sidebar-logo"><div class="logo-t">📦 WMS V.2</div><div class="logo-s">Warehouse Management</div></div>
-  <div class="sidebar-sec">
-    <div class="sidebar-lbl">หลัก</div>
-    <div class="ni active" onclick="goPage('dashboard')"><span class="ic">📊</span>Dashboard</div>
-    <div class="ni" onclick="goPage('orders')"><span class="ic">📋</span>Orders<span class="nbadge" id="nb-new">0</span></div>
-    <div class="ni" onclick="goPage('upload')"><span class="ic">📂</span>Upload / Sync</div>
-    <div class="ni" onclick="goPage('matcher')"><span class="ic">🔗</span>Tracking Matcher</div>
-  </div>
-  <div class="sidebar-sec">
-    <div class="sidebar-lbl">กระบวนการ</div>
-    <div class="ni" onclick="goPage('qcscan')"><span class="ic">🔍</span>ตรวจ QC + Scan<span class="nbadge" id="nb-qc" style="background:var(--orange)">0</span></div>
-    <div class="ni" onclick="goPage('pick')"><span class="ic">📦</span>Pack<span class="nbadge" id="nb-pack" style="background:var(--purple)">0</span></div>
-    <div class="ni" onclick="goPage('ship')"><span class="ic">🚚</span>ส่งของ<span class="nbadge" id="nb-ship" style="background:var(--teal)">0</span></div>
-    <div class="ni" onclick="goPage('draft')"><span class="ic">💾</span>Draft<span class="nbadge" id="nb-draft" style="background:var(--teal)">0</span></div>
-  </div>
-  <div class="sidebar-sec">
-    <div class="sidebar-lbl">รายงาน</div>
-    <div class="ni" onclick="goPage('report')"><span class="ic">📈</span>รีพอร์ต</div>
-    <div class="ni" onclick="goPage('settings')"><span class="ic">⚙️</span>ตั้งค่า</div>
+  <div class="sb2">
+    <!-- คอลัมน์ซ้าย: หมวดหลัก -->
+    <div class="sb2-cat">
+      <div class="sb2-ci act" id="sbc-main" onclick="setSbCat('main')"><span class="si">📊</span>หน้าหลัก</div>
+      <div class="sb2-ci" id="sbc-orders" onclick="setSbCat('orders')"><span class="si">📋</span>ออเดอร์</div>
+      <div class="sb2-ci" id="sbc-warehouse" onclick="setSbCat('warehouse')"><span class="si">🔍</span>คลังสินค้า</div>
+      <div class="sb2-ci" id="sbc-report" onclick="setSbCat('report')"><span class="si">📈</span>รายงาน</div>
+      <div class="sb2-ci" id="sbc-system" onclick="setSbCat('system')"><span class="si">⚙️</span>ระบบ</div>
+    </div>
+    <!-- คอลัมน์ขวา: sub-items -->
+    <div class="sb2-sub">
+      <!-- หน้าหลัก -->
+      <div class="sb2-panel act" id="sbp-main">
+        <div class="sb2-title">หน้าหลัก</div>
+        <div class="ni active" id="ni-dashboard" onclick="goPage('dashboard')"><span class="ic">📊</span>Dashboard</div>
+        <div class="ni" id="ni-history" onclick="goPage('history')"><span class="ic">📚</span>ประวัติ</div>
+      </div>
+      <!-- ออเดอร์ -->
+      <div class="sb2-panel" id="sbp-orders">
+        <div class="sb2-title">ออเดอร์</div>
+        <div class="ni" id="ni-orders" onclick="goPage('orders')"><span class="ic">📋</span>Orders ทั้งหมด<span class="nbadge" id="nb-new" style="background:#2563EB">0</span></div>
+        <div class="ni" id="ni-draft" onclick="goPage('draft')"><span class="ic">💾</span>Draft งานค้าง<span class="nbadge" id="nb-draft" style="background:var(--teal)">0</span></div>
+      </div>
+      <!-- คลังสินค้า -->
+      <div class="sb2-panel" id="sbp-warehouse">
+        <div class="sb2-title">คลังสินค้า</div>
+        <div class="ni" id="ni-qcscan" onclick="goPage('qcscan')"><span class="ic">🔍</span>ตรวจ QC + Scan<span class="nbadge" id="nb-qc" style="background:var(--orange)">0</span></div>
+        <div class="ni" id="ni-pick" onclick="goPage('pick')"><span class="ic">📦</span>Pack<span class="nbadge" id="nb-pack" style="background:var(--purple)">0</span></div>
+        <div class="ni" id="ni-ship" onclick="goPage('ship')"><span class="ic">🚚</span>ส่งของ<span class="nbadge" id="nb-ship" style="background:var(--teal)">0</span></div>
+      </div>
+      <!-- รายงาน -->
+      <div class="sb2-panel" id="sbp-report">
+        <div class="sb2-title">รายงาน</div>
+        <div class="ni" id="ni-report" onclick="goPage('report')"><span class="ic">📈</span>รีพอร์ต</div>
+        <div class="ni" id="ni-matcher" onclick="goPage('matcher')"><span class="ic">🔗</span>Tracking Matcher</div>
+      </div>
+      <!-- ระบบ -->
+      <div class="sb2-panel" id="sbp-system">
+        <div class="sb2-title">ระบบ</div>
+        <div class="ni" id="ni-upload" onclick="goPage('upload')"><span class="ic">📂</span>Upload / Sync</div>
+        <div class="ni" id="ni-settings" onclick="goPage('settings')"><span class="ic">⚙️</span>ตั้งค่า</div>
+      </div>
+    </div>
   </div>
 </nav>
 
@@ -961,11 +994,23 @@ function checkLogin(){
 
 /* ======= NAV ======= */
 const PM={dashboard:'Dashboard|ภาพรวมระบบ',upload:'Upload / Sync|อัปโหลดหรือดึงข้อมูลจาก Sheets',orders:'Orders|รายการทั้งหมด',history:'History|ประวัติออเดอร์รายเดือน',qcscan:'ตรวจ QC + Scan|สแกนตรวจสอบสินค้า',pick:'Pick|ออเดอร์พร้อม Pack',ship:'ส่งของ|พร้อมส่ง',draft:'Draft|งานค้าง',report:'รีพอร์ต|สรุปและ Export',matcher:'Tracking Matcher|จับคู่ Tracking กับออเดอร์',settings:'ตั้งค่า|การเชื่อมต่อ'};
+var _pageCat={dashboard:'main',history:'main',orders:'orders',draft:'orders',qcscan:'warehouse',pick:'warehouse',ship:'warehouse',report:'report',matcher:'report',upload:'system',settings:'system'};
+function setSbCat(cat){
+  document.querySelectorAll('.sb2-ci').forEach(x=>x.classList.remove('act'));
+  document.querySelectorAll('.sb2-panel').forEach(x=>x.classList.remove('act'));
+  var ci=document.getElementById('sbc-'+cat);
+  var panel=document.getElementById('sbp-'+cat);
+  if(ci)ci.classList.add('act');
+  if(panel)panel.classList.add('act');
+}
 function goPage(p){
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(x=>x.classList.remove('active'));
   document.getElementById('page-'+p).classList.add('active');
   document.querySelectorAll('.ni').forEach(x=>{if((x.getAttribute('onclick')||'').includes("'"+p+"'"))x.classList.add('active');});
+  // อัปเดต 2-column sidebar
+  var cat=_pageCat[p]||'main';
+  setSbCat(cat);
   let m=(PM[p]||'WMS|').split('|');
   document.getElementById('pg-title').textContent=m[0];
   document.getElementById('pg-sub').textContent=m[1]||'';
