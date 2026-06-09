@@ -2680,10 +2680,17 @@ function syncDraftsFromFB(){
     data=data||{};
     var changed=false;
     var remoteOids={};
+    var DONE_ST=['qc','ship','done','cancel'];
     Object.keys(data).forEach(function(rawOid){
       var d=data[rawOid];
       if(!d||!d.oid)return;
       var oid=d.oid;
+      // ถ้า order ผ่าน QC/Done แล้ว → draft ค้างอยู่บน Firebase (race condition)
+      // → ลบออกจาก Firebase ทันที และไม่ดึงกลับมา
+      if(ORDERS[oid]&&DONE_ST.indexOf(ORDERS[oid].status)>=0){
+        fbPut('/drafts/'+encodeId(oid),null);
+        return;
+      }
       remoteOids[oid]=true;
       if(!DRAFTS[oid]||(d.ts||0)>DRAFTS[oid].ts){
         DRAFTS[oid]=d;changed=true;
