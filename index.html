@@ -789,8 +789,9 @@ tr:hover td{background:var(--bg3)}
         <div><label class="fl">วันที่รับ</label><div id="m-date"></div></div>
         <div><label class="fl">สถานะ</label><div id="m-status"></div></div>
       </div>
+      <div id="m-trk-progress" style="display:none"></div>
       <div class="card-t">รายการสินค้า</div>
-      <div class="tw" style="margin-bottom:14px"><table><thead><tr><th>#</th><th>SKU</th><th>แบรนด์</th><th>ขนาด</th><th>Qty</th></tr></thead><tbody id="m-items"></tbody></table></div>
+      <div class="tw" style="margin-bottom:14px"><table><thead><tr><th>#</th><th>SKU</th><th>แบรนด์</th><th>ขนาด</th><th>Qty</th><th>Tracking</th></tr></thead><tbody id="m-items"></tbody></table></div>
       <div class="card-t">Timeline</div>
       <div class="tl" id="m-tl"></div>
       <div class="sep"></div>
@@ -1594,7 +1595,22 @@ function openOrder(oid){
   document.getElementById('m-date').textContent=o.date||'—';
   document.getElementById('m-status').innerHTML=`<span class="badge ${SB[o.status]}">${SL[o.status]}</span>`;
   document.getElementById('m-note').value=o.note||'';
-  document.getElementById('m-items').innerHTML=o.items.map((item,i)=>`<tr><td>${i+1}</td><td class="mono">${item.sku||'—'}</td><td>${item.name||'—'}</td><td>${item.size||'—'}</td><td>${item.qty}</td></tr>`).join('');
+  // แสดง trkStatus progress ถ้ามีหลาย tracking
+  var allTrks2=[...new Set((o.items||[]).map(i=>i.tracking).filter(Boolean))];
+  if(o.tracking&&!allTrks2.includes(o.tracking))allTrks2.push(o.tracking);
+  var trkStatusEl=document.getElementById('m-trk-progress');
+  if(trkStatusEl){
+    if(allTrks2.length>1){
+      var doneT2=allTrks2.filter(t=>o.trkStatus&&o.trkStatus[t]==='qc').length;
+      trkStatusEl.innerHTML='<div style="margin-bottom:10px"><div class="fl" style="margin-bottom:6px">📦 ความคืบหน้า Tracking QC ('+doneT2+'/'+allTrks2.length+')</div>'
+        +allTrks2.map(t=>{var done=o.trkStatus&&o.trkStatus[t]==='qc';return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px"><span class="mono" style="color:var(--text)">'+t+'</span><span class="badge '+(done?'b-done':'b-new')+'">'+(done?'✅ QC แล้ว':'⏳ รอ')+'</span></div>';}).join('')
+        +'</div>';
+      trkStatusEl.style.display='';
+    }else{
+      trkStatusEl.style.display='none';
+    }
+  }
+  document.getElementById('m-items').innerHTML=o.items.map((item,i)=>`<tr><td>${i+1}</td><td class="mono">${item.sku||'—'}</td><td>${item.name||'—'}</td><td>${item.size||'—'}</td><td>${item.qty}</td><td class="mono" style="font-size:10px;color:var(--text2)">${item.tracking||''}</td></tr>`).join('');
   var tl=o.timeline||[];
   document.getElementById('m-tl').innerHTML=tl.length?tl.map(function(t){
     return '<div class="tli ok" style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)">'

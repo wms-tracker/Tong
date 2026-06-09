@@ -1086,26 +1086,53 @@ function autoPass(){
   // 1. ลบ draft
   if(FB) fbPut('/drafts/'+encId(passOid),null);
   delete DRAFTS[passOid];
-  // 2. อัปเดตสถานะ
-  ORDERS[passOid].status='qc';
+  var o=ORDERS[passOid];
+  // 2. บันทึก per-tracking QC status
+  if(!o.trkStatus) o.trkStatus={};
+  if(passTrk) o.trkStatus[passTrk]='qc';
+
+  // หา tracking ทั้งหมดของ order นี้
+  var allTrks=[];
+  (o.items||[]).forEach(function(it){if(it.tracking&&allTrks.indexOf(it.tracking)<0)allTrks.push(it.tracking);});
+  if(o.tracking&&allTrks.indexOf(o.tracking)<0) allTrks.push(o.tracking);
+
+  // เปลี่ยน order status เป็น qc เฉพาะเมื่อทุก tracking ผ่านครบ
+  var doneCount=allTrks.filter(function(t){return o.trkStatus[t]==='qc';}).length;
+  var allQCd=(allTrks.length===0)||(!passTrk)||(doneCount>=allTrks.length);
+
+  if(allQCd){
+    o.status='qc';
+  }
+  // ถ้ายังไม่ครบ ให้ status คงเดิม (pick/new) แต่ push trkStatus ขึ้น Firebase
+
   save();refreshStats();renderDashboard();
   // 3. Push Firebase + Sheets
-  pushStatus(passOid,'qc');
+  if(allQCd) pushStatus(passOid,'qc');
+  else{
+    // push เฉพาะ trkStatus ขึ้น Firebase โดยไม่เปลี่ยน status หลัก
+    if(FB) fbPatch('/orders/'+encId(passOid),{trkStatus:o.trkStatus,updatedAt:new Date().toISOString()});
+  }
   pushScanLog(passOid,passItems);
-  // 4. แสดงหน้า success ก่อน reset — ไม่ให้หน้าจอว่างทันที
-  showPassResult(passOid,passItems,passTrk);
+  // 4. แสดงหน้า success
+  showPassResult(passOid,passItems,passTrk,doneCount,allTrks.length,allQCd);
 }
 
-function showPassResult(oid,items,trk){
-  // แสดงสรุปสินค้าที่สแกนเสร็จ พร้อมปุ่ม "สแกนต่อ"
+function showPassResult(oid,items,trk,doneCount,totalTrk,allQCd){
   var el=document.getElementById('prod-list');
   var total=items.reduce(function(a,b){return a+(b.qty||1);},0);
+  var isFullyDone=(allQCd===undefined)||allQCd;
+  var trkProgress=(totalTrk>1)
+    ?'<div style="margin:8px 0;padding:8px 12px;background:#F0FDF4;border-radius:8px;font-size:13px;font-weight:700;color:#16A34A">✅ Tracking QC แล้ว '+doneCount+'/'+totalTrk+'</div>'
+    :'';
   el.innerHTML='<div style="text-align:center;padding:24px 16px">'
-    +'<div style="font-size:56px;margin-bottom:8px">✅</div>'
-    +'<div style="font-size:20px;font-weight:800;color:#16A34A;margin-bottom:4px">QC ผ่านแล้ว!</div>'
-    +'<div style="font-size:16px;font-weight:700;font-family:monospace;margin-bottom:4px">'+oid+'</div>'
+    +'<div style="font-size:56px;margin-bottom:8px">'+(isFullyDone?'🎉':'✅')+'</div>'
+    +'<div style="font-size:20px;font-weight:800;color:#16A34A;margin-bottom:4px">'+(isFullyDone?'QC ผ่านทั้ง Order!':'QC Tracking นี้ผ่านแล้ว!')+'</div>'
+    +'<div style="font-size:16px;font-weight:700;font-family:monospace;margin-bottom:2px">'+oid+'</div>'
+    +(trk?'<div style="font-size:11px;color:#64748B;font-family:monospace;margin-bottom:4px">'+trk+'</div>':'')
+    +trkProgress
     +'<div style="font-size:13px;color:#64748B;margin-bottom:20px">'+items.length+' รายการ · '+total+' ชิ้น</div>'
-    +'<button onclick="resetScan()" style="width:100%;padding:16px;background:#2563EB;color:#fff;border:none;border-radius:12px;font-size:17px;font-weight:700;cursor:pointer;margin-bottom:10px">📦 สแกน Order ต่อไป</button>'
+    +(!isFullyDone?'<button onclick="resetScan()" style="width:100%;padding:14px;background:#0D9488;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:8px">📦 สแกน Tracking ต่อไป ('+(totalTrk-doneCount)+' เหลือ)</button>':'')
+    +'<button onclick="resetScan()" style="width:100%;padding:'+(isFullyDone?16:12)+'px;background:#2563EB;color:#fff;border:none;border-radius:12px;font-size:'+(isFullyDone?17:14)+'px;font-weight:700;cursor:pointer">📦 สแกน Order ต่อไป</button>'
     +'</div>';
   // ซ่อน input ชั่วคราว
   var h=document.getElementById('h1');
@@ -1227,8 +1254,13 @@ function renderOrds(){
       +'<div style="display:flex;justify-content:space-between;align-items:center">'
       +'<div><div style="font-weight:700;font-size:15px;font-family:monospace">'+o.id+'</div>'
       +'<div style="font-size:12px;color:var(--text2);margin-top:2px">'+(o.consign||'—')+'</div>'
-      +'<div style="font-size:11px;color:var(--teal);margin-top:1px">'+(o.tracking||'')+'</div>'
-      +'<div style="font-size:11px;color:var(--text2);margin-top:1px">'+o.items.length+' รายการ</div></div>'
+      +(function(){
+          var allT=[]; (o.items||[]).forEach(function(it){if(it.tracking&&allT.indexOf(it.tracking)<0)allT.push(it.tracking);});
+          if(o.tracking&&allT.indexOf(o.tracking)<0) allT.push(o.tracking);
+          var doneT=allT.filter(function(t){return o.trkStatus&&o.trkStatus[t]==='qc';}).length;
+          var prog=allT.length>1?'<div style="font-size:11px;color:'+(doneT===allT.length?'var(--green)':'var(--orange)')+';margin-top:1px;font-weight:700">📦 Tracking QC: '+doneT+'/'+allT.length+'</div>':'<div style="font-size:11px;color:var(--teal);margin-top:1px">'+(o.tracking||'')+'</div>';
+          return prog+'<div style="font-size:11px;color:var(--text2);margin-top:1px">'+o.items.length+' รายการ</div>';
+        })()+'</div>'
       +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">'
       +'<span class="badge '+(SB[o.status]||'b-new')+'">'+(SL[o.status]||'—')+'</span>'
       +(o.status==='new'||o.status==='pick'||o.status==='qc'?'<button onclick="goQC(\''+o.id+'\')" style="padding:7px 14px;background:var(--primary);color:#fff;border:none;border-radius:var(--rx);font-weight:700;font-size:12px;cursor:pointer">🔍 QC</button>':'')
