@@ -257,6 +257,39 @@ input:focus{outline:none;border-color:var(--primary)}
   </div>
 </div>
 
+<!-- SHIP SCAN -->
+<div id="page-ship" class="page">
+  <div class="card">
+    <div class="card-t">🚚 สแกนส่งของ</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">สแกน Tracking Number หรือ Order ID เพื่อเปลี่ยนเป็น ✔ Done</div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <input type="search" class="big-inp" id="ship-in" placeholder="สแกน Tracking / Order ID..."
+        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+        oninput="onShipIn(this.value)"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();confirmShip()}" style="flex:1">
+      <button onclick="startCam('ship')" style="padding:14px;background:#0F172A;color:#fff;border:none;border-radius:var(--rs);font-size:20px;cursor:pointer;flex-shrink:0">📷</button>
+    </div>
+    <div class="hint" id="ship-hint"></div>
+    <!-- Preview -->
+    <div id="ship-preview" style="display:none;margin-top:10px;padding:12px;background:var(--bg3);border-radius:var(--rx);border:1.5px solid var(--border2)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:11px;color:var(--text2)">Order ID</div>
+          <div style="font-size:18px;font-weight:700;font-family:monospace" id="ship-prev-oid">—</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px" id="ship-prev-con">—</div>
+          <div style="font-size:11px;color:var(--teal);font-family:monospace;margin-top:2px" id="ship-prev-trk">—</div>
+        </div>
+        <div><span class="badge" id="ship-prev-badge">—</span></div>
+      </div>
+    </div>
+    <button class="btn btn-p" style="width:100%;justify-content:center;margin-top:12px" onclick="confirmShip()">🚚 ยืนยันส่งแล้ว → Done</button>
+  </div>
+  <div class="card">
+    <div class="card-t">📋 รายการรอส่ง <span id="ship-cnt" style="color:var(--purple)"></span></div>
+    <div id="ship-list"><div class="empty">ไม่มีออเดอร์รอส่ง</div></div>
+  </div>
+</div>
+
 <!-- ORDERS -->
 <div id="page-orders" class="page">
   <div class="card" style="padding:10px">
@@ -306,6 +339,7 @@ input:focus{outline:none;border-color:var(--primary)}
   <div class="bn act" id="bn-dashboard" onclick="goPage('dashboard')"><span class="bi">📊</span>หน้าหลัก</div>
   <div class="bn" id="bn-scan" onclick="startScan('tracking')"><span class="bi">🔍</span>QC Scan<span class="bnb" id="bnb-qc">0</span></div>
   <div class="bn" id="bn-draft" onclick="goPage('draft');renderDrafts()"><span class="bi">💾</span>Draft<span class="bnb" id="bnb-dr" style="background:var(--teal)">0</span></div>
+  <div class="bn" id="bn-ship" onclick="goPage('ship');renderShipList()"><span class="bi">🚚</span>ส่งของ<span class="bnb" id="bnb-ship" style="background:var(--purple)"></span></div>
   <div class="bn" id="bn-orders" onclick="goPage('orders');renderOrds()"><span class="bi">📋</span>Orders</div>
   <div class="bn" id="bn-settings" onclick="goPage('settings')"><span class="bi">⚙️</span>ตั้งค่า</div>
 </nav>
@@ -493,6 +527,7 @@ function goPage(p){
   if(p==='dashboard') renderDashboard();
   if(p==='orders') renderOrds();
   if(p==='draft') renderDrafts();
+  if(p==='ship'){renderShipList();setTimeout(function(){var el=document.getElementById('ship-in');if(el)el.focus();},200);}
 }
 function startScan(mode){
   MODE=mode||'tracking';
@@ -732,10 +767,13 @@ function refreshStats(){
   var dr=Object.keys(DRAFTS).length;
   var set=function(id,v){var el=document.getElementById(id);if(el)el.textContent=v;};
   set('d-qc',qc); set('d-draft',dr); set('d-done',done);
+  var ship=orders.filter(function(o){return o.status==='ship'||o.status==='pack';}).length;
   var bqc=document.getElementById('bnb-qc');
   var bdr=document.getElementById('bnb-dr');
+  var bsh=document.getElementById('bnb-ship');
   if(bqc){bqc.textContent=qc||'';bqc.style.display=qc>0?'inline':'none';}
   if(bdr){bdr.textContent=dr||'';bdr.style.display=dr>0?'inline':'none';}
+  if(bsh){bsh.textContent=ship||'';bsh.style.display=ship>0?'inline':'none';}
 }
 
 /* ===== DASHBOARD ===== */
@@ -1190,6 +1228,94 @@ function renderOrds(){
   }).join('');
 }
 
+/* ===== SHIP SCAN PAGE ===== */
+var _shipOid='';
+function onShipIn(val){
+  val=val.trim();
+  var hint=document.getElementById('ship-hint');
+  var prev=document.getElementById('ship-preview');
+  if(!val){hint.className='hint';hint.textContent='';prev.style.display='none';_shipOid='';return;}
+  // ค้นหาจาก tracking หรือ order id
+  var o=null;
+  var orders=Object.values(ORDERS);
+  // match tracking (per-order หรือ per-item)
+  o=orders.find(function(x){
+    if((x.tracking||'').toLowerCase()===val.toLowerCase()) return true;
+    return (x.items||[]).some(function(it){return (it.tracking||'').toLowerCase()===val.toLowerCase();});
+  });
+  // match order id
+  if(!o) o=orders.find(function(x){return x.id.toLowerCase()===val.toLowerCase();});
+  if(!o){
+    hint.className='hint h-err';hint.textContent='ไม่พบ Tracking/Order ID นี้';
+    prev.style.display='none';_shipOid='';return;
+  }
+  _shipOid=o.id;
+  var canShip=o.status==='ship'||o.status==='pack';
+  if(!canShip){
+    hint.className='hint h-err';hint.textContent='Order นี้ status: '+(SL[o.status]||o.status)+' (ไม่สามารถส่งได้)';
+    prev.style.display='none';return;
+  }
+  hint.className='hint h-ok';hint.textContent='✓ พร้อมส่ง';
+  document.getElementById('ship-prev-oid').textContent=o.id;
+  document.getElementById('ship-prev-con').textContent=o.consign||'—';
+  document.getElementById('ship-prev-trk').textContent=o.tracking||'—';
+  var badge=document.getElementById('ship-prev-badge');
+  badge.className='badge '+(SB[o.status]||'');badge.textContent=SL[o.status]||o.status;
+  prev.style.display='';
+}
+function confirmShip(){
+  if(!_shipOid){var h=document.getElementById('ship-hint');h.className='hint h-err';h.textContent='กรุณาสแกน Tracking หรือ Order ID ก่อน';return;}
+  var o=ORDERS[_shipOid];
+  if(!o||!(o.status==='ship'||o.status==='pack')){return;}
+  o.status='done';
+  o.updatedAt=new Date().toISOString();
+  save();refreshStats();
+  pushStatus(_shipOid,'done');
+  renderShipList();
+  // แสดงผลสำเร็จ
+  var hint=document.getElementById('ship-hint');
+  hint.className='hint h-ok';hint.textContent='✔ ส่งแล้ว: '+_shipOid;
+  document.getElementById('ship-in').value='';
+  document.getElementById('ship-preview').style.display='none';
+  _shipOid='';
+  // reset hint หลัง 3 วิ
+  setTimeout(function(){
+    var h=document.getElementById('ship-hint');
+    if(h)h.textContent='';
+    var el=document.getElementById('ship-in');
+    if(el){el.value='';el.focus();}
+  },2500);
+}
+function renderShipList(){
+  var orders=Object.values(ORDERS).filter(function(o){return o.status==='ship'||o.status==='pack';});
+  var cnt=document.getElementById('ship-cnt');
+  if(cnt)cnt.textContent=orders.length?'('+orders.length+')':'';
+  var nb=document.getElementById('bnb-ship');
+  if(nb)nb.textContent=orders.length||'';
+  var el=document.getElementById('ship-list');if(!el)return;
+  if(!orders.length){el.innerHTML='<div class="empty">ไม่มีออเดอร์รอส่ง 🎉</div>';return;}
+  orders.sort(function(a,b){return (b.updatedAt||'').localeCompare(a.updatedAt||'');});
+  el.innerHTML=orders.map(function(o){
+    return '<div class="ord-card" style="margin-bottom:8px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center">'
+      +'<div><div style="font-weight:700;font-family:monospace">'+o.id+'</div>'
+      +'<div style="font-size:11px;color:var(--text2)">'+(o.consign||'—')+'</div>'
+      +'<div style="font-size:11px;color:var(--teal);font-family:monospace">'+(o.tracking||'—')+'</div></div>'
+      +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">'
+      +'<span class="badge '+(SB[o.status]||'')+'">'+(SL[o.status]||'—')+'</span>'
+      +'<button onclick="quickDone(\''+o.id+'\')" style="padding:5px 10px;background:#16A34A;color:#fff;border:none;border-radius:var(--rx);font-size:11px;font-weight:700;cursor:pointer">✔ Done</button>'
+      +'</div></div></div>';
+  }).join('');
+}
+function quickDone(oid){
+  if(!ORDERS[oid])return;
+  ORDERS[oid].status='done';ORDERS[oid].updatedAt=new Date().toISOString();
+  save();refreshStats();renderShipList();
+  pushStatus(oid,'done');
+}
+// wire camera for ship
+var _origStartCam=null;
+
 /* ===== SHIP / DONE ===== */
 function doShip(oid){
   if(!ORDERS[oid])return;
@@ -1448,6 +1574,10 @@ function onScanResult(val){
     document.getElementById('in1').value=val;
     onIn1(val);
     setTimeout(function(){if(CUR_OID) confirm1();},600);
+  }else if(_camMode==='ship'){
+    document.getElementById('ship-in').value=val;
+    onShipIn(val);
+    setTimeout(confirmShip,600);
   }else{
     document.getElementById('in-sku').value=val;
     onSkuIn(val);
