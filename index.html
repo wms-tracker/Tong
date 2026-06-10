@@ -1578,51 +1578,37 @@ function renderOrders(){
     });
     var trkKeys=Object.keys(trkMap);
     if(!trkKeys.length){trkKeys=[o.tracking||'—'];trkMap[o.tracking||'—']=[];}
-    var rs=trkKeys.length; // rowspan
     var sup=escHtml(getOrderSUP(o)||'—');
     var oStat='<span class="badge '+(SB[o.status]||'b-new')+'">'+(SL[o.status]||o.status)+'</span>'
       +(o.postponedFrom?'<br><span style="font-size:9px;padding:1px 5px;background:#FEF3C7;color:#92400E;border-radius:6px;font-weight:700">เลื่อน</span>':'');
-    var rsa=' rowspan="'+rs+'"';
 
     trkKeys.forEach(function(trk,ti){
-      var isFirst=ti===0;
       var trkQCd=o.trkStatus&&o.trkStatus[trk]==='qc';
       var trkItems=trkMap[trk]||[];
-      var trkBg=trkQCd?'background:#F0FDF4;':'';
+      var rowBg=trkQCd?'background:#F0FDF4':'';
+      var borderTop=ti===0?'border-top:2px solid var(--border2)':'border-top:1px solid var(--border)';
       var trkBadge=trkQCd
         ?'<span class="badge b-qc" style="font-size:10px;white-space:nowrap">✅ QC ผ่าน</span>'
         :'<span class="badge" style="font-size:10px;background:#F1F5F9;color:#64748B;border:1px solid #CBD5E1;white-space:nowrap">รอ QC</span>';
       var trkDisp='<span class="mono" style="font-size:11px;font-weight:700;color:'+(trkQCd?'#15803D':'var(--text)')+'">'+escHtml(trk==='—'?'':trk)+'</span>';
 
-      var row='<tr style="border-top:'+(isFirst?'2px solid var(--border2)':'1px dashed var(--border)')+'">';
-      // Order-level cells: rowspan
-      if(isFirst){
-        row+='<td'+rsa+' style="text-align:center;vertical-align:top;padding-top:10px"><input type="checkbox" class="ord-cb" data-oid="'+o.id+'" onchange="handleCheckbox(this)" style="width:16px;height:16px;cursor:pointer"></td>';
-        row+='<td'+rsa+' style="vertical-align:top"><span style="font-weight:700;font-family:monospace;font-size:12px">'+escHtml(o.id)+'</span></td>';
-        row+='<td'+rsa+' style="vertical-align:top;font-size:12px;font-weight:600;color:var(--primary)">'+sup+'</td>';
-        row+='<td'+rsa+' style="vertical-align:top;font-size:12px">'+escHtml(o.consign||'—')+'</td>';
+      var row='<tr style="'+borderTop+';'+rowBg+'">';
+      row+='<td style="text-align:center"><input type="checkbox" class="ord-cb" data-oid="'+o.id+'" onchange="handleCheckbox(this)" style="width:16px;height:16px;cursor:pointer"></td>';
+      row+='<td><span style="font-weight:700;font-family:monospace;font-size:12px">'+escHtml(o.id)+'</span></td>';
+      row+='<td style="font-size:12px;font-weight:600;color:var(--primary)">'+sup+'</td>';
+      row+='<td style="font-size:12px">'+escHtml(o.consign||'—')+'</td>';
+      row+='<td class="hide-mobile" style="font-family:monospace">'+trkDisp+'</td>';
+      row+='<td style="text-align:center">'+trkBadge+'</td>';
+      row+='<td style="font-size:12px">'+trkItems.length+' รายการ</td>';
+      row+='<td>'+oStat+'</td>';
+      row+='<td class="hide-mobile" style="font-size:12px">'+escHtml(o.shipDate||o.date||'—')+'</td>';
+      row+='<td><div class="brow" style="flex-wrap:wrap">';
+      if(!trkQCd&&(o.status==='new'||o.status==='pick')){
+        row+='<button class="btn btn-xs" style="background:var(--orange);color:#fff;border:none;font-weight:700" onclick="goQCScanWithTracking(\''+escHtml(o.id)+'\',\''+escHtml(trk)+'\')">🔍 QC</button>';
       }
-      // Tracking-level cells
-      row+='<td class="hide-mobile" style="'+trkBg+'padding:6px 10px;font-family:monospace">'+trkDisp+'</td>';
-      row+='<td style="'+trkBg+'padding:6px 8px;text-align:center">'+trkBadge+'</td>';
-      row+='<td style="'+trkBg+'padding:6px 10px;font-size:12px">'+trkItems.length+' รายการ</td>';
-      // Order status + date: rowspan
-      if(isFirst){
-        row+='<td'+rsa+' style="vertical-align:top">'+oStat+'</td>';
-        row+='<td'+rsa+' class="hide-mobile" style="vertical-align:top;font-size:12px">'+escHtml(o.shipDate||o.date||'—')+'</td>';
-      }
-      // Actions
-      row+='<td style="'+trkBg+'padding:6px 8px"><div class="brow" style="flex-wrap:wrap">';
-      // Per-tracking: QC button (ถ้ายังไม่ผ่าน)
-      if(!trkQCd&&(o.status==='new'||o.status==='pick'||o.status==='qc')){
-        row+='<button class="btn btn-xs" style="background:var(--orange);color:#fff;border:none;font-weight:700;white-space:nowrap" onclick="goQCScanWithTracking(\''+escHtml(o.id)+'\',\''+escHtml(trk)+'\')">🔍 QC</button>';
-      }
-      // Order-level buttons: เฉพาะ row แรก
-      if(isFirst){
-        row+='<button class="btn btn-xs" onclick="openOrder(\''+o.id+'\')" style="background:var(--primary);color:#fff;border:none;font-weight:700;white-space:nowrap">🔎 ดู</button>';
-        if(SN[o.status])row+='<button class="btn btn-xs btn-p" onclick="setStatus(\''+o.id+'\',\''+SN[o.status]+'\');renderOrders()" style="white-space:nowrap">→'+escHtml(SNL[o.status]||'')+'</button>';
-        row+='<button class="btn btn-xs" style="background:#F59E0B;color:#fff;border:none;font-weight:700" onclick="openEditOrder(\''+o.id+'\')" title="แก้ไข">✏️</button>';
-      }
+      row+='<button class="btn btn-xs" onclick="openOrder(\''+o.id+'\')" style="background:var(--primary);color:#fff;border:none;font-weight:700">🔎 ดู</button>';
+      if(ti===0&&SN[o.status])row+='<button class="btn btn-xs btn-p" onclick="setStatus(\''+o.id+'\',\''+SN[o.status]+'\');renderOrders()">→'+escHtml(SNL[o.status]||'')+'</button>';
+      if(ti===0)row+='<button class="btn btn-xs" style="background:#F59E0B;color:#fff;border:none;font-weight:700" onclick="openEditOrder(\''+o.id+'\')" title="แก้ไข">✏️</button>';
       row+='</div></td></tr>';
       allRows.push(row);
     });
