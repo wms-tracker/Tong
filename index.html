@@ -735,6 +735,42 @@ tr:hover td{background:var(--bg3)}
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px" id="chart-grid">
+    <!-- Bar: ออเดอร์ต่อวัน -->
+    <div class="card" style="padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:700">📊 ออเดอร์ต่อวัน</div>
+        <select id="bar-month-sel" onchange="drawBarChart()" style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text)"></select>
+      </div>
+      <canvas id="chart-bar" height="180" style="width:100%"></canvas>
+    </div>
+    <!-- Line: เปรียบเทียบรายเดือน -->
+    <div class="card" style="padding:14px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px">📈 ออเดอร์รายเดือน (12 เดือนล่าสุด)</div>
+      <canvas id="chart-line" height="180" style="width:100%"></canvas>
+    </div>
+    <!-- Pie: สัดส่วนขนส่ง -->
+    <div class="card" style="padding:14px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px">🥧 สัดส่วนขนส่ง</div>
+      <div style="display:flex;gap:12px;align-items:center">
+        <canvas id="chart-pie" width="160" height="160" style="flex-shrink:0"></canvas>
+        <div id="pie-legend" style="font-size:11px;line-height:1.8;flex:1"></div>
+      </div>
+    </div>
+    <!-- Bar: top status -->
+    <div class="card" style="padding:14px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px">📦 สัดส่วนสถานะออเดอร์</div>
+      <canvas id="chart-status" height="160" style="width:100%"></canvas>
+    </div>
+  </div>
+
+  <div class="card" style="padding:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:13px;font-weight:700">📋 รายละเอียด</div>
+    </div>
     <div class="tw" style="overflow-x:auto;max-height:70vh;overflow-y:auto">
       <table>
         <thead>
@@ -3953,6 +3989,199 @@ function completeDraftManual(oid){
 }
 
 
+/* ===== CHARTS (Canvas API) ===== */
+function _getOrderDate(o){
+  if(o.updatedAt){var d=new Date(o.updatedAt);if(!isNaN(d))return d;}
+  var ds=String(o.date||'').trim();
+  if(!ds||ds==='—')return null;
+  if(/^\d{4}-/.test(ds)){var d2=new Date(ds);if(!isNaN(d2))return d2;}
+  var m1=ds.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
+  if(m1){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m1[1]];if(mn!==undefined)return new Date(new Date().getFullYear(),mn,parseInt(m1[2]));}
+  var m2=ds.match(/^(\d+)\/(\d+)\/(\d+)/);
+  if(m2){var yr=parseInt(m2[3]);if(yr>2400)yr-=543;return new Date(yr,parseInt(m2[2])-1,parseInt(m2[1]));}
+  return null;
+}
+function _drawBar(canvasId,labels,values,color){
+  var c=document.getElementById(canvasId);if(!c)return;
+  c.width=c.offsetWidth||c.parentElement.offsetWidth||400;
+  var ctx=c.getContext('2d');var W=c.width,H=c.height;
+  ctx.clearRect(0,0,W,H);
+  var pad={t:10,r:10,b:30,l:36};
+  var cw=W-pad.l-pad.r,ch=H-pad.t-pad.b;
+  var max=Math.max.apply(null,values)||1;
+  var n=values.length;
+  var bw=Math.max(2,cw/n-2);
+  ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--text2')||'#888';
+  ctx.font='10px sans-serif';ctx.textAlign='center';
+  values.forEach(function(v,i){
+    var x=pad.l+i*(cw/n)+(cw/n-bw)/2;
+    var bh=Math.round(v/max*ch);
+    var y=pad.t+ch-bh;
+    ctx.fillStyle=color||'#2563EB';
+    ctx.fillRect(x,y,bw,bh);
+    if(v>0){ctx.fillStyle='#fff';ctx.font='bold 9px sans-serif';ctx.textAlign='center';ctx.fillText(v,x+bw/2,y-2);}
+    ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--text2')||'#888';
+    ctx.font='9px sans-serif';
+    if(n<=15||i%Math.ceil(n/15)===0)ctx.fillText(labels[i],x+bw/2,H-pad.b+12);
+  });
+  // y-axis
+  ctx.strokeStyle='#e2e8f0';ctx.lineWidth=1;
+  [0,.25,.5,.75,1].forEach(function(p){
+    var y=pad.t+ch*(1-p);
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();
+    ctx.fillStyle='#94A3B8';ctx.font='9px sans-serif';ctx.textAlign='right';
+    ctx.fillText(Math.round(max*p),pad.l-3,y+3);
+  });
+}
+function _drawLine(canvasId,labels,values,color){
+  var c=document.getElementById(canvasId);if(!c)return;
+  c.width=c.offsetWidth||c.parentElement.offsetWidth||400;
+  var ctx=c.getContext('2d');var W=c.width,H=c.height;
+  ctx.clearRect(0,0,W,H);
+  var pad={t:14,r:14,b:30,l:36};
+  var cw=W-pad.l-pad.r,ch=H-pad.t-pad.b;
+  var max=Math.max.apply(null,values)||1;
+  var n=values.length;
+  // grid
+  ctx.strokeStyle='#e2e8f0';ctx.lineWidth=1;
+  [0,.25,.5,.75,1].forEach(function(p){
+    var y=pad.t+ch*(1-p);
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();
+    ctx.fillStyle='#94A3B8';ctx.font='9px sans-serif';ctx.textAlign='right';
+    ctx.fillText(Math.round(max*p),pad.l-3,y+3);
+  });
+  // fill
+  ctx.beginPath();
+  values.forEach(function(v,i){
+    var x=pad.l+i*(cw/(n-1||1));var y=pad.t+ch-v/max*ch;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.lineTo(pad.l+(n-1)*(cw/(n-1||1)),pad.t+ch);ctx.lineTo(pad.l,pad.t+ch);ctx.closePath();
+  ctx.fillStyle='rgba(37,99,235,.12)';ctx.fill();
+  // line
+  ctx.beginPath();ctx.strokeStyle=color||'#2563EB';ctx.lineWidth=2.5;ctx.lineJoin='round';
+  values.forEach(function(v,i){
+    var x=pad.l+i*(cw/(n-1||1));var y=pad.t+ch-v/max*ch;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+  // dots + labels
+  values.forEach(function(v,i){
+    var x=pad.l+i*(cw/(n-1||1));var y=pad.t+ch-v/max*ch;
+    ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fillStyle=color||'#2563EB';ctx.fill();
+    ctx.fillStyle='#475569';ctx.font='bold 9px sans-serif';ctx.textAlign='center';
+    if(v>0)ctx.fillText(v,x,y-7);
+    ctx.fillStyle='#94A3B8';ctx.font='9px sans-serif';ctx.fillText(labels[i],x,H-2);
+  });
+}
+function _drawPie(canvasId,labels,values,colors){
+  var c=document.getElementById(canvasId);if(!c)return;
+  var ctx=c.getContext('2d');var W=c.width,H=c.height;
+  ctx.clearRect(0,0,W,H);
+  var total=values.reduce(function(a,b){return a+b;},0);if(!total)return;
+  var cx=W/2,cy=H/2,r=Math.min(cx,cy)-8;
+  var angle=-Math.PI/2;
+  values.forEach(function(v,i){
+    var slice=v/total*Math.PI*2;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,angle,angle+slice);ctx.closePath();
+    ctx.fillStyle=colors[i%colors.length];ctx.fill();
+    ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+    angle+=slice;
+  });
+  // legend
+  var leg=document.getElementById('pie-legend');
+  if(leg){
+    var PALNAME=['Best','Lunio','Kerry','Flash','SCG','Nim','อื่นๆ'];
+    leg.innerHTML=labels.map(function(l,i){
+      var pct=Math.round(values[i]/total*100);
+      return '<div style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+colors[i%colors.length]+'"></span><span style="color:var(--text)">'+l+'</span><span style="margin-left:auto;font-weight:700;color:var(--text)">'+values[i]+'</span><span style="color:var(--text2)">('+pct+'%)</span></div>';
+    }).join('');
+  }
+}
+function _drawStatusBar(canvasId){
+  var orders=Object.values(ORDERS);
+  var counts={new:0,pick:0,qc:0,pack:0,ship:0,done:0,cancel:0};
+  orders.forEach(function(o){if(counts[o.status]!==undefined)counts[o.status]++;});
+  var labels=['รับแล้ว','Pick','QC','Pack','Ship','Done','Cancel'];
+  var keys=['new','pick','qc','pack','ship','done','cancel'];
+  var colors=['#64748B','#0369A1','#0D9488','#7C3AED','#8B5CF6','#16A34A','#EF4444'];
+  var vals=keys.map(function(k){return counts[k];});
+  var c=document.getElementById(canvasId);if(!c)return;
+  c.width=c.offsetWidth||400;
+  var ctx=c.getContext('2d');var W=c.width,H=c.height;
+  ctx.clearRect(0,0,W,H);
+  var total=vals.reduce(function(a,b){return a+b;},0)||1;
+  var pad=8,bh=22,gap=6;
+  vals.forEach(function(v,i){
+    var y=pad+i*(bh+gap);
+    var bw=Math.round(v/total*(W-80));
+    ctx.fillStyle=colors[i];ctx.fillRect(0,y,bw||2,bh);
+    ctx.fillStyle='var(--text)';ctx.font='11px sans-serif';ctx.textAlign='left';
+    ctx.fillText(labels[i],bw+6,y+bh/2+4);
+    ctx.textAlign='right';ctx.font='bold 11px sans-serif';
+    ctx.fillText(v,W,y+bh/2+4);
+  });
+}
+function initBarMonthSel(){
+  var sel=document.getElementById('bar-month-sel');if(!sel)return;
+  var months={};
+  Object.values(ORDERS).forEach(function(o){
+    var d=_getOrderDate(o);if(!d)return;
+    var k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    months[k]=true;
+  });
+  var keys=Object.keys(months).sort().reverse().slice(0,12).reverse();
+  var now=new Date();
+  var cur=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  sel.innerHTML=keys.map(function(k){return '<option value="'+k+'"'+(k===cur?' selected':'')+'>'+k+'</option>';}).join('');
+  if(!sel.value&&keys.length)sel.value=keys[keys.length-1];
+}
+function drawBarChart(){
+  var sel=document.getElementById('bar-month-sel');
+  var ym=sel?sel.value:'';
+  if(!ym){var now=new Date();ym=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');}
+  var yr=parseInt(ym.split('-')[0]),mo=parseInt(ym.split('-')[1]);
+  var days=new Date(yr,mo,0).getDate();
+  var counts=Array(days).fill(0);
+  Object.values(ORDERS).forEach(function(o){
+    var d=_getOrderDate(o);if(!d)return;
+    if(d.getFullYear()===yr&&d.getMonth()+1===mo)counts[d.getDate()-1]++;
+  });
+  var labels=Array.from({length:days},function(_,i){return String(i+1);});
+  _drawBar('chart-bar',labels,counts,'#2563EB');
+}
+function drawLineChart(){
+  var now=new Date();
+  var months=[];
+  for(var i=11;i>=0;i--){
+    var d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    months.push({yr:d.getFullYear(),mo:d.getMonth()+1,label:(d.getMonth()+1)+'/'+String(d.getFullYear()).slice(2)});
+  }
+  var counts=months.map(function(){return 0;});
+  Object.values(ORDERS).forEach(function(o){
+    var d=_getOrderDate(o);if(!d)return;
+    var idx=months.findIndex(function(m){return m.yr===d.getFullYear()&&m.mo===d.getMonth()+1;});
+    if(idx>=0)counts[idx]++;
+  });
+  _drawLine('chart-line',months.map(function(m){return m.label;}),counts,'#0D9488');
+}
+function drawPieChart(){
+  var sup={};
+  Object.values(ORDERS).forEach(function(o){
+    var s=getOrderSUP(o)||'อื่นๆ';
+    // ย่อชื่อขนส่ง
+    var key=s.replace(/\s+HRZ.*/i,'').replace(/\s+\d.*/,'').trim()||'อื่นๆ';
+    sup[key]=(sup[key]||0)+1;
+  });
+  var entries=Object.entries(sup).sort(function(a,b){return b[1]-a[1];});
+  var COLORS=['#2563EB','#0D9488','#7C3AED','#F59E0B','#EF4444','#16A34A','#64748B','#EC4899'];
+  _drawPie('chart-pie',entries.map(function(e){return e[0];}),entries.map(function(e){return e[1];}),COLORS);
+}
+function drawAllCharts(){
+  initBarMonthSel();
+  setTimeout(function(){drawBarChart();drawLineChart();drawPieChart();_drawStatusBar('chart-status');},50);
+}
+
 function renderReport(){
   var now=new Date();
   var range=document.getElementById('rpt-range')?document.getElementById('rpt-range').value:'all';
@@ -3964,6 +4193,7 @@ function renderReport(){
   var timeTo=document.getElementById('rpt-time-to')?document.getElementById('rpt-time-to').value:'23:59';
   var tbody=document.getElementById('rpt-tbody');
   if(!tbody) return;
+  drawAllCharts();
   var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel',postponed:'เลื่อน'};
   var SB2={new:'b-new',pick:'b-pick',qc:'b-qc',ship:'b-ship',done:'b-done',cancel:'b-cancel'};
   var orders=Object.values(ORDERS);
