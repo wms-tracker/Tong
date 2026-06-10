@@ -1117,12 +1117,30 @@ function autoPass(){
   }
   // ถ้ายังไม่ครบ ให้ status คงเดิม (pick/new) แต่ push trkStatus ขึ้น Firebase
 
+  var nowTs=new Date().toISOString();
+  // บันทึก timeline เสมอ ไม่ว่า QC ครบหรือยัง
+  if(!o.timeline) o.timeline=[];
+  if(passTrk){
+    o.timeline.push({
+      time:nowTs,
+      status:'qc-trk',
+      action:'QC ✅ Tracking: '+passTrk,
+      tracking:passTrk,
+      user:USR,device:DEV
+    });
+  }
+  o.updatedAt=nowTs;
+
   save();refreshStats();renderDashboard();
   // 3. Push Firebase + Sheets
   if(allQCd) pushStatus(passOid,'qc');
   else{
-    // push เฉพาะ trkStatus ขึ้น Firebase โดยไม่เปลี่ยน status หลัก
-    if(FB) fbPatch('/orders/'+encId(passOid),{trkStatus:o.trkStatus,updatedAt:new Date().toISOString()});
+    // push trkStatus + timeline + updatedAt ขึ้น Firebase
+    if(FB) fbPatch('/orders/'+encId(passOid),{
+      trkStatus:o.trkStatus,
+      timeline:o.timeline,
+      updatedAt:nowTs
+    });
   }
   pushScanLog(passOid,passItems);
   // 4. แสดงหน้า success
