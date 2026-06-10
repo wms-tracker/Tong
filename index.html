@@ -1591,24 +1591,55 @@ function renderOrders(){
         ?'<span class="badge b-qc" style="font-size:10px;white-space:nowrap">✅ QC ผ่าน</span>'
         :'<span class="badge" style="font-size:10px;background:#F1F5F9;color:#64748B;border:1px solid #CBD5E1;white-space:nowrap">รอ QC</span>';
       var trkDisp='<span class="mono" style="font-size:11px;font-weight:700;color:'+(trkQCd?'#15803D':'var(--text)')+'">'+escHtml(trk==='—'?'':trk)+'</span>';
+      var oid_s=escHtml(o.id); var trk_s=escHtml(trk);
+
+      // ข้อมูล items ของ tracking นี้
+      var itemSummary=trkItems.map(function(it){
+        return '<div style="font-size:11px;color:var(--text2);white-space:nowrap">'
+          +(it.sku?'<span style="font-family:monospace;color:#0D9488;font-weight:700">'+escHtml(it.sku)+'</span> ':'')
+          +escHtml(it.name||'')
+          +(it.size?' <span style="color:var(--text3)">'+escHtml(it.size)+'</span>':'')
+          +' ×<b>'+( it.qty||1)+'</b>'
+          +'</div>';
+      }).join('');
 
       var row='<tr style="'+borderTop+';'+rowBg+'">';
-      row+='<td style="text-align:center"><input type="checkbox" class="ord-cb" data-oid="'+o.id+'" onchange="handleCheckbox(this)" style="width:16px;height:16px;cursor:pointer"></td>';
-      row+='<td><span style="font-weight:700;font-family:monospace;font-size:12px">'+escHtml(o.id)+'</span></td>';
-      row+='<td style="font-size:12px;font-weight:600;color:var(--primary)">'+sup+'</td>';
-      row+='<td style="font-size:12px">'+escHtml(o.consign||'—')+'</td>';
-      row+='<td class="hide-mobile" style="font-family:monospace">'+trkDisp+'</td>';
-      row+='<td style="text-align:center">'+trkBadge+'</td>';
-      row+='<td style="font-size:12px">'+trkItems.length+' รายการ</td>';
-      row+='<td>'+oStat+'</td>';
-      row+='<td class="hide-mobile" style="font-size:12px">'+escHtml(o.shipDate||o.date||'—')+'</td>';
-      row+='<td><div class="brow" style="flex-wrap:wrap">';
+      row+='<td style="text-align:center;vertical-align:top;padding-top:8px"><input type="checkbox" class="ord-cb" data-oid="'+oid_s+'" onchange="handleCheckbox(this)" style="width:16px;height:16px;cursor:pointer"></td>';
+      row+='<td style="vertical-align:top"><span style="font-weight:700;font-family:monospace;font-size:12px">'+oid_s+'</span></td>';
+      row+='<td style="vertical-align:top;font-size:12px;font-weight:600;color:var(--primary)">'+sup+'</td>';
+      row+='<td style="vertical-align:top;font-size:12px">'+escHtml(o.consign||'—')+'</td>';
+      // Tracking + items ของ tracking นี้
+      row+='<td class="hide-mobile" style="vertical-align:top"><div>'+trkDisp+'</div>'+itemSummary+'</td>';
+      row+='<td style="text-align:center;vertical-align:top">'+trkBadge+'</td>';
+      row+='<td style="font-size:12px;vertical-align:top">'+trkItems.length+' รายการ</td>';
+      row+='<td style="vertical-align:top">'+oStat+'</td>';
+      row+='<td class="hide-mobile" style="vertical-align:top;font-size:12px">'+escHtml(o.shipDate||o.date||'—')+'</td>';
+      // ===== ACTIONS ทุก tracking row =====
+      row+='<td style="vertical-align:top"><div style="display:flex;flex-direction:column;gap:4px;min-width:110px">';
+      // 🔍 QC
       if(!trkQCd&&(o.status==='new'||o.status==='pick')){
-        row+='<button class="btn btn-xs" style="background:var(--orange);color:#fff;border:none;font-weight:700" onclick="goQCScanWithTracking(\''+escHtml(o.id)+'\',\''+escHtml(trk)+'\')">🔍 QC</button>';
+        row+='<button class="btn btn-xs" style="background:var(--orange);color:#fff;border:none;font-weight:700;justify-content:flex-start" onclick="goQCScanWithTracking(\''+oid_s+'\',\''+trk_s+'\')">🔍 QC Scan</button>';
       }
-      row+='<button class="btn btn-xs" onclick="openOrder(\''+o.id+'\')" style="background:var(--primary);color:#fff;border:none;font-weight:700">🔎 ดู</button>';
-      if(ti===0&&SN[o.status])row+='<button class="btn btn-xs btn-p" onclick="setStatus(\''+o.id+'\',\''+SN[o.status]+'\');renderOrders()">→'+escHtml(SNL[o.status]||'')+'</button>';
-      if(ti===0)row+='<button class="btn btn-xs" style="background:#F59E0B;color:#fff;border:none;font-weight:700" onclick="openEditOrder(\''+o.id+'\')" title="แก้ไข">✏️</button>';
+      // → สถานะถัดไป
+      if(SN[o.status]){
+        row+='<button class="btn btn-xs btn-p" style="justify-content:flex-start" onclick="setStatus(\''+oid_s+'\',\''+SN[o.status]+'\');renderOrders()">'+escHtml(SNL[o.status]||('→ '+SN[o.status]))+'</button>';
+      }
+      // ↩ Reset → Pick
+      if(o.status!=='new'&&o.status!=='cancel'&&o.status!=='done'){
+        row+='<button class="btn btn-xs" style="background:#64748B;color:#fff;border:none;font-weight:600;justify-content:flex-start" onclick="quickReset(\''+oid_s+'\')">↩ Reset → Pick</button>';
+      }
+      // 🔎 ดู
+      row+='<button class="btn btn-xs" style="background:var(--primary);color:#fff;border:none;font-weight:700;justify-content:flex-start" onclick="openOrder(\''+oid_s+'\')">🔎 ดูรายละเอียด</button>';
+      // ✏️ แก้ไข
+      row+='<button class="btn btn-xs" style="background:#F59E0B;color:#fff;border:none;font-weight:700;justify-content:flex-start" onclick="openEditOrder(\''+oid_s+'\')">✏️ แก้ไข</button>';
+      // 📅 เลื่อนจัดส่ง
+      if(o.status!=='cancel'&&o.status!=='done'){
+        row+='<button class="btn btn-xs" style="background:#7C3AED;color:#fff;border:none;font-weight:600;justify-content:flex-start" onclick="quickPostpone(\''+oid_s+'\')">📅 เลื่อนจัดส่ง</button>';
+      }
+      // 🚫 ยกเลิก
+      if(o.status!=='cancel'&&o.status!=='done'){
+        row+='<button class="btn btn-xs" style="background:var(--red);color:#fff;border:none;font-weight:600;justify-content:flex-start" onclick="quickCancel(\''+oid_s+'\')">🚫 ยกเลิก Order</button>';
+      }
       row+='</div></td></tr>';
       allRows.push(row);
     });
@@ -1631,6 +1662,28 @@ function goQCScanWithTracking(oid,trk){
   goPage('qcscan');showQCOrder();
 }
 
+function quickReset(oid){
+  if(!ORDERS[oid])return;
+  if(!confirm('↩ Reset "'+oid+'" กลับเป็น Pick?'))return;
+  setStatus(oid,'pick');renderOrders();
+}
+function quickPostpone(oid){
+  var o=ORDERS[oid];if(!o)return;
+  if(!confirm('📅 เลื่อนจัดส่ง "'+oid+'" ออกไปก่อน?'))return;
+  var now=new Date().toISOString();
+  var usr=localStorage.getItem('WMS_USR')||'PC';
+  o.status='postponed';o.postponedFrom=o.date||'';o.postponedAt=now;o.updatedAt=now;o.user=usr;
+  if(!o.timeline)o.timeline=[];
+  o.timeline.push({time:now,status:'postponed',action:'เลื่อนจัดส่ง',user:usr});
+  if(FB_URL){fbPut('/orders/'+encodeId(oid),o);fbPut('/drafts/'+encodeId(oid),null);}
+  delete DRAFTS[oid];saveLocal();refreshAll();renderOrders();
+  ulAlert('📅 '+oid+' เลื่อนจัดส่งแล้ว','warn');
+}
+function quickCancel(oid){
+  if(!ORDERS[oid])return;
+  if(!confirm('🚫 ยืนยันยกเลิก Order "'+oid+'" ?'))return;
+  setStatus(oid,'cancel');renderOrders();
+}
 function filterOrders(){renderOrders();}
 
 function goQCScan(oid){
