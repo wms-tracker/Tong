@@ -766,7 +766,7 @@ tr:hover td{background:var(--bg3)}
     <!-- Bar: top status -->
     <div class="card" style="padding:14px">
       <div style="font-size:13px;font-weight:700;margin-bottom:10px">📦 สัดส่วนสถานะออเดอร์</div>
-      <canvas id="chart-status" height="160" style="width:100%"></canvas>
+      <canvas id="chart-status" style="width:100%;display:block"></canvas>
     </div>
   </div>
 
@@ -4111,19 +4111,37 @@ function _drawStatusBar(canvasId){
   var colors=['#64748B','#0369A1','#0D9488','#7C3AED','#8B5CF6','#16A34A','#EF4444'];
   var vals=keys.map(function(k){return counts[k];});
   var c=document.getElementById(canvasId);if(!c)return;
+  var bh=24,gap=7,padT=6,padB=6,numW=42;
+  var n=vals.length;
   c.width=c.offsetWidth||400;
+  c.height=padT+n*(bh+gap)-gap+padB;
   var ctx=c.getContext('2d');var W=c.width,H=c.height;
   ctx.clearRect(0,0,W,H);
   var total=vals.reduce(function(a,b){return a+b;},0)||1;
-  var pad=8,bh=22,gap=6;
+  var maxBarW=W-numW-8;
   vals.forEach(function(v,i){
-    var y=pad+i*(bh+gap);
-    var bw=Math.round(v/total*(W-80));
-    ctx.fillStyle=colors[i];ctx.fillRect(0,y,bw||2,bh);
-    ctx.fillStyle='var(--text)';ctx.font='11px sans-serif';ctx.textAlign='left';
-    ctx.fillText(labels[i],bw+6,y+bh/2+4);
-    ctx.textAlign='right';ctx.font='bold 11px sans-serif';
-    ctx.fillText(v,W,y+bh/2+4);
+    var y=padT+i*(bh+gap);
+    var bw=Math.max(v>0?4:2,Math.round(v/total*maxBarW));
+    // bar
+    ctx.fillStyle=colors[i];
+    ctx.beginPath();
+    if(ctx.roundRect)ctx.roundRect(0,y,bw,bh,4);
+    else ctx.rect(0,y,bw,bh);
+    ctx.fill();
+    // label บนแถบ (หรือหลังแถบถ้าแถบสั้น)
+    ctx.font='600 11px -apple-system,sans-serif';
+    ctx.textBaseline='middle';
+    if(bw>50){
+      ctx.fillStyle='#fff';ctx.textAlign='left';
+      ctx.fillText(labels[i],8,y+bh/2);
+    } else {
+      ctx.fillStyle='#475569';ctx.textAlign='left';
+      ctx.fillText(labels[i],bw+6,y+bh/2);
+    }
+    // จำนวน ชิดขวา
+    ctx.fillStyle='#0F172A';ctx.font='bold 12px -apple-system,sans-serif';
+    ctx.textAlign='right';
+    ctx.fillText(v,W,y+bh/2);
   });
 }
 function initBarMonthSel(){
