@@ -474,7 +474,16 @@ tr:hover td{background:var(--bg3)}
             </div>
           </td>
         </tr>
-        <tr><th style="width:36px"><input type="checkbox" id="check-all" onchange="toggleAllOrders(this.checked)" style="width:16px;height:16px;cursor:pointer"></th><th>Order ID</th><th>SUP</th><th>Consign</th><th class="hide-mobile">Tracking</th><th>รายการ</th><th>สถานะ</th><th class="hide-mobile">จัดส่ง</th><th>Actions</th></tr></thead>
+        <tr>
+          <th style="width:36px"><input type="checkbox" id="check-all" onchange="toggleAllOrders(this.checked)" style="width:16px;height:16px;cursor:pointer"></th>
+          <th>Order ID</th><th>SUP</th><th>Consign</th>
+          <th class="hide-mobile">Tracking</th>
+          <th style="white-space:nowrap">สถานะ Tracking</th>
+          <th>รายการ</th>
+          <th>สถานะ Order</th>
+          <th class="hide-mobile">จัดส่ง</th>
+          <th>Actions</th>
+        </tr></thead>
     <tbody id="ord-tbody"><tr><td colspan="7" class="empty">ยังไม่มีข้อมูล</td></tr></tbody></table>
   </div>
 </div>
@@ -722,12 +731,10 @@ tr:hover td{background:var(--bg3)}
         </select>
         <select id="rpt-status" onchange="renderReport()" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
           <option value="all">ทุกสถานะ</option>
-          <option value="qc">✅ QC ผ่าน (ทุก Tracking)</option>
-          <option value="qc-partial">🔶 QC บางส่วน (Tracking บางตัว)</option>
-          <option value="qc-any">🔍 QC ทั้งหมด (รวมบางส่วน)</option>
-          <option value="ship">Ship</option>
-          <option value="done">Done</option>
-          <option value="cancel">Cancel</option>
+          <option value="qc">✅ QC ผ่าน</option>
+          <option value="ship">🚚 Ship</option>
+          <option value="done">✔ Done</option>
+          <option value="cancel">🚫 Cancel</option>
         </select>
         <input type="text" id="rpt-search" placeholder="ค้นหา Order ID..." oninput="renderReport()" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text);width:150px">
         <button onclick="confirmExportCSV()" style="padding:6px 12px;background:var(--primary);color:#fff;border:none;border-radius:var(--rx);font-size:13px;font-weight:700;cursor:pointer">⬇ Export CSV</button>
@@ -1558,36 +1565,84 @@ function renderOrders(){
     return o.id.toLowerCase().includes(q)||(o.consign||'').toLowerCase().includes(q)||(o.tracking||'').toLowerCase().includes(q)||o.items.some(i=>(i.sku||'').toLowerCase().includes(q)||(i.name||'').toLowerCase().includes(q));
   });
   document.getElementById('nb-new').textContent=Object.values(ORDERS).filter(o=>o.status==='new').length;
-  document.getElementById('ord-tbody').innerHTML=orders.length?orders.map(o=>`
-    <tr>
-      <td style="text-align:center"><input type="checkbox" class="ord-cb" data-oid="${o.id}" onchange="handleCheckbox(this)" style="width:16px;height:16px;cursor:pointer"></td>
-      <td><span style="font-weight:700;font-family:monospace">${o.id}</span></td>
-      <td style="font-size:12px;font-weight:600;color:var(--primary)">${getOrderSUP(o)||'—'}</td>
-      <td style="font-size:12px">${o.consign||'—'}</td>
-      <td style="font-size:11px">${(function(){
-        var trks=[];
-        (o.items||[]).forEach(function(it){if(it.tracking&&trks.indexOf(it.tracking)<0)trks.push(it.tracking);});
-        if(o.tracking&&trks.indexOf(o.tracking)<0) trks.push(o.tracking);
-        if(!trks.length) return '<span style="color:var(--text2)">—</span>';
-        return trks.map(function(t){
-          var done=o.trkStatus&&o.trkStatus[t]==='qc';
-          var bg=done?'#DCFCE7':'#F1F5F9';
-          var col=done?'#15803D':'#475569';
-          var bdr=done?'#86EFAC':'#CBD5E1';
-          var ic=done?'✅ ':'';
-          return '<span class="mono" style="display:inline-block;margin:2px 2px 2px 0;padding:2px 7px;background:'+bg+';color:'+col+';border:1px solid '+bdr+';border-radius:6px;font-size:10px;white-space:nowrap">'+ic+t+'</span>';
-        }).join('');
-      })()}</td>
-      <td>${o.items.length} รายการ</td>
-      <td><span class="badge ${SB[o.status]}">${SL[o.status]}</span>${o.postponedFrom?'<span style="font-size:9px;padding:1px 5px;background:#FEF3C7;color:#92400E;border-radius:6px;margin-left:3px;font-weight:700">เลื่อน</span>':''}</td>
-      <td style="font-size:12px">${o.shipDate||o.date||'—'}</td>
-      <td><div class="brow">
-        <button class="btn btn-xs" onclick="openOrder('${o.id}')" style="background:var(--primary);color:#fff;border:none;font-weight:700">🔎 ดูรายละเอียด</button>
-        ${SN[o.status]?`<button class="btn btn-xs btn-p" onclick="setStatus('${o.id}','${SN[o.status]}');renderOrders()">→${SNL[o.status]}</button>`:''}
-        ${o.status==='new'?`<button class="btn btn-xs" style="background:var(--orange);color:#fff;border:none;font-weight:600" onclick="goQCScan('${o.id}')">🔍 QC</button>`:''}
-        <button class="btn btn-xs" style="background:#F59E0B;color:#fff;border:none;font-weight:700" onclick="openEditOrder('${o.id}')" title="แก้ไข Order">✏️ แก้ไข</button>
-      </div></td>
-    </tr>`).join(''):'<tr><td colspan="7" class="empty">ไม่พบออเดอร์</td></tr>';
+  if(!orders.length){document.getElementById('ord-tbody').innerHTML='<tr><td colspan="10" class="empty">ไม่พบออเดอร์</td></tr>';return;}
+
+  var allRows=[];
+  orders.forEach(function(o){
+    // จัดกลุ่ม items ตาม tracking
+    var trkMap={};
+    (o.items||[]).forEach(function(it){
+      var t=it.tracking||o.tracking||'—';
+      if(!trkMap[t])trkMap[t]=[];
+      trkMap[t].push(it);
+    });
+    var trkKeys=Object.keys(trkMap);
+    if(!trkKeys.length){trkKeys=[o.tracking||'—'];trkMap[o.tracking||'—']=[];}
+    var rs=trkKeys.length; // rowspan
+    var sup=escHtml(getOrderSUP(o)||'—');
+    var oStat='<span class="badge '+(SB[o.status]||'b-new')+'">'+(SL[o.status]||o.status)+'</span>'
+      +(o.postponedFrom?'<br><span style="font-size:9px;padding:1px 5px;background:#FEF3C7;color:#92400E;border-radius:6px;font-weight:700">เลื่อน</span>':'');
+    var rsa=' rowspan="'+rs+'"';
+
+    trkKeys.forEach(function(trk,ti){
+      var isFirst=ti===0;
+      var trkQCd=o.trkStatus&&o.trkStatus[trk]==='qc';
+      var trkItems=trkMap[trk]||[];
+      var trkBg=trkQCd?'background:#F0FDF4;':'';
+      var trkBadge=trkQCd
+        ?'<span class="badge b-qc" style="font-size:10px;white-space:nowrap">✅ QC ผ่าน</span>'
+        :'<span class="badge" style="font-size:10px;background:#F1F5F9;color:#64748B;border:1px solid #CBD5E1;white-space:nowrap">รอ QC</span>';
+      var trkDisp='<span class="mono" style="font-size:11px;font-weight:700;color:'+(trkQCd?'#15803D':'var(--text)')+'">'+escHtml(trk==='—'?'':trk)+'</span>';
+
+      var row='<tr style="border-top:'+(isFirst?'2px solid var(--border2)':'1px dashed var(--border)')+'">';
+      // Order-level cells: rowspan
+      if(isFirst){
+        row+='<td'+rsa+' style="text-align:center;vertical-align:top;padding-top:10px"><input type="checkbox" class="ord-cb" data-oid="'+o.id+'" onchange="handleCheckbox(this)" style="width:16px;height:16px;cursor:pointer"></td>';
+        row+='<td'+rsa+' style="vertical-align:top"><span style="font-weight:700;font-family:monospace;font-size:12px">'+escHtml(o.id)+'</span></td>';
+        row+='<td'+rsa+' style="vertical-align:top;font-size:12px;font-weight:600;color:var(--primary)">'+sup+'</td>';
+        row+='<td'+rsa+' style="vertical-align:top;font-size:12px">'+escHtml(o.consign||'—')+'</td>';
+      }
+      // Tracking-level cells
+      row+='<td class="hide-mobile" style="'+trkBg+'padding:6px 10px;font-family:monospace">'+trkDisp+'</td>';
+      row+='<td style="'+trkBg+'padding:6px 8px;text-align:center">'+trkBadge+'</td>';
+      row+='<td style="'+trkBg+'padding:6px 10px;font-size:12px">'+trkItems.length+' รายการ</td>';
+      // Order status + date: rowspan
+      if(isFirst){
+        row+='<td'+rsa+' style="vertical-align:top">'+oStat+'</td>';
+        row+='<td'+rsa+' class="hide-mobile" style="vertical-align:top;font-size:12px">'+escHtml(o.shipDate||o.date||'—')+'</td>';
+      }
+      // Actions
+      row+='<td style="'+trkBg+'padding:6px 8px"><div class="brow" style="flex-wrap:wrap">';
+      // Per-tracking: QC button (ถ้ายังไม่ผ่าน)
+      if(!trkQCd&&(o.status==='new'||o.status==='pick'||o.status==='qc')){
+        row+='<button class="btn btn-xs" style="background:var(--orange);color:#fff;border:none;font-weight:700;white-space:nowrap" onclick="goQCScanWithTracking(\''+escHtml(o.id)+'\',\''+escHtml(trk)+'\')">🔍 QC</button>';
+      }
+      // Order-level buttons: เฉพาะ row แรก
+      if(isFirst){
+        row+='<button class="btn btn-xs" onclick="openOrder(\''+o.id+'\')" style="background:var(--primary);color:#fff;border:none;font-weight:700;white-space:nowrap">🔎 ดู</button>';
+        if(SN[o.status])row+='<button class="btn btn-xs btn-p" onclick="setStatus(\''+o.id+'\',\''+SN[o.status]+'\');renderOrders()" style="white-space:nowrap">→'+escHtml(SNL[o.status]||'')+'</button>';
+        row+='<button class="btn btn-xs" style="background:#F59E0B;color:#fff;border:none;font-weight:700" onclick="openEditOrder(\''+o.id+'\')" title="แก้ไข">✏️</button>';
+      }
+      row+='</div></td></tr>';
+      allRows.push(row);
+    });
+  });
+  document.getElementById('ord-tbody').innerHTML=allRows.join('');
+}
+
+function goQCScanWithTracking(oid,trk){
+  var o=ORDERS[oid];if(!o)return;
+  curQCOid=oid;
+  curQCTracking=trk;
+  // เฉพาะ items ของ tracking นี้
+  curQCItems=(o.items||[]).filter(function(it){return (it.tracking||o.tracking||'')=== trk;});
+  if(!curQCItems.length) curQCItems=o.items.slice();
+  if(DRAFTS[oid]){
+    Object.entries(DRAFTS[oid].sc||{}).forEach(function(e){SC[e[0]]=e[1];});
+  }
+  var hint=document.getElementById('qc-hint1');
+  if(hint){hint.className='hint hint-ok';hint.textContent='✓ '+oid+' · Tracking: '+trk+' · '+curQCItems.length+' รายการ';}
+  goPage('qcscan');showQCOrder();
 }
 
 function filterOrders(){renderOrders();}
@@ -3062,10 +3117,7 @@ function doExportCSV(){
     // รวม: order status qc/ship/done/cancel หรือ มี tracking QC บางส่วน
     var reportable=['qc','ship','done','cancel'].indexOf(o.status)>=0||hasAnyTrkQCex(o);
     if(!reportable) return;
-    if(stFilter==='qc'&&o.status!=='qc') return;
-    else if(stFilter==='qc-partial'&&!(hasAnyTrkQCex(o)&&o.status!=='qc')) return;
-    else if(stFilter==='qc-any'&&!hasAnyTrkQCex(o)&&o.status!=='qc') return;
-    else if(stFilter!=='all'&&stFilter!=='qc'&&stFilter!=='qc-partial'&&stFilter!=='qc-any'&&o.status!==stFilter) return;
+    if(stFilter!=='all'&&o.status!==stFilter) return;
 
     if(range!=='all'){
       var ref=o.updatedAt?new Date(o.updatedAt):parseDateStr(o.date);
@@ -4264,11 +4316,8 @@ function renderReport(){
     var reportable=['qc','ship','done','cancel'].indexOf(o.status)>=0||hasAnyTrkQC(o);
     if(!reportable) return false;
 
-    // status filter
-    if(stFilter==='qc'){ if(o.status!=='qc') return false; }
-    else if(stFilter==='qc-partial'){ if(!isPartialQC(o)) return false; }
-    else if(stFilter==='qc-any'){ if(!hasAnyTrkQC(o)&&o.status!=='qc') return false; }
-    else if(stFilter!=='all'){ if(o.status!==stFilter) return false; }
+    // status filter — สถานะหลัก
+    if(stFilter!=='all'&&o.status!==stFilter) return false;
 
     if(srchFilter&&!o.id.toLowerCase().includes(srchFilter)&&!(o.consign||'').toLowerCase().includes(srchFilter)) return false;
     if(range==='all') return true;
@@ -4439,12 +4488,10 @@ setTimeout(function(){
       <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">สถานะ</label>
       <select id="ex-status" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:13px">
         <option value="all">ทุกสถานะ</option>
-        <option value="qc">✅ QC ผ่าน (ทุก Tracking)</option>
-        <option value="qc-partial">🔶 QC บางส่วน (Tracking บางตัว)</option>
-        <option value="qc-any">🔍 QC ทั้งหมด (รวมบางส่วน)</option>
-        <option value="ship">Ship</option>
-        <option value="done">Done</option>
-        <option value="cancel">Cancel</option>
+        <option value="qc">✅ QC ผ่าน</option>
+        <option value="ship">🚚 Ship</option>
+        <option value="done">✔ Done</option>
+        <option value="cancel">🚫 Cancel</option>
       </select>
     </div>
     <div style="display:flex;gap:8px;margin-top:16px">
