@@ -179,6 +179,9 @@ tr:hover td{background:var(--bg3)}
   .pov-box{padding:24px 18px}
   /* hide non-essential cols on mobile */
   .hide-mobile{display:none}
+  /* charts: 1 column on mobile */
+  #chart-grid{grid-template-columns:1fr!important}
+  #pie-wrap{justify-content:center}
 }
 @media(min-width:769px){
   .mobile-nav{display:none!important}
@@ -312,9 +315,9 @@ tr:hover td{background:var(--bg3)}
   <div class="flow">
     <div class="fs fs-new" onclick="goPage('orders')"><span class="fc" id="f-new">0</span>รับออเดอร์</div>
     <div class="fs fs-qc" onclick="goPage('qcscan')"><span class="fc" id="f-qc">0</span>QC</div>
-    <div class="fs fs-qc" onclick="goPage('qc')"><span class="fc" id="f-qc2">0</span>QC</div>
-    <div class="fs fs-pack" onclick="goPage('pack')"><span class="fc" id="f-pack">0</span>Pack</div>
-    <div class="fs fs-done" onclick="goPage('ship')"><span class="fc" id="f-done">0</span>ส่งแล้ว</div>
+    <div class="fs fs-pack" onclick="goPage('pick')"><span class="fc" id="f-pack">0</span>Pack</div>
+    <div class="fs fs-done" onclick="goPage('ship')"><span class="fc" id="f-ship">0</span>Ship</div>
+    <div class="fs fs-done" onclick="goPage('ship')"><span class="fc" id="f-done">0</span>Done</div>
     <div class="fs fs-cancel" onclick="goPage('orders')"><span class="fc" id="f-cancel">0</span>Cancel</div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
@@ -755,9 +758,9 @@ tr:hover td{background:var(--bg3)}
     <!-- Pie: สัดส่วนขนส่ง -->
     <div class="card" style="padding:14px">
       <div style="font-size:13px;font-weight:700;margin-bottom:10px">🥧 สัดส่วนขนส่ง</div>
-      <div style="display:flex;gap:12px;align-items:center">
-        <canvas id="chart-pie" width="160" height="160" style="flex-shrink:0"></canvas>
-        <div id="pie-legend" style="font-size:11px;line-height:1.8;flex:1"></div>
+      <div id="pie-wrap" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <canvas id="chart-pie" height="160" style="flex-shrink:0;max-width:160px;width:100%"></canvas>
+        <div id="pie-legend" style="font-size:11px;line-height:1.8;flex:1;min-width:100px"></div>
       </div>
     </div>
     <!-- Bar: top status -->
@@ -1508,11 +1511,10 @@ function deleteDraft(oid){if(!confirm('ลบ Draft?'))return;delete DRAFTS[oid]
 /* ======= RENDER TABLES ======= */
 function renderDashboard(){
   let orders=Object.values(ORDERS);
-  let cnt={new:0,qc:0,pack:0,done:0,cancel:0,total:orders.length};
+  let cnt={new:0,qc:0,pack:0,ship:0,done:0,cancel:0,total:orders.length};
   orders.forEach(o=>cnt[o.status]=(cnt[o.status]||0)+1);
   ['total','new','qc','pack','done'].forEach(k=>{document.getElementById('d-'+k).textContent=cnt[k]||0;});
-  ['new','qc','pack','done','cancel'].forEach(k=>{document.getElementById('f-'+k).textContent=cnt[k]||0;});
-  document.getElementById('f-qc2').textContent=cnt.qc||0;
+  ['new','qc','pack','ship','done','cancel'].forEach(k=>{var el=document.getElementById('f-'+k);if(el)el.textContent=cnt[k]||0;});
   let urgent=orders.filter(o=>o.status==='new'||o.status==='qc');
   document.getElementById('d-urgent').innerHTML=urgent.length?urgent.slice(0,5).map(o=>`
     <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
@@ -4076,6 +4078,8 @@ function _drawLine(canvasId,labels,values,color){
 }
 function _drawPie(canvasId,labels,values,colors){
   var c=document.getElementById(canvasId);if(!c)return;
+  var sz=Math.min(c.offsetWidth||160,160);
+  c.width=sz;c.height=sz;
   var ctx=c.getContext('2d');var W=c.width,H=c.height;
   ctx.clearRect(0,0,W,H);
   var total=values.reduce(function(a,b){return a+b;},0);if(!total)return;

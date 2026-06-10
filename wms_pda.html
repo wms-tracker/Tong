@@ -324,7 +324,12 @@ input:focus{outline:none;border-color:var(--primary)}
   <div class="card">
     <div class="card-t">👤 ผู้ใช้งาน</div>
     <div class="fg"><label class="fl">ชื่ออุปกรณ์</label><input type="text" id="dev-name" placeholder="PDA-01"></div>
-    <div class="fg"><label class="fl">ชื่อผู้ใช้</label><input type="text" id="usr-name" placeholder="user01"></div>
+    <div style="padding:10px 12px;background:var(--bg3);border-radius:var(--rx);border:1.5px solid var(--border);margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">ผู้ใช้ที่ Login อยู่</div>
+      <div style="font-size:15px;font-weight:700" id="settings-cur-user">—</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:2px">เปลี่ยนผู้ใช้ได้ที่ปุ่ม ⏻ ออกจากระบบ แล้ว Login ใหม่</div>
+    </div>
+    <input type="hidden" id="usr-name">
   </div>
   <div id="conn-txt" style="font-size:12px;color:var(--text2);margin-bottom:10px"></div>
   <div style="display:flex;flex-direction:column;gap:8px">
@@ -456,6 +461,8 @@ function completeLogin(name){
   if(badge)badge.textContent='👤 '+name;
   var m=document.getElementById('login-msg');
   if(m)m.textContent='';
+  var scu=document.getElementById('settings-cur-user');
+  if(scu)scu.textContent='👤 '+name;
 }
 function logoutUser(){
   if(!confirm('ออกจากระบบ?'))return;
@@ -528,6 +535,11 @@ function goPage(p){
   if(p==='orders') renderOrds();
   if(p==='draft') renderDrafts();
   if(p==='ship'){renderShipList();setTimeout(function(){var el=document.getElementById('ship-in');if(el)el.focus();},200);}
+  if(p==='settings'){
+    var scu=document.getElementById('settings-cur-user');
+    if(scu)scu.textContent=CUR_USER?'👤 '+CUR_USER:'— (ยังไม่ได้ login)';
+    var devEl=document.getElementById('dev-name');if(devEl)devEl.value=DEV;
+  }
 }
 function startScan(mode){
   MODE=mode||'tracking';
@@ -1245,7 +1257,13 @@ function renderOrds(){
   var q=(document.getElementById('ord-q')?document.getElementById('ord-q').value||'':'').toLowerCase();
   var orders=Object.values(ORDERS).filter(function(o){
     if(!q)return true;
-    return o.id.toLowerCase().indexOf(q)>=0||(o.tracking||'').indexOf(q)>=0||(o.consign||'').toLowerCase().indexOf(q)>=0;
+    if(o.id.toLowerCase().indexOf(q)>=0) return true;
+    if((o.consign||'').toLowerCase().indexOf(q)>=0) return true;
+    // ค้นหา tracking จาก order level และทุก item
+    var allT=[o.tracking||''];
+    (o.items||[]).forEach(function(it){if(it.tracking)allT.push(it.tracking);});
+    if(allT.some(function(t){return t.toLowerCase().indexOf(q)>=0;})) return true;
+    return false;
   });
   var el=document.getElementById('ord-list');
   if(!orders.length){el.innerHTML='<div class="empty">ไม่พบออเดอร์</div>';return;}
@@ -1493,8 +1511,8 @@ function saveSettings(){
   API=document.getElementById('api-url').value.trim();
   FB=document.getElementById('fb-url').value.trim().replace(/\/+$/,'');
   DEV=document.getElementById('dev-name').value.trim()||'PDA-01';
-  USR=document.getElementById('usr-name').value.trim()||'user01';
-  ls('PDA_URL',API);ls('PDA_FB',FB);ls('PDA_DEV',DEV);ls('PDA_USR',USR);
+  // USR ถูก set จาก Login เท่านั้น ไม่ให้แก้จาก Settings
+  ls('PDA_URL',API);ls('PDA_FB',FB);ls('PDA_DEV',DEV);
   document.getElementById('dev-badge').textContent=DEV;
   setSyncOk(FB?'Firebase: '+DEV:'ออฟไลน์');
   var ct=document.getElementById('conn-txt');
