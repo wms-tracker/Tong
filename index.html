@@ -1614,32 +1614,10 @@ function renderOrders(){
       row+='<td style="font-size:12px;vertical-align:top">'+trkItems.length+' รายการ</td>';
       row+='<td style="vertical-align:top">'+oStat+'</td>';
       row+='<td class="hide-mobile" style="vertical-align:top;font-size:12px">'+escHtml(o.shipDate||o.date||'—')+'</td>';
-      // ===== ACTIONS ทุก tracking row =====
-      row+='<td style="vertical-align:top"><div style="display:flex;flex-direction:column;gap:4px;min-width:110px">';
-      // 🔍 QC
-      if(!trkQCd&&(o.status==='new'||o.status==='pick')){
-        row+='<button class="btn btn-xs" style="background:var(--orange);color:#fff;border:none;font-weight:700;justify-content:flex-start" onclick="goQCScanWithTracking(\''+oid_s+'\',\''+trk_s+'\')">🔍 QC Scan</button>';
-      }
-      // → สถานะถัดไป
-      if(SN[o.status]){
-        row+='<button class="btn btn-xs btn-p" style="justify-content:flex-start" onclick="setStatus(\''+oid_s+'\',\''+SN[o.status]+'\');renderOrders()">'+escHtml(SNL[o.status]||('→ '+SN[o.status]))+'</button>';
-      }
-      // ↩ Reset → Pick
-      if(o.status!=='new'&&o.status!=='cancel'&&o.status!=='done'){
-        row+='<button class="btn btn-xs" style="background:#64748B;color:#fff;border:none;font-weight:600;justify-content:flex-start" onclick="quickReset(\''+oid_s+'\')">↩ Reset → Pick</button>';
-      }
-      // 🔎 ดู
-      row+='<button class="btn btn-xs" style="background:var(--primary);color:#fff;border:none;font-weight:700;justify-content:flex-start" onclick="openOrder(\''+oid_s+'\')">🔎 ดูรายละเอียด</button>';
-      // ✏️ แก้ไข
-      row+='<button class="btn btn-xs" style="background:#F59E0B;color:#fff;border:none;font-weight:700;justify-content:flex-start" onclick="openEditOrder(\''+oid_s+'\')">✏️ แก้ไข</button>';
-      // 📅 เลื่อนจัดส่ง
-      if(o.status!=='cancel'&&o.status!=='done'){
-        row+='<button class="btn btn-xs" style="background:#7C3AED;color:#fff;border:none;font-weight:600;justify-content:flex-start" onclick="quickPostpone(\''+oid_s+'\')">📅 เลื่อนจัดส่ง</button>';
-      }
-      // 🚫 ยกเลิก
-      if(o.status!=='cancel'&&o.status!=='done'){
-        row+='<button class="btn btn-xs" style="background:var(--red);color:#fff;border:none;font-weight:600;justify-content:flex-start" onclick="quickCancel(\''+oid_s+'\')">🚫 ยกเลิก Order</button>';
-      }
+      // ===== ACTIONS =====
+      row+='<td style="vertical-align:top"><div class="brow" style="flex-wrap:wrap;gap:4px">';
+      row+='<button class="btn btn-xs" onclick="openOrder(\''+oid_s+'\')" style="background:var(--primary);color:#fff;border:none;font-weight:700">🔎 ดูรายละเอียด</button>';
+      row+='<button class="btn btn-xs" style="background:#F59E0B;color:#fff;border:none;font-weight:700" onclick="openEditOrder(\''+oid_s+'\')">✏️ แก้ไข</button>';
       row+='</div></td></tr>';
       allRows.push(row);
     });
