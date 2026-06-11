@@ -2747,7 +2747,17 @@ function openEditOrder(oid){
   var supEl=document.getElementById('edit-sup');
   if(supEl) supEl.value=o.sup||detectCarrier(o.tracking||'').short||'';
   var sdEl=document.getElementById('edit-shipdate');
-  if(sdEl) sdEl.value=o.shipDate||'';
+  // แปลง date เป็น YYYY-MM-DD เพื่อให้ input[type=date] รับได้
+  function toInputDate(ds){
+    if(!ds) return '';
+    if(/^\d{4}-\d{2}-\d{2}/.test(ds)) return ds.slice(0,10);
+    var m=ds.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if(m){var yr=parseInt(m[3]);if(yr>2400)yr-=543;return yr+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[1]).padStart(2,'0');}
+    return '';
+  }
+  if(sdEl) sdEl.value=toInputDate(o.shipDate||o.date||'');
+  var stEl=document.getElementById('edit-status');
+  if(stEl) stEl.value=o.status||'new';
   renderEditItems(o.items||[]);
   document.getElementById('edit-order-modal').style.display='block';
 }
@@ -2822,7 +2832,17 @@ function saveEditOrder(){
   o.consign=document.getElementById('edit-consign').value.trim();
   o.tracking=document.getElementById('edit-tracking').value.trim();
   var _sup=document.getElementById('edit-sup'); if(_sup) o.sup=_sup.value.trim();
-  var _sd=document.getElementById('edit-shipdate'); if(_sd) o.shipDate=_sd.value;
+  var _sd=document.getElementById('edit-shipdate');
+  if(_sd&&_sd.value){o.shipDate=_sd.value;o.date=_sd.value;}
+  var _stEl=document.getElementById('edit-status');
+  if(_stEl&&_stEl.value){
+    var newSt=_stEl.value;
+    if(newSt!==o.status){
+      if(!o.timeline)o.timeline=[];
+      o.timeline.push({time:new Date().toISOString(),status:newSt,action:'เปลี่ยนสถานะ → '+newSt,user:localStorage.getItem('WMS_USR')||'PC'});
+    }
+    o.status=newSt;
+  }
 
   // อ่าน items จาก DOM โดยตรง (ป้องกัน onchange ไม่ fire)
   var list=document.getElementById('edit-items-list');
@@ -2860,14 +2880,8 @@ function saveEditOrder(){
     xhrSave.open('PUT',FB_URL+'/orders/'+encodeId(_savedOid)+'.json');
     xhrSave.setRequestHeader('Content-Type','application/json');
     xhrSave.onload=function(){
-      // reload order จาก Firebase กลับมา PC
-      fbGet('/orders/'+encodeId(_savedOid),function(err,data){
-        if(!err&&data&&data.id){
-          ORDERS[_savedOid]=data;
-          saveLocal();refreshAll();
-          ulAlert('✅ sync '+_savedOid+' จาก Firebase แล้ว','ok');
-        }
-      });
+      ulAlert('✅ บันทึก '+_savedOid+' แล้ว','ok');
+      saveLocal();refreshAll();renderOrders();
     };
     xhrSave.send(JSON.stringify(o));
     // ลบ draft เก่าทิ้ง เพื่อให้ PDA โหลด items ใหม่
@@ -4471,14 +4485,27 @@ setTimeout(function(){
         <input id="edit-tracking" type="text" style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;margin-top:4px">
       </div>
     </div>
-    <div style="display:flex;gap:10px;margin-bottom:12px">
-      <div style="flex:1">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+      <div>
         <label style="font-size:12px;font-weight:600;color:var(--text2)">ขนส่ง (SUP)</label>
         <input id="edit-sup" type="text" placeholder="Best, Flash, Kerry..." style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;margin-top:4px">
       </div>
-      <div style="flex:1">
+      <div>
         <label style="font-size:12px;font-weight:600;color:var(--text2)">วันที่จัดส่ง</label>
         <input id="edit-shipdate" type="date" style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;margin-top:4px">
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:600;color:var(--text2)">สถานะ</label>
+        <select id="edit-status" style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;margin-top:4px">
+          <option value="new">🆕 รับแล้ว (New)</option>
+          <option value="pick">🔍 Pick</option>
+          <option value="qc">✅ QC ผ่าน</option>
+          <option value="pack">📦 Pack</option>
+          <option value="ship">🚚 Ship</option>
+          <option value="done">✔ Done</option>
+          <option value="cancel">🚫 Cancel</option>
+          <option value="postponed">📅 เลื่อนจัดส่ง</option>
+        </select>
       </div>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
