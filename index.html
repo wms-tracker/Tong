@@ -1565,6 +1565,18 @@ function renderOrders(){
     if(supF&&getOrderSUP(o)!==supF)return false;
     if(!q)return true;
     return o.id.toLowerCase().includes(q)||(o.consign||'').toLowerCase().includes(q)||(o.tracking||'').toLowerCase().includes(q)||o.items.some(i=>(i.sku||'').toLowerCase().includes(q)||(i.name||'').toLowerCase().includes(q));
+  }).sort(function(a,b){
+    // เรียงวันที่ใหม่ก่อน — ใช้ updatedAt ก่อน ตกไปใช้ date
+    function _ts(o){
+      if(o.updatedAt){var d=new Date(o.updatedAt);if(!isNaN(d))return d.getTime();}
+      var ds=String(o.date||'').trim();
+      if(!ds||ds==='—')return 0;
+      if(/^\d{4}-/.test(ds)){var d2=new Date(ds);if(!isNaN(d2))return d2.getTime();}
+      var m=ds.match(/^(\d+)\/(\d+)\/(\d+)/);
+      if(m){var yr=parseInt(m[3]);if(yr>2400)yr-=543;return new Date(yr,parseInt(m[2])-1,parseInt(m[1])).getTime();}
+      return 0;
+    }
+    return _ts(b)-_ts(a);
   });
   document.getElementById('nb-new').textContent=Object.values(ORDERS).filter(o=>o.status==='new').length;
   if(!orders.length){document.getElementById('ord-tbody').innerHTML='<tr><td colspan="10" class="empty">ไม่พบออเดอร์</td></tr>';return;}
