@@ -455,7 +455,7 @@ tr:hover td{background:var(--bg3)}
     </div>
   </div>
   <div class="tw">
-    <table><thead>
+    <table style="table-layout:fixed;min-width:900px"><thead>
         <tr id="bulk-toolbar" style="display:none;background:var(--primary)">
           <td colspan="9" style="padding:8px 12px">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -475,14 +475,16 @@ tr:hover td{background:var(--bg3)}
           </td>
         </tr>
         <tr>
-          <th style="width:36px"><input type="checkbox" id="check-all" onchange="toggleAllOrders(this.checked)" style="width:16px;height:16px;cursor:pointer"></th>
-          <th>Order ID</th><th>SUP</th><th>Consign</th>
-          <th class="hide-mobile">Tracking</th>
-          <th style="white-space:nowrap">สถานะ Tracking</th>
-          <th>รายการ</th>
-          <th>สถานะ Order</th>
-          <th class="hide-mobile">จัดส่ง</th>
-          <th>Actions</th>
+          <th style="width:32px"><input type="checkbox" id="check-all" onchange="toggleAllOrders(this.checked)" style="width:16px;height:16px;cursor:pointer"></th>
+          <th style="width:90px">Order ID</th>
+          <th style="width:90px">SUP</th>
+          <th style="width:110px">Consign</th>
+          <th class="hide-mobile" style="width:340px">Tracking</th>
+          <th style="width:90px;white-space:nowrap">สถานะ Tracking</th>
+          <th style="width:70px">รายการ</th>
+          <th style="width:100px">สถานะ Order</th>
+          <th class="hide-mobile" style="width:80px">จัดส่ง</th>
+          <th style="width:160px">Actions</th>
         </tr></thead>
     <tbody id="ord-tbody"><tr><td colspan="7" class="empty">ยังไม่มีข้อมูล</td></tr></tbody></table>
   </div>
@@ -1595,11 +1597,11 @@ function renderOrders(){
 
       // ข้อมูล items ของ tracking นี้
       var itemSummary=trkItems.map(function(it){
-        return '<div style="font-size:11px;color:var(--text2);white-space:nowrap">'
+        return '<div style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px">'
           +(it.sku?'<span style="font-family:monospace;color:#0D9488;font-weight:700">'+escHtml(it.sku)+'</span> ':'')
           +escHtml(it.name||'')
           +(it.size?' <span style="color:var(--text3)">'+escHtml(it.size)+'</span>':'')
-          +' ×<b>'+( it.qty||1)+'</b>'
+          +' ×<b>'+(it.qty||1)+'</b>'
           +'</div>';
       }).join('');
 
