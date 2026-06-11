@@ -1173,7 +1173,7 @@ function showPassResult(oid,items,trk,doneCount,totalTrk,allQCd){
   document.getElementById('over-box').style.display='none';
   // auto reset หลัง 5 วิ ถ้าไม่กดปุ่ม
   clearTimeout(window._autoResetTimer);
-  window._autoResetTimer=setTimeout(function(){resetScan();},2000);
+  resetScan();
 }
 
 /* ===== PASS OVERLAY ===== */
