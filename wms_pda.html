@@ -1324,37 +1324,44 @@ function renderOrds(){
 
 /* ===== SHIP SCAN PAGE ===== */
 var _shipOid='';
+var _shipTrk='';
 function onShipIn(val){
   val=val.trim();
   var hint=document.getElementById('ship-hint');
   var prev=document.getElementById('ship-preview');
-  if(!val){hint.className='hint';hint.textContent='';prev.style.display='none';_shipOid='';return;}
+  if(!val){hint.className='hint';hint.textContent='';prev.style.display='none';_shipOid='';_shipTrk='';return;}
   // ค้นหาจาก tracking หรือ order id
   var o=null;
   var orders=Object.values(ORDERS);
+  var matchedTrk='';
   // match tracking (per-order หรือ per-item)
   o=orders.find(function(x){
-    if((x.tracking||'').toLowerCase()===val.toLowerCase()) return true;
-    return (x.items||[]).some(function(it){return (it.tracking||'').toLowerCase()===val.toLowerCase();});
+    if((x.tracking||'').toLowerCase()===val.toLowerCase()){matchedTrk=x.tracking||val;return true;}
+    return (x.items||[]).some(function(it){if((it.tracking||'').toLowerCase()===val.toLowerCase()){matchedTrk=it.tracking||val;return true;}});
   });
   // match order id
-  if(!o) o=orders.find(function(x){return x.id.toLowerCase()===val.toLowerCase();});
+  if(!o){o=orders.find(function(x){return x.id.toLowerCase()===val.toLowerCase();});matchedTrk='';}
   if(!o){
     hint.className='hint h-err';hint.textContent='ไม่พบ Tracking/Order ID นี้';
-    prev.style.display='none';_shipOid='';return;
+    prev.style.display='none';_shipOid='';_shipTrk='';return;
   }
   _shipOid=o.id;
+  _shipTrk=matchedTrk||val;
   // trkQCd = tracking นี้ QC แล้ว หรือ order ผ่าน qc/ship/pack แล้ว
-  var trkQCd=o.trkStatus&&o.trkStatus[val]==='qc';
+  var trkQCd=o.trkStatus&&(o.trkStatus[_shipTrk]==='qc'||o.trkStatus[_shipTrk]==='done');
   var canShip=o.status==='ship'||o.status==='pack'||o.status==='qc'||trkQCd;
   if(!canShip){
     hint.className='hint h-err';hint.textContent='Order นี้ status: '+(SL[o.status]||o.status)+' (ยัง QC ไม่ครบ)';
     prev.style.display='none';return;
   }
-  hint.className='hint h-ok';hint.textContent='✓ พร้อมส่ง';
+  if(o.trkStatus&&o.trkStatus[_shipTrk]==='done'){
+    hint.className='hint h-err';hint.textContent='Tracking นี้ส่งแล้ว: '+_shipTrk;
+    prev.style.display='none';return;
+  }
+  hint.className='hint h-ok';hint.textContent='✓ พร้อมส่ง — '+_shipTrk;
   document.getElementById('ship-prev-oid').textContent=o.id;
   document.getElementById('ship-prev-con').textContent=o.consign||'—';
-  document.getElementById('ship-prev-trk').textContent=o.tracking||'—';
+  document.getElementById('ship-prev-trk').textContent=_shipTrk||o.tracking||'—';
   var badge=document.getElementById('ship-prev-badge');
   badge.className='badge '+(SB[o.status]||'');badge.textContent=SL[o.status]||o.status;
   prev.style.display='';
@@ -1362,14 +1369,30 @@ function onShipIn(val){
 function confirmShip(){
   if(!_shipOid){var h=document.getElementById('ship-hint');h.className='hint h-err';h.textContent='กรุณาสแกน Tracking หรือ Order ID ก่อน';return;}
   var o=ORDERS[_shipOid];
-  var _si=document.getElementById('ship-in');
-  var _sv=_si?_si.value.trim():'';
-  var _trkQCd=o&&o.trkStatus&&o.trkStatus[_sv]==='qc';
-  if(!o||!(o.status==='ship'||o.status==='pack'||o.status==='qc'||_trkQCd)){return;}
-  o.status='done';
-  o.updatedAt=new Date().toISOString();
+  if(!o)return;
+  var _trkQCd=o.trkStatus&&(o.trkStatus[_shipTrk]==='qc'||o.trkStatus[_shipTrk]==='done');
+  if(!(o.status==='ship'||o.status==='pack'||o.status==='qc'||_trkQCd)){return;}
+  // mark เฉพาะ tracking นี้เป็น done
+  var nowTs=new Date().toISOString();
+  if(!o.trkStatus) o.trkStatus={};
+  o.trkStatus[_shipTrk]='done';
+  if(!o.timeline) o.timeline=[];
+  o.timeline.push({time:nowTs,status:'done',action:'ส่งแล้ว ✅ Tracking: '+_shipTrk,tracking:_shipTrk,user:USR,device:DEV});
+  o.updatedAt=nowTs;
+  // ตรวจว่า tracking ทั้งหมดส่งแล้วหรือยัง
+  var allTrks=[];
+  (o.items||[]).forEach(function(it){var t=it.tracking||o.tracking||'';if(t&&allTrks.indexOf(t)<0)allTrks.push(t);});
+  if(!allTrks.length&&o.tracking) allTrks=[o.tracking];
+  var allDone=allTrks.length>0&&allTrks.every(function(t){return o.trkStatus[t]==='done';});
+  if(allDone){
+    o.status='done';
+    pushStatus(_shipOid,'done');
+  } else {
+    // บางส่วนส่งแล้ว — update trkStatus+timeline เท่านั้น
+    if(FB) fbPatch('/orders/'+encId(_shipOid),{trkStatus:o.trkStatus,timeline:o.timeline,updatedAt:nowTs});
+    if(FB) fbPatch('/statuses/'+encId(_shipOid),{trkStatus:o.trkStatus,updatedAt:nowTs,device:DEV,user:USR});
+  }
   save();refreshStats();
-  pushStatus(_shipOid,'done');
   renderShipList();
   // แสดงผลสำเร็จ
   var hint=document.getElementById('ship-hint');
