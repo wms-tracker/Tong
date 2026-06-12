@@ -1116,7 +1116,15 @@ function normalizeDate(ds){
   }
   // DD/MM/YYYY หรือ D/M/YYYY
   var mTh=ds.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if(mTh){var y=parseInt(mTh[3]);if(y>2400)y-=543;return y+'-'+String(parseInt(mTh[2])).padStart(2,'0')+'-'+String(parseInt(mTh[1])).padStart(2,'0');}
+  if(mTh){
+    var y=parseInt(mTh[3]);if(y>2400)y-=543;
+    var p1=parseInt(mTh[1]),p2=parseInt(mTh[2]);
+    var mm,dd;
+    if(p1>12){mm=p2;dd=p1;}       // DD/MM → p1=day
+    else if(p2>12){mm=p1;dd=p2;}  // MM/DD (American) → p2=day
+    else{mm=p2;dd=p1;}            // default DD/MM
+    return y+'-'+String(mm).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
+  }
   return ds;
 }
 function parseRows(rows){
