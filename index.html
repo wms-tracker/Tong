@@ -2397,7 +2397,7 @@ function loadXlsxFile(file){
         +'📋 Sheet Tracking: <b>'+(trkSheet||'ไม่พบ')+'</b> ('+matcherTrkRows.length+' แถว)<br>'
         +'📊 Sheet ออเดอร์: <b>'+(ordSheet||'ไม่พบ')+'</b> ('+matcherOrdRows.length+' แถว)';
       var btn=document.getElementById('run-matcher-btn');
-      if(matcherTrkRows.length){btn.disabled=false;btn.style.opacity='1';}
+      if(matcherTrkRows.length||matcherOrdRows.length){btn.disabled=false;btn.style.opacity='1';}
       matcherAlert('พร้อมจับคู่ — กด ⚡ จับคู่ Tracking','ok');
     }).catch(function(err){
       matcherAlert('อ่านไฟล์ไม่ได้: '+err.message,'err');
@@ -2490,7 +2490,13 @@ function fc2(cols,pats){
 
 /* ===== RUN MATCHER ===== */
 function runMatcher(){
-  if(!matcherTrkRows.length){matcherAlert('กรุณาอัปโหลดไฟล์ก่อน','err');return;}
+  if(!matcherTrkRows.length&&!matcherOrdRows.length){matcherAlert('กรุณาอัปโหลดไฟล์ก่อน','err');return;}
+  // ถ้า Sheet Tracking ว่าง → ใช้ Sheet ออเดอร์เป็น order list ตรงๆ
+  if(!matcherTrkRows.length&&matcherOrdRows.length){
+    matcherAlert('⚠ ไม่มี Tracking — นำเข้าจาก Sheet ออเดอร์ตรงๆ','warn');
+    parseRows(matcherOrdRows);
+    return;
+  }
 
   // ===== อ่าน sheet Tracking =====
   var tc=Object.keys(matcherTrkRows[0]);
