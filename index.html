@@ -2255,9 +2255,11 @@ function syncFromFirebase(){
             id:oid,consign:o.consign||'',tracking:o.tracking||'',
             trackings:o.trackings||[],items:o.items||[],
             status:keep?ex:(o.status||'new'),
+            trkStatus:o.trkStatus||{},
             date:o.date||'',sup:o.sup||'',
             updatedAt:o.updatedAt||'',
-            note:o.note||'',timeline:o.timeline||[]
+            note:o.note||'',timeline:o.timeline||[],
+            shipDate:o.shipDate||''
           };
         });
         hideLov();
@@ -2318,8 +2320,9 @@ function fetchOrdersBatch(keys,offset,batchSize,done,total){
           ORDERS[oid]={id:oid,consign:o.consign||'',tracking:o.tracking||'',
             trackings:o.trackings||[],items:o.items||[],
             status:keep?ex:(o.status||'new'),
+            trkStatus:o.trkStatus||{},
             sup:o.sup||'',date:o.date||'',updatedAt:o.updatedAt||'',
-            user:o.user||'',device:o.device||'',
+            shipDate:o.shipDate||'',user:o.user||'',device:o.device||'',
             note:o.note||'',timeline:o.timeline||[]};
           done++;
         }
