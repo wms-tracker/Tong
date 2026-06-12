@@ -1098,13 +1098,26 @@ function parseCSV(text){
   let rows=lines.slice(1).map(l=>{let vals=sl(l),obj={};headers.forEach((h,i)=>obj[h]=vals[i]||'');return obj;}).filter(r=>Object.values(r).some(v=>v));
   parseRows(rows);
 }
+function normalizeDate(ds){
+  if(!ds) return '';
+  // Excel serial number (ตัวเลขล้วน เช่น 45454)
+  var n=parseFloat(ds);
+  if(!isNaN(n)&&/^\d+(\.\d+)?$/.test(ds)&&n>20000&&n<60000){
+    var d=new Date(Date.UTC(1899,11,30)+(n*86400000));
+    var yr=d.getUTCFullYear();var mo=d.getUTCMonth()+1;var dy=d.getUTCDate();
+    return dy+'/'+mo+'/'+(yr+543); // คืนเป็น พ.ศ.
+  }
+  return ds; // คืนค่าตามที่ไฟล์ให้มา
+}
 function parseRows(rows){
   if(!rows||!rows.length){ulAlert('ไม่มีข้อมูล','err');return;}
   let h=Object.keys(rows[0]);
   function fc(cands){for(let c of cands){let f=h.find(x=>x.replace(/\s+/g,'').toLowerCase()===c.replace(/\s+/g,'').toLowerCase());if(f)return f;f=h.find(x=>x.toLowerCase().includes(c.toLowerCase())||c.toLowerCase().includes(x.toLowerCase()));if(f)return f;}return null;}
   let cO=fc(['order id','orderid']),cS=fc(['sku']),cN=fc(['แบรนด์','brand','name','ชื่อสินค้า']),cSz=fc(['ขนาด','size']),cQ=fc(['sum of','qty','จำนวน']),cC=fc(['เลข consign','consign']),cT=fc(['tracking']),cSt=fc(['status','สถานะ']);
+  // คอลัม B = วันที่จัดส่ง (index 1 ของ headers)
+  let cD=fc(['วันที่','date','Date','Created','order date'])||h[1];
   if(!cO){ulAlert('ไม่พบคอลัมน์ Order ID','err');return;}
-  pendingData=rows.filter(r=>r[cO]).map(r=>({o:String(r[cO]).trim(),sku:cS?String(r[cS]).trim():'',name:cN?String(r[cN]).trim():'',size:cSz?String(r[cSz]).trim():'',qty:parseInt(r[cQ])||1,c:cC?String(r[cC]).trim():'',tracking:cT?String(r[cT]).trim():'',status:cSt?String(r[cSt]).trim().toLowerCase():''}));
+  pendingData=rows.filter(r=>r[cO]).map(r=>({o:String(r[cO]).trim(),sku:cS?String(r[cS]).trim():'',name:cN?String(r[cN]).trim():'',size:cSz?String(r[cSz]).trim():'',qty:parseInt(r[cQ])||1,c:cC?String(r[cC]).trim():'',tracking:cT?String(r[cT]).trim():'',status:cSt?String(r[cSt]).trim().toLowerCase():'',date:cD?normalizeDate(String(r[cD]||'').trim()):''}));
   // Build trackings array per order for display
   let _trkMap={};
   pendingData.forEach(r=>{if(!_trkMap[r.o])_trkMap[r.o]=[];if(r.tracking&&!_trkMap[r.o].includes(r.tracking))_trkMap[r.o].push(r.tracking);});
@@ -1127,7 +1140,7 @@ function confirmUpload(mode){
   if(mode==='replace')ORDERS={};
   let grouped={};
   pendingData.forEach(r=>{
-    if(!grouped[r.o])grouped[r.o]={id:r.o,consign:r.c,tracking:r.tracking,trackings:[],items:[],date:now,note:'',timeline:[]};
+    if(!grouped[r.o])grouped[r.o]={id:r.o,consign:r.c,tracking:r.tracking,trackings:[],items:[],date:r.date||now,note:'',timeline:[]};
     grouped[r.o].items.push({sku:r.sku,name:r.name,size:r.size,qty:r.qty,tracking:r.tracking||''});
     let t=String(r.tracking||'').trim();
     if(t&&!grouped[r.o].trackings.includes(t))grouped[r.o].trackings.push(t);
@@ -2460,7 +2473,7 @@ function runMatcher(){
   var tConsign=fc2(tc,['consign','เลข consign','เลขconsign','Consign'])||tc[3];
   var tSup=fc2(tc,['Sup','SUP','sup','ขนส่ง','carrier'])||tc[1];
   var tQty=fc2(tc,['Qty','qty','Qty.','จำนวน'])||tc[6];
-  var tDate=fc2(tc,['Date','date','วันที่'])||tc[0];
+  var tDate=fc2(tc,['Date','date','วันที่'])||tc[1]||tc[0];
 
   // สร้าง map จาก sheet Tracking: {oid: [{sku,qty,tracking,consign,sup,date}]}
   var trkMap={}; // {oid: [{sku,qty,tracking,consign,sup,date,brand}]}
@@ -2471,7 +2484,7 @@ function runMatcher(){
     var consign=String(row[tConsign]||'').trim();
     var sup=String(row[tSup]||'').trim();
     var qtyRaw=String(row[tQty]||'1');
-    var date=String(row[tDate]||'').trim();
+    var date=normalizeDate(String(row[tDate]||'').trim());
     if(!oid)return;
     if(!trkMap[oid]) trkMap[oid]=[];
 
@@ -4383,7 +4396,7 @@ function renderReport(){
   var rows=[];
   filtered.forEach(function(o){
     var sup=getOrderSUP(o)||'—';
-    var dateVal=o.updatedAt?new Date(o.updatedAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):(o.date||'—');
+    var dateVal=o.date||'—';
     // หา user จาก timeline ล่าสุด
     var usr=o.user||'—';
     if(o.timeline&&o.timeline.length){var last=o.timeline[o.timeline.length-1];usr=last.user||usr;}
