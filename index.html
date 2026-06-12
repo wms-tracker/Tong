@@ -1101,14 +1101,22 @@ function parseCSV(text){
 }
 function normalizeDate(ds){
   if(!ds) return '';
-  // Excel serial number (ตัวเลขล้วน เช่น 46186 = 12/6/2026)
+  // Excel serial (เช่น 46186 = 12/6/2026)
   var n=parseFloat(ds);
   if(!isNaN(n)&&/^\d+(\.\d+)?$/.test(ds)&&n>40000&&n<60000){
-    // Excel epoch = Dec 30, 1899; แปลงเป็น Gregorian ตรงๆ
     var d=new Date(Date.UTC(1899,11,30)+(Math.floor(n)*86400000));
-    var yr=d.getUTCFullYear();var mo=d.getUTCMonth()+1;var dy=d.getUTCDate();
-    return dy+'/'+mo+'/'+yr; // คืนเป็น ค.ศ. ตามที่ไฟล์ให้
+    return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
   }
+  // "Fri, Jun 12" หรือ "Mon Jun 12" → แปลงเป็น YYYY-MM-DD
+  var MN={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+  var mEn=ds.match(/([A-Za-z]{3,})\s+(\d{1,2})(?:\s+(\d{4}))?/);
+  if(mEn&&MN[mEn[1]]){
+    var yr=mEn[3]?parseInt(mEn[3]):new Date().getFullYear();
+    return yr+'-'+String(MN[mEn[1]]).padStart(2,'0')+'-'+String(parseInt(mEn[2])).padStart(2,'0');
+  }
+  // DD/MM/YYYY หรือ D/M/YYYY
+  var mTh=ds.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(mTh){var y=parseInt(mTh[3]);if(y>2400)y-=543;return y+'-'+String(parseInt(mTh[2])).padStart(2,'0')+'-'+String(parseInt(mTh[1])).padStart(2,'0');}
   return ds;
 }
 function parseRows(rows){
@@ -1768,7 +1776,7 @@ function fixBadOrderDates(){
     if(!ts) return;
     var d=new Date(ts);
     if(isNaN(d.getTime())) return;
-    o.date=d.toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric'});
+    o.date=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   });
 }
 function refreshAll(){
