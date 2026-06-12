@@ -293,6 +293,7 @@ tr:hover td{background:var(--bg3)}
   <div class="brow">
     <span id="conn-ind" style="font-size:12px;padding:3px 10px;border-radius:99px;background:var(--bg3);color:var(--text2)">⚪ ออฟไลน์</span>
     <span id="cur-user-badge" style="font-size:12px;padding:3px 10px;border-radius:99px;background:var(--pl);color:var(--primary);font-weight:700">👤 —</span>
+    <button class="btn btn-sm" id="refresh-btn" onclick="doRefresh()" style="background:#0EA5E9;color:#fff;border:none;font-weight:700" title="รีเฟรชข้อมูลจาก Firebase">🔄</button>
     <button class="btn btn-o btn-sm" onclick="logoutUser()">ออกจากระบบ</button>
     <button class="btn btn-p btn-sm" onclick="goPage('upload')">+ Upload</button>
   </div>
@@ -2195,6 +2196,21 @@ function fbPushStatus(oid,status){
     timeline:ORDERS[oid]?ORDERS[oid].timeline||[]:[]});
 }
 
+function doRefresh(){
+  var btn=document.getElementById('refresh-btn');
+  if(btn){btn.textContent='⏳';btn.disabled=true;}
+  if(FB_URL){
+    syncFromFirebase();
+    setTimeout(function(){
+      if(btn){btn.textContent='🔄';btn.disabled=false;}
+      ulAlert('🔄 รีเฟรชข้อมูลแล้ว','ok');
+    },2500);
+  } else {
+    fixBadOrderDates();refreshAll();
+    if(btn){btn.textContent='🔄';btn.disabled=false;}
+    ulAlert('🔄 รีเฟรชแล้ว (offline)','ok');
+  }
+}
 // Pull all orders from Firebase (synced from PDA)
 function syncFromFirebase(){
   if(!FB_URL){alert('กรุณาใส่ Firebase URL ในตั้งค่าก่อนครับ');return;}
