@@ -666,7 +666,7 @@ tr:hover td{background:var(--bg3)}
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <div class="card-t" style="margin:0">📦 ออเดอร์ผ่าน QC แล้ว — กด Pack เพื่อส่งต่อ</div>
-      <span id="nb-qc" class="badge b-qc">0</span>
+      <span id="nb-qc-pack" class="badge b-qc">0</span>
     </div>
     <div class="tw" style="overflow-x:auto">
       <table>
@@ -1620,7 +1620,8 @@ function renderOrders(){
       +(o.postponedFrom?'<br><span style="font-size:9px;padding:1px 5px;background:#FEF3C7;color:#92400E;border-radius:6px;font-weight:700">เลื่อน</span>':'');
 
     trkKeys.forEach(function(trk,ti){
-      var trkQCd=o.trkStatus&&o.trkStatus[trk]==='qc';
+      var _oSt=String(o.status||'');
+      var trkQCd=(o.trkStatus&&o.trkStatus[trk]==='qc')||(_oSt==='qc'||_oSt==='ship'||_oSt==='pack'||_oSt==='done');
       var trkItems=trkMap[trk]||[];
       var rowBg=trkQCd?'background:#F0FDF4':'';
       var borderTop=ti===0?'border-top:2px solid var(--border2)':'border-top:1px solid var(--border)';
@@ -1782,6 +1783,7 @@ function fixBadOrderDates(){
 function refreshAll(){
   fixBadOrderDates();
   renderDashboard();
+  if(document.getElementById('ord-tbody')) renderOrders();
   renderCarrierSummary();
   if(document.getElementById('daily-date')) { if(_rptMode==='day') renderDailyReport(); else renderMonthlyReport(); }
   renderDraftList();
@@ -2115,7 +2117,8 @@ function startFBStream(){
           var oid=decodeId(rawOid);
           var entry=data[rawOid];
           var st=typeof entry==='string'?entry:(entry&&entry.status?entry.status:'');
-          if(st&&ORDERS[oid]&&(rank[st]||0)>=(rank[ORDERS[oid].status]||0)&&ORDERS[oid].status!==st){
+          if(!ORDERS[oid])return;
+          if(st&&(rank[st]||0)>=(rank[ORDERS[oid].status]||0)&&ORDERS[oid].status!==st){
             ORDERS[oid].status=st;changed=true;
             if(entry&&entry.user) ORDERS[oid].user=entry.user;
             if(entry&&entry.device) ORDERS[oid].device=entry.device;
@@ -2125,6 +2128,10 @@ function startFBStream(){
                 if(!err&&d&&d.items){ORDERS[o]=Object.assign({},ORDERS[o],{items:d.items,editedAt:d.editedAt||''});saveLocal();refreshAll();}
               });})(oid);
             }
+          }
+          if(entry&&entry.trkStatus){
+            ORDERS[oid].trkStatus=Object.assign({},ORDERS[oid].trkStatus||{},entry.trkStatus);
+            changed=true;
           }
         });
         if(changed){saveLocal();refreshAll();}
@@ -2175,8 +2182,13 @@ function startFirebaseStream(){
           var oid=decodeId(rawOid);
           var entry=data[rawOid];
           var st=typeof entry==='string'?entry:(entry&&entry.status?entry.status:'');
-          if(st&&ORDERS[oid]&&(rank[st]||0)>=(rank[ORDERS[oid].status]||0)&&ORDERS[oid].status!==st){
+          if(!ORDERS[oid])return;
+          if(st&&(rank[st]||0)>=(rank[ORDERS[oid].status]||0)&&ORDERS[oid].status!==st){
             ORDERS[oid].status=st;changed=true;
+          }
+          if(entry&&entry.trkStatus){
+            ORDERS[oid].trkStatus=Object.assign({},ORDERS[oid].trkStatus||{},entry.trkStatus);
+            changed=true;
           }
         });
         if(changed){saveLocal();refreshAll();

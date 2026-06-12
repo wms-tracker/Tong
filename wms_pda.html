@@ -618,6 +618,7 @@ function pdaBatch(keys,offset,size,done){
           ORDERS[oid]={id:oid,consign:o.consign||'',tracking:o.tracking||'',
             trackings:o.trackings||[],items:o.items||[],
             status:keep?ex:(o.status||'new'),
+            trkStatus:o.trkStatus||{},
             sup:o.sup||'',date:o.date||'',batchId:o.batchId||'',
             updatedAt:o.updatedAt||'',editedAt:o.editedAt||''};
           done++;
@@ -1141,6 +1142,8 @@ function autoPass(){
       timeline:o.timeline,
       updatedAt:nowTs
     });
+    // แจ้ง PC stream ด้วย (stream ฟัง /statuses ไม่ใช่ /orders)
+    if(FB) fbPatch('/statuses/'+encId(passOid),{trkStatus:o.trkStatus,updatedAt:nowTs,device:DEV,user:USR});
   }
   pushScanLog(passOid,passItems);
   // 4. แสดงหน้า success
@@ -1341,9 +1344,11 @@ function onShipIn(val){
     prev.style.display='none';_shipOid='';return;
   }
   _shipOid=o.id;
-  var canShip=o.status==='ship'||o.status==='pack';
+  // trkQCd = tracking นี้ QC แล้ว หรือ order ผ่าน qc/ship/pack แล้ว
+  var trkQCd=o.trkStatus&&o.trkStatus[val]==='qc';
+  var canShip=o.status==='ship'||o.status==='pack'||o.status==='qc'||trkQCd;
   if(!canShip){
-    hint.className='hint h-err';hint.textContent='Order นี้ status: '+(SL[o.status]||o.status)+' (ไม่สามารถส่งได้)';
+    hint.className='hint h-err';hint.textContent='Order นี้ status: '+(SL[o.status]||o.status)+' (ยัง QC ไม่ครบ)';
     prev.style.display='none';return;
   }
   hint.className='hint h-ok';hint.textContent='✓ พร้อมส่ง';
@@ -1357,7 +1362,10 @@ function onShipIn(val){
 function confirmShip(){
   if(!_shipOid){var h=document.getElementById('ship-hint');h.className='hint h-err';h.textContent='กรุณาสแกน Tracking หรือ Order ID ก่อน';return;}
   var o=ORDERS[_shipOid];
-  if(!o||!(o.status==='ship'||o.status==='pack')){return;}
+  var _si=document.getElementById('ship-in');
+  var _sv=_si?_si.value.trim():'';
+  var _trkQCd=o&&o.trkStatus&&o.trkStatus[_sv]==='qc';
+  if(!o||!(o.status==='ship'||o.status==='pack'||o.status==='qc'||_trkQCd)){return;}
   o.status='done';
   o.updatedAt=new Date().toISOString();
   save();refreshStats();
