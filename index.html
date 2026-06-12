@@ -1100,14 +1100,15 @@ function parseCSV(text){
 }
 function normalizeDate(ds){
   if(!ds) return '';
-  // Excel serial number (ตัวเลขล้วน เช่น 45454)
+  // Excel serial number (ตัวเลขล้วน เช่น 46186 = 12/6/2026)
   var n=parseFloat(ds);
-  if(!isNaN(n)&&/^\d+(\.\d+)?$/.test(ds)&&n>20000&&n<60000){
-    var d=new Date(Date.UTC(1899,11,30)+(n*86400000));
+  if(!isNaN(n)&&/^\d+(\.\d+)?$/.test(ds)&&n>40000&&n<60000){
+    // Excel epoch = Dec 30, 1899; แปลงเป็น Gregorian ตรงๆ
+    var d=new Date(Date.UTC(1899,11,30)+(Math.floor(n)*86400000));
     var yr=d.getUTCFullYear();var mo=d.getUTCMonth()+1;var dy=d.getUTCDate();
-    return dy+'/'+mo+'/'+(yr+543); // คืนเป็น พ.ศ.
+    return dy+'/'+mo+'/'+yr; // คืนเป็น ค.ศ. ตามที่ไฟล์ให้
   }
-  return ds; // คืนค่าตามที่ไฟล์ให้มา
+  return ds;
 }
 function parseRows(rows){
   if(!rows||!rows.length){ulAlert('ไม่มีข้อมูล','err');return;}
@@ -4396,7 +4397,16 @@ function renderReport(){
   var rows=[];
   filtered.forEach(function(o){
     var sup=getOrderSUP(o)||'—';
-    var dateVal=o.date||'—';
+    // ใช้ o.date จากไฟล์ ถ้าปีสมเหตุสมผล (ค.ศ. 2015-2099 หรือ พ.ศ. 2558-2642)
+    function _validDate(ds){
+      if(!ds) return false;
+      var m=String(ds).match(/(\d{4})/);
+      if(!m) return false;
+      var yr=parseInt(m[1]);
+      return (yr>=2015&&yr<=2099)||(yr>=2558&&yr<=2642);
+    }
+    var dateVal=_validDate(o.date)?o.date
+      :(o.updatedAt?new Date(o.updatedAt).toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric'}):'—');
     // หา user จาก timeline ล่าสุด
     var usr=o.user||'—';
     if(o.timeline&&o.timeline.length){var last=o.timeline[o.timeline.length-1];usr=last.user||usr;}
