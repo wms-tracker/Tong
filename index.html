@@ -603,6 +603,7 @@ tr:hover td{background:var(--bg3)}
       <button class="btn btn-o btn-sm" onclick="applyMatcherToWMS()">✅ นำเข้า WMS</button>
       <button class="btn btn-o btn-sm" onclick="exportMatcherCSV()">⬇ CSV</button>
       <button class="btn btn-o btn-sm" onclick="clearMatcher()">🗑 ล้าง</button>
+      <button class="btn btn-sm" style="background:#0D9488;color:#fff;border:none" onclick="downloadMatcherTemplate()">📄 เทมเพลต</button>
     </div>
   </div>
   <div class="card" style="margin-top:10px">
@@ -2475,6 +2476,33 @@ function readXLSXMultiSheet(buf){
       }).catch(reject);
     }catch(e){reject(e);}
   });
+}
+
+function downloadMatcherTemplate(){
+  // Template สำหรับ Sheet "Tracking" (sheet หลักที่ Matcher ใช้)
+  var trkHeader=['วันที่','ขนส่ง','Order ID','Consign','แบรนด์','Qty','Tracking'];
+  var trkSample=[
+    ['6/13/2026','Best Express Bulky','AA-12345','Best HRZ','LNO0000000001 ที่นอน Lunio 6FT','1','66850981102132'],
+    ['6/13/2026','Best Express Bulky','AA-12345','Best HRZ','FRE0000000001 หมอนอิงหลัง','2','66850981102133'],
+    ['6/13/2026','Flash Express','BB-67890','Flash HRZ','LNO0000000002 ที่นอน 5FT','1','FX123456789TH'],
+  ];
+  // Template สำหรับ Sheet "ข้อมูลออเดอร์" (ถ้าไม่มี Tracking sheet)
+  var ordHeader=['Order ID','ขนส่ง','SKU','แบรนด์','ขนาด','จำนวน','Consign','Tracking','วันที่'];
+  var ordSample=[
+    ['AA-12345','Best Express Bulky','LNO0000000001','ที่นอน Lunio','6FT','1','Best HRZ','66850981102132','6/13/2026'],
+    ['BB-67890','Flash Express','LNO0000000002','ที่นอน','5FT','1','Flash HRZ','FX123456789TH','6/13/2026'],
+  ];
+  function toCSV(rows){
+    return rows.map(function(r){return r.map(function(c){var s=String(c||'');return s.includes(',')||s.includes('"')?'"'+s.replace(/"/g,'""')+'"':s;}).join(',');}).join('\r\n');
+  }
+  function dlCSV(csv,name){
+    var bom='﻿';
+    var blob=new Blob([bom+csv],{type:'text/csv;charset=utf-8'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();
+  }
+  dlCSV(toCSV([trkHeader].concat(trkSample)),'Template_Tracking_Sheet.csv');
+  setTimeout(function(){dlCSV(toCSV([ordHeader].concat(ordSample)),'Template_Order_Sheet.csv');},300);
+  matcherAlert('⬇ ดาวน์โหลดเทมเพลต 2 ไฟล์แล้ว (Tracking Sheet + Order Sheet)','ok');
 }
 
 function clearMatcher(){
