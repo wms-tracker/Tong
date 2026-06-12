@@ -2491,10 +2491,13 @@ function fc2(cols,pats){
 /* ===== RUN MATCHER ===== */
 function runMatcher(){
   if(!matcherTrkRows.length&&!matcherOrdRows.length){matcherAlert('กรุณาอัปโหลดไฟล์ก่อน','err');return;}
-  // ถ้า Sheet Tracking ว่าง → ใช้ Sheet ออเดอร์เป็น order list ตรงๆ
+  // ถ้า Sheet Tracking ว่าง → ใช้ Sheet ออเดอร์นำเข้าโดยตรง
   if(!matcherTrkRows.length&&matcherOrdRows.length){
-    matcherAlert('⚠ ไม่มี Tracking — นำเข้าจาก Sheet ออเดอร์ตรงๆ','warn');
+    if(!confirm('Sheet Tracking ว่างอยู่\nนำเข้าออเดอร์จาก Sheet ข้อมูลออเดอร์ ('+matcherOrdRows.length+' แถว) โดยไม่มี Tracking?\n\nกด OK เพื่อนำเข้า')) return;
+    pendingData=[];
     parseRows(matcherOrdRows);
+    goPage('upload');
+    ulAlert('✅ โหลดข้อมูลจาก Sheet ออเดอร์แล้ว — กด "นำเข้า WMS" เพื่อยืนยัน','ok');
     return;
   }
 
