@@ -3335,6 +3335,9 @@ function getOrderSUP(o){
     if(/^kerry|^kex/i.test(con)) return 'Kerry Express';
     if(/^nim/i.test(con)) return 'Nim Express';
     if(/^spx/i.test(con)) return 'Shopee Express';
+    if(/^lunio/i.test(con)) return 'Lunio';
+    if(/^business\s*idea|^biz\s*idea|^bih/i.test(con)) return 'Business Idea HRZ';
+    if(/^nooz/i.test(con)) return 'Nooz';
   }
   // 4. detectCarrier จาก tracking number
   var trk=(o.tracking||'').trim();
@@ -3343,11 +3346,10 @@ function getOrderSUP(o){
     if(c.short==='BEST') return 'Best Express Bulky';
     if(c.name&&c.short!=='OTHER') return c.name;
   }
-  // 5. ถ้าไม่มี tracking และไม่มี consign = Lunio (รับที่คลัง)
-  // แต่ต้องมี items ที่เป็น LNO/FRE prefix → Lunio
+  // 5. ถ้าไม่มี tracking = รับที่คลัง → ดูจาก SKU prefix
   for(var jj=0;jj<its.length;jj++){
     var sk=(its[jj].sku||'').trim();
-    if(/^(LNO|FRE|LEG|ZCP)/i.test(sk)&&!trk&&!con) return 'Lunio';
+    if(/^(LNO|FRE|LEG|ZCP|EMS|NOZ|PRT)/i.test(sk)&&!trk) return con||'Lunio';
   }
   return '—';
 }
