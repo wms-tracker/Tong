@@ -2479,30 +2479,14 @@ function readXLSXMultiSheet(buf){
 }
 
 function downloadMatcherTemplate(){
-  // Template สำหรับ Sheet "Tracking" (sheet หลักที่ Matcher ใช้)
-  var trkHeader=['วันที่','ขนส่ง','Order ID','Consign','แบรนด์','Qty','Tracking'];
-  var trkSample=[
-    ['6/13/2026','Best Express Bulky','AA-12345','Best HRZ','LNO0000000001 ที่นอน Lunio 6FT','1','66850981102132'],
-    ['6/13/2026','Best Express Bulky','AA-12345','Best HRZ','FRE0000000001 หมอนอิงหลัง','2','66850981102133'],
-    ['6/13/2026','Flash Express','BB-67890','Flash HRZ','LNO0000000002 ที่นอน 5FT','1','FX123456789TH'],
-  ];
-  // Template สำหรับ Sheet "ข้อมูลออเดอร์" (ถ้าไม่มี Tracking sheet)
-  var ordHeader=['Order ID','ขนส่ง','SKU','แบรนด์','ขนาด','จำนวน','Consign','Tracking','วันที่'];
-  var ordSample=[
-    ['AA-12345','Best Express Bulky','LNO0000000001','ที่นอน Lunio','6FT','1','Best HRZ','66850981102132','6/13/2026'],
-    ['BB-67890','Flash Express','LNO0000000002','ที่นอน','5FT','1','Flash HRZ','FX123456789TH','6/13/2026'],
-  ];
-  function toCSV(rows){
-    return rows.map(function(r){return r.map(function(c){var s=String(c||'');return s.includes(',')||s.includes('"')?'"'+s.replace(/"/g,'""')+'"':s;}).join(',');}).join('\r\n');
-  }
-  function dlCSV(csv,name){
-    var bom='﻿';
-    var blob=new Blob([bom+csv],{type:'text/csv;charset=utf-8'});
-    var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();
-  }
-  dlCSV(toCSV([trkHeader].concat(trkSample)),'Template_Tracking_Sheet.csv');
-  setTimeout(function(){dlCSV(toCSV([ordHeader].concat(ordSample)),'Template_Order_Sheet.csv');},300);
-  matcherAlert('⬇ ดาวน์โหลดเทมเพลต 2 ไฟล์แล้ว (Tracking Sheet + Order Sheet)','ok');
+  // xlsx template (2 sheets: Tracking + ข้อมูลออเดอร์) ตรงกับรูปแบบไฟล์จริง
+  var b64='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';
+  var bin=atob(b64);
+  var arr=new Uint8Array(bin.length);
+  for(var i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+  var blob=new Blob([arr],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Template_Tracking_Matcher.xlsx';a.click();
+  matcherAlert('⬇ ดาวน์โหลด Template_Tracking_Matcher.xlsx แล้ว','ok');
 }
 
 function clearMatcher(){
