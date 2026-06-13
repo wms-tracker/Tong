@@ -2258,10 +2258,10 @@ function startFirebaseStream(){
   }catch(e){console.log('Firebase stream error:',e);}
 }
 
-// Periodic status sync เป็น fallback กรณี SSE ขาด
+// Periodic status sync ทุก 30 วิ (fallback กรณี SSE ขาด + sync trkStatus)
 setInterval(function(){
   if(FB_URL&&document.visibilityState==='visible') syncStatusesNow();
-},60000);
+},30000);
 
 // Push order status to Firebase when changed
 function fbPushStatus(oid,status){
@@ -3225,18 +3225,24 @@ function syncStatusesNow(){
     Object.keys(data).forEach(function(rawOid){
       var oid=decodeId(rawOid);
       var entry=data[rawOid];
+      if(!ORDERS[oid])return;
       var st=typeof entry==='string'?entry:(entry&&entry.status?entry.status:'');
-      if(st&&ORDERS[oid]&&(rank[st]||0)>=(rank[ORDERS[oid].status]||0)&&ORDERS[oid].status!==st){
+      if(st&&(rank[st]||0)>=(rank[ORDERS[oid].status]||0)&&ORDERS[oid].status!==st){
         ORDERS[oid].status=st;changed=true;
         if(entry&&entry.user) ORDERS[oid].user=entry.user;
         if(entry&&entry.device) ORDERS[oid].device=entry.device;
         if(entry&&entry.updatedAt) ORDERS[oid].updatedAt=entry.updatedAt;
-        // ถ้า editedAt ใหม่กว่า → reload items จาก Firebase อัตโนมัติ
         if(entry&&entry.editedAt&&(!ORDERS[oid].editedAt||entry.editedAt>ORDERS[oid].editedAt)){
           (function(o){fbGet('/orders/'+encodeId(o),function(err,d){
             if(!err&&d&&d.items){ORDERS[o]=Object.assign({},ORDERS[o],{items:d.items,editedAt:d.editedAt||''});saveLocal();refreshAll();}
           });})(oid);
         }
+      }
+      // sync trkStatus เสมอ (ไม่ต้องรอ status เปลี่ยน)
+      if(entry&&entry.trkStatus){
+        var merged=Object.assign({},ORDERS[oid].trkStatus||{},entry.trkStatus);
+        var trkChanged=JSON.stringify(merged)!==JSON.stringify(ORDERS[oid].trkStatus||{});
+        if(trkChanged){ORDERS[oid].trkStatus=merged;changed=true;}
       }
     });
     if(changed){saveLocal();refreshAll();}
