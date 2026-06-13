@@ -57,6 +57,12 @@ input:focus{outline:none;border-color:var(--primary)}
 .b-postponed{background:#FEF3C7;color:#92400E;border:1px solid #FCD34D}
 .b-hold{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
 .b-draft{background:#F0FDFA;color:var(--teal);border:1px solid #5EEAD4}
+.b-verified{background:#DCFCE7;color:#15803D;border:1px solid #86EFAC}
+.b-exception{background:#FEE2E2;color:#DC2626;border:1px solid #FCA5A5}
+.b-inprog{background:#DBEAFE;color:#1D4ED8;border:1px solid #93C5FD;animation:pulse-border 1.5s infinite}
+.b-partial{background:#FEF9C3;color:#A16207;border:1px solid #FDE047}
+.b-completed{background:#DCFCE7;color:#15803D;border:1px solid #86EFAC}
+@keyframes pulse-border{0%,100%{opacity:1}50%{opacity:.6}}
 .prod-list{display:flex;flex-direction:column;gap:6px;margin-top:10px}
 .pi{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--bg)}
 .pi.ok{background:var(--gb);border-color:var(--gbr)}
@@ -245,7 +251,32 @@ input:focus{outline:none;border-color:var(--primary)}
     </div>
     <div class="brow">
       <button class="btn btn-o" style="background:#0D9488;color:#fff;border:none;font-size:13px" onclick="saveDraft()">💾 Draft</button>
+      <button class="btn btn-o" style="background:#DC2626;color:#fff;border:none;font-size:13px" onclick="openExceptionModal()">⚠️ Exception</button>
       <button class="btn btn-o" style="font-size:13px" onclick="resetScan()">🔄 รีเซ็ต</button>
+    </div>
+  </div>
+</div>
+
+<!-- EXCEPTION MODAL -->
+<div id="exc-modal" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.6);align-items:flex-end;justify-content:center">
+  <div style="background:var(--bg);border-radius:16px 16px 0 0;padding:24px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto">
+    <div style="font-size:17px;font-weight:800;color:#DC2626;margin-bottom:4px">⚠️ บันทึก Exception</div>
+    <div id="exc-trk-label" style="font-size:11px;color:var(--text2);font-family:monospace;margin-bottom:16px"></div>
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">เลือกประเภทปัญหา</div>
+    <div id="exc-reasons" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+      <button class="exc-r-btn" onclick="selectExcReason(this,'SKU Missing')" style="padding:12px 14px;border:1.5px solid var(--border2);border-radius:10px;background:var(--bg2);text-align:left;font-size:14px;font-weight:600;cursor:pointer">📦 SKU Missing — สินค้าขาด</button>
+      <button class="exc-r-btn" onclick="selectExcReason(this,'SKU Excess')" style="padding:12px 14px;border:1.5px solid var(--border2);border-radius:10px;background:var(--bg2);text-align:left;font-size:14px;font-weight:600;cursor:pointer">📦+ SKU Excess — สินค้าเกิน</button>
+      <button class="exc-r-btn" onclick="selectExcReason(this,'Wrong Item')" style="padding:12px 14px;border:1.5px solid var(--border2);border-radius:10px;background:var(--bg2);text-align:left;font-size:14px;font-weight:600;cursor:pointer">🔀 Wrong Item — สินค้าผิดรายการ</button>
+      <button class="exc-r-btn" onclick="selectExcReason(this,'Damaged Item')" style="padding:12px 14px;border:1.5px solid var(--border2);border-radius:10px;background:var(--bg2);text-align:left;font-size:14px;font-weight:600;cursor:pointer">💥 Damaged Item — สินค้าเสียหาย</button>
+      <button class="exc-r-btn" onclick="selectExcReason(this,'Other')" style="padding:12px 14px;border:1.5px solid var(--border2);border-radius:10px;background:var(--bg2);text-align:left;font-size:14px;font-weight:600;cursor:pointer">📝 Other — อื่นๆ</button>
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:6px">บันทึกเพิ่มเติม (ถ้ามี)</label>
+      <textarea id="exc-note" rows="3" placeholder="รายละเอียดปัญหา..." style="width:100%;padding:10px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;background:var(--bg2);color:var(--text)"></textarea>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button id="exc-confirm-btn" onclick="confirmException()" style="flex:1;padding:14px;background:#DC2626;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;opacity:.4" disabled>⚠️ ยืนยัน Exception</button>
+      <button onclick="closeExceptionModal()" style="padding:14px 20px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">ยกเลิก</button>
     </div>
   </div>
 </div>
@@ -350,7 +381,7 @@ input:focus{outline:none;border-color:var(--primary)}
   <div class="bn" id="bn-settings" onclick="goPage('settings')"><span class="bi">⚙️</span>ตั้งค่า</div>
 </nav>
 
-<!-- PASS OVERLAY -->
+<!-- PASS OVERLAY (manual confirm) -->
 <div class="pov" id="pass-ov">
   <div class="pov-box">
     <div style="font-size:52px;margin-bottom:10px">✅</div>
@@ -363,14 +394,63 @@ input:focus{outline:none;border-color:var(--primary)}
   </div>
 </div>
 
+<!-- SUCCESS OVERLAY (auto-dismiss) -->
+<div id="qc-success-ov" style="position:fixed;inset:0;background:rgba(22,163,74,.96);display:none;align-items:center;justify-content:center;z-index:200;flex-direction:column;text-align:center;padding:24px">
+  <div style="font-size:88px;margin-bottom:12px;animation:popIn .3s ease">🎉</div>
+  <div style="font-size:28px;font-weight:900;color:#fff;margin-bottom:8px" id="qc-succ-title">QC ผ่าน!</div>
+  <div style="font-size:20px;font-weight:700;color:rgba(255,255,255,.9);font-family:monospace;margin-bottom:4px" id="qc-succ-oid"></div>
+  <div style="font-size:14px;color:rgba(255,255,255,.75);margin-bottom:24px" id="qc-succ-detail"></div>
+  <div id="qc-succ-trk-bar" style="margin-bottom:24px"></div>
+  <button onclick="closeSuccessOv()" style="padding:16px 40px;background:#fff;color:#16A34A;border:none;border-radius:16px;font-size:18px;font-weight:800;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.2)">📦 สแกน Order ต่อไป</button>
+  <div style="margin-top:16px;font-size:12px;color:rgba(255,255,255,.5)" id="qc-succ-countdown"></div>
+</div>
+<style>
+@keyframes popIn{0%{transform:scale(.5);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+</style>
+
 <div class="lov" id="lov"><div class="spin"></div><div class="lov-t" id="lov-t">กำลังโหลด...</div></div>
 
 <script>
 var ORDERS={},SC={},DRAFTS={};
 var API='',FB='',DEV='PDA-01',USR='user01';
 var MODE='tracking',CUR_OID='',CUR_TRK='',CUR_ITEMS=[];
-var SL={new:'🆕 รับแล้ว',pick:'🔍 Pick',qc:'✅ QC ผ่าน',pack:'📦 Pack',ship:'🚚 Ship',done:'✔ Done',cancel:'🚫 Cancel',postponed:'📅 เลื่อน',hold:'⏸ พักไว้',draft:'📝 ร่าง'};
-var SB={new:'b-new',pick:'b-pick',qc:'b-qc',pack:'b-pack',ship:'b-ship',done:'b-done',cancel:'b-cancel',postponed:'b-postponed',hold:'b-hold',draft:'b-draft'};
+var SL={new:'🆕 รับแล้ว',pick:'🔍 Pick',qc:'✅ QC ผ่าน',pack:'📦 Pack',ship:'🚚 Ship',done:'✔ Done',cancel:'🚫 Cancel',postponed:'📅 เลื่อน',hold:'⏸ พักไว้',draft:'📝 ร่าง',partial:'⏳ Partial Verified',completed:'✅ Completed'};
+var SB={new:'b-new',pick:'b-pick',qc:'b-qc',pack:'b-pack',ship:'b-ship',done:'b-done',cancel:'b-cancel',postponed:'b-postponed',hold:'b-hold',draft:'b-draft',partial:'b-partial',completed:'b-completed'};
+
+// ===== TRACKING STATUS HELPERS =====
+// normalize trkStatus value: รองรับทั้ง string เก่า ('qc','done') และใหม่
+function getTrkSt(val){
+  if(!val) return 'waiting';
+  if(val==='qc'||val==='verified') return 'verified';
+  if(val==='done'||val==='shipped') return 'shipped';
+  if(val==='exception') return 'exception';
+  if(val==='in_progress') return 'in_progress';
+  return 'waiting';
+}
+function isTrkVerified(val){var s=getTrkSt(val);return s==='verified'||s==='shipped';}
+function isTrkDone(val){return getTrkSt(val)==='shipped';}
+function trkStLabel(val){
+  var s=getTrkSt(val);
+  return {verified:'✅ Verified',shipped:'📦 Shipped',exception:'⚠️ Exception',in_progress:'🔄 In Progress',waiting:'⏳ Waiting'}[s]||'⏳ Waiting';
+}
+function trkStBadgeClass(val){
+  var s=getTrkSt(val);
+  return {verified:'b-verified',shipped:'b-done',exception:'b-exception',in_progress:'b-inprog',waiting:'b-hold'}[s]||'b-hold';
+}
+// คำนวณ order status จาก trkStatus ทั้งหมด
+function computeOrderStatus(o){
+  var allTrks=[];
+  (o.trackings||[]).forEach(function(t){if(t&&allTrks.indexOf(t)<0)allTrks.push(t);});
+  (o.items||[]).forEach(function(it){if(it.tracking&&allTrks.indexOf(it.tracking)<0)allTrks.push(it.tracking);});
+  if(o.tracking&&allTrks.indexOf(o.tracking)<0) allTrks.push(o.tracking);
+  if(!allTrks.length) return o.status||'new';
+  var ts=o.trkStatus||{};
+  var verifiedCount=allTrks.filter(function(t){return isTrkVerified(ts[t]);}).length;
+  var excCount=allTrks.filter(function(t){return getTrkSt(ts[t])==='exception';}).length;
+  if(verifiedCount===allTrks.length) return 'completed';
+  if(verifiedCount>0||excCount>0) return 'partial';
+  return o.status||'new';
+}
 var _timer=null;
 
 function ls(k,v){if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v);}
@@ -1044,8 +1124,20 @@ function showOrderInfo(){
   document.getElementById('con-lbl').textContent=o.consign||'—';
   document.getElementById('trk-lbl').textContent=CUR_TRK||o.tracking||'';
   var sb=document.getElementById('status-badge');
-  if(sb){sb.textContent=SL[o.status]||o.status;sb.className='badge '+(SB[o.status]||'b-new');}
+  // แสดง computed order status
+  var dispSt=computeOrderStatus(o);
+  if(sb){sb.textContent=SL[dispSt]||dispSt;sb.className='badge '+(SB[dispSt]||'b-new');}
   document.getElementById('order-info').style.display='block';
+  // mark tracking นี้ว่า in_progress (advisory lock)
+  if(CUR_TRK&&FB){
+    var curTrkSt=o.trkStatus&&o.trkStatus[CUR_TRK];
+    if(!isTrkVerified(curTrkSt)&&getTrkSt(curTrkSt)!=='exception'){
+      if(!o.trkStatus) o.trkStatus={};
+      o.trkStatus[CUR_TRK]='in_progress';
+      fbPut('/trkLocks/'+encId(CUR_TRK),{device:DEV,user:USR,oid:CUR_OID,startedAt:new Date().toISOString()});
+      fbPatch('/statuses/'+encId(CUR_OID),{trkStatus:o.trkStatus,updatedAt:new Date().toISOString(),device:DEV,user:USR});
+    }
+  }
   if(!CUR_ITEMS||!CUR_ITEMS.length){
     var allItems=o.items||[];
     // ถ้าสแกน tracking มา → แสดงเฉพาะ item ที่ผูกกับ tracking นั้น
@@ -1211,17 +1303,24 @@ function autoPass(){
   if(FB) fbPut('/drafts/'+encId(passOid),null);
   delete DRAFTS[passOid];
   var o=ORDERS[passOid];
-  // 2. บันทึก per-tracking QC status
+  // 2. บันทึก per-tracking Verified status + metadata
   if(!o.trkStatus) o.trkStatus={};
-  if(passTrk) o.trkStatus[passTrk]='qc';
+  if(!o.trkMeta) o.trkMeta={};
+  if(passTrk){
+    o.trkStatus[passTrk]='verified';
+    o.trkMeta[passTrk]={by:USR,at:new Date().toISOString(),device:DEV};
+  }
+  // clear lock
+  if(FB&&passTrk) fbPut('/trkLocks/'+encId(passTrk),null);
 
-  // หา tracking ทั้งหมดของ order นี้
+  // หา tracking ทั้งหมดของ order นี้ (รวม trackings[], items[].tracking, tracking)
   var allTrks=[];
+  (o.trackings||[]).forEach(function(t){if(t&&allTrks.indexOf(t)<0)allTrks.push(t);});
   (o.items||[]).forEach(function(it){if(it.tracking&&allTrks.indexOf(it.tracking)<0)allTrks.push(it.tracking);});
   if(o.tracking&&allTrks.indexOf(o.tracking)<0) allTrks.push(o.tracking);
 
-  // เปลี่ยน order status เป็น qc เฉพาะเมื่อทุก tracking ผ่านครบ
-  var doneCount=allTrks.filter(function(t){return o.trkStatus[t]==='qc';}).length;
+  // เปลี่ยน order status เฉพาะเมื่อทุก tracking ผ่านครบ
+  var doneCount=allTrks.filter(function(t){return isTrkVerified(o.trkStatus[t]);}).length;
   var allQCd=(allTrks.length===0)||(!passTrk)||(doneCount>=allTrks.length);
 
   if(allQCd){
@@ -1262,31 +1361,73 @@ function autoPass(){
 }
 
 function showPassResult(oid,items,trk,doneCount,totalTrk,allQCd){
-  var el=document.getElementById('prod-list');
   var total=items.reduce(function(a,b){return a+(b.qty||1);},0);
   var isFullyDone=(allQCd===undefined)||allQCd;
-  var trkProgress=(totalTrk>1)
-    ?'<div style="margin:8px 0;padding:8px 12px;background:#F0FDF4;border-radius:8px;font-size:13px;font-weight:700;color:#16A34A">✅ Tracking QC แล้ว '+doneCount+'/'+totalTrk+'</div>'
-    :'';
-  el.innerHTML='<div style="text-align:center;padding:24px 16px">'
-    +'<div style="font-size:56px;margin-bottom:8px">'+(isFullyDone?'🎉':'✅')+'</div>'
-    +'<div style="font-size:20px;font-weight:800;color:#16A34A;margin-bottom:4px">'+(isFullyDone?'QC ผ่านทั้ง Order!':'QC Tracking นี้ผ่านแล้ว!')+'</div>'
-    +'<div style="font-size:16px;font-weight:700;font-family:monospace;margin-bottom:2px">'+oid+'</div>'
-    +(trk?'<div style="font-size:11px;color:#64748B;font-family:monospace;margin-bottom:4px">'+trk+'</div>':'')
-    +trkProgress
-    +'<div style="font-size:13px;color:#64748B;margin-bottom:20px">'+items.length+' รายการ · '+total+' ชิ้น</div>'
-    +(!isFullyDone?'<button onclick="resetScan()" style="width:100%;padding:14px;background:#0D9488;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:8px">📦 สแกน Tracking ต่อไป ('+(totalTrk-doneCount)+' เหลือ)</button>':'')
-    +'<button onclick="resetScan()" style="width:100%;padding:'+(isFullyDone?16:12)+'px;background:#2563EB;color:#fff;border:none;border-radius:12px;font-size:'+(isFullyDone?17:14)+'px;font-weight:700;cursor:pointer">📦 สแกน Order ต่อไป</button>'
-    +'</div>';
-  // ซ่อน input ชั่วคราว
-  var h=document.getElementById('h1');
-  h.className='hint h-ok';
-  h.textContent='✅ ผ่าน QC: '+oid;
+
+  // เคลียร์ input
   document.getElementById('in1').value='';
   document.getElementById('in-sku').value='';
   document.getElementById('over-box').style.display='none';
-  // auto reset หลัง 5 วิ ถ้าไม่กดปุ่ม
-  clearTimeout(window._autoResetTimer);
+  var h=document.getElementById('h1');
+  h.className='hint h-ok';
+  h.textContent='✅ ผ่าน QC: '+oid;
+
+  if(isFullyDone){
+    // QC ครบทั้ง Order → แสดง full-screen success
+    showSuccessOv(oid,items.length,total,trk,doneCount,totalTrk);
+  } else {
+    // QC บางส่วน (tracking นี้ผ่านแต่ยังมี tracking อื่น) → toast + reset
+    showAl('✅ QC Tracking ผ่าน! ('+doneCount+'/'+totalTrk+' tracking)','ok');
+    resetScan();
+  }
+}
+
+var _successTimer=null;
+function showSuccessOv(oid,itemCount,totalQty,trk,doneCount,totalTrk){
+  // เสียงสำเร็จ (3 beeps ดัง)
+  playPack();
+  setTimeout(function(){playPack();},300);
+  setTimeout(function(){playPack();},600);
+  // สั่น (ถ้าเป็น mobile)
+  if(navigator.vibrate) navigator.vibrate([100,80,100,80,300]);
+
+  // ใส่ข้อมูล
+  document.getElementById('qc-succ-title').textContent=totalTrk>1?'QC ครบทั้ง Order! 🎉':'QC ผ่าน! ✅';
+  document.getElementById('qc-succ-oid').textContent=oid;
+  document.getElementById('qc-succ-detail').textContent=itemCount+' รายการ · '+totalQty+' ชิ้น'+(trk?' · '+trk:'');
+
+  // tracking progress bar (ถ้ามีหลาย tracking)
+  var trkBar=document.getElementById('qc-succ-trk-bar');
+  if(totalTrk>1&&doneCount>0){
+    var dots='';
+    for(var i=0;i<totalTrk;i++){
+      dots+='<span style="display:inline-block;width:14px;height:14px;border-radius:50%;margin:0 3px;background:'+(i<doneCount?'#fff':'rgba(255,255,255,.3)')+'"></span>';
+    }
+    trkBar.innerHTML='<div style="font-size:13px;color:rgba(255,255,255,.85);margin-bottom:6px">Tracking QC แล้ว '+doneCount+'/'+totalTrk+'</div>'+dots;
+  } else {
+    trkBar.innerHTML='';
+  }
+
+  // แสดง overlay
+  var ov=document.getElementById('qc-success-ov');
+  ov.style.display='flex';
+
+  // countdown 5 วิ auto-close
+  clearTimeout(_successTimer);
+  var sec=5;
+  var cd=document.getElementById('qc-succ-countdown');
+  function tick(){
+    if(sec<=0){closeSuccessOv();return;}
+    if(cd) cd.textContent='ปิดอัตโนมัติใน '+sec+' วินาที';
+    sec--;
+    _successTimer=setTimeout(tick,1000);
+  }
+  tick();
+}
+
+function closeSuccessOv(){
+  clearTimeout(_successTimer);
+  document.getElementById('qc-success-ov').style.display='none';
   resetScan();
 }
 
@@ -1405,15 +1546,43 @@ function renderOrds(){
       +'<div><div style="font-weight:700;font-size:15px;font-family:monospace">'+o.id+'</div>'
       +'<div style="font-size:12px;color:var(--text2);margin-top:2px">'+(o.consign||'—')+'</div>'
       +(function(){
-          var allT=[]; (o.items||[]).forEach(function(it){if(it.tracking&&allT.indexOf(it.tracking)<0)allT.push(it.tracking);});
+          var allT=[];
+          (o.trackings||[]).forEach(function(t){if(t&&allT.indexOf(t)<0)allT.push(t);});
+          (o.items||[]).forEach(function(it){if(it.tracking&&allT.indexOf(it.tracking)<0)allT.push(it.tracking);});
           if(o.tracking&&allT.indexOf(o.tracking)<0) allT.push(o.tracking);
-          var doneT=allT.filter(function(t){return o.trkStatus&&o.trkStatus[t]==='qc';}).length;
-          var prog=allT.length>1?'<div style="font-size:11px;color:'+(doneT===allT.length?'var(--green)':'var(--orange)')+';margin-top:1px;font-weight:700">📦 Tracking QC: '+doneT+'/'+allT.length+'</div>':'<div style="font-size:11px;color:var(--teal);margin-top:1px">'+(o.tracking||'')+'</div>';
-          return prog+'<div style="font-size:11px;color:var(--text2);margin-top:1px">'+o.items.length+' รายการ</div>';
+          var ts=o.trkStatus||{};
+          var tm=o.trkMeta||{};
+          var verifiedT=allT.filter(function(t){return isTrkVerified(ts[t]);}).length;
+          var excT=allT.filter(function(t){return getTrkSt(ts[t])==='exception';}).length;
+          var inprogT=allT.filter(function(t){return getTrkSt(ts[t])==='in_progress';}).length;
+          var trkHtml='';
+          if(allT.length>1){
+            // แสดง badge แต่ละ tracking
+            trkHtml='<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px">';
+            allT.forEach(function(t){
+              var st=getTrkSt(ts[t]);
+              var bc=trkStBadgeClass(ts[t]);
+              var lbl=trkStLabel(ts[t]);
+              var meta=tm[t]||{};
+              var tip=meta.by?lbl+' by '+meta.by:'';
+              var excLbl=st==='exception'&&meta.reason?' ('+meta.reason+')':'';
+              trkHtml+='<span class="badge '+bc+'" title="'+escHtml(tip)+'" style="font-size:9px;max-width:150px;overflow:hidden;text-overflow:ellipsis">'+escHtml(t.slice(-8))+'<br>'+lbl+escHtml(excLbl)+'</span>';
+            });
+            trkHtml+='</div>';
+            trkHtml+='<div style="font-size:11px;margin-top:3px;color:'+(excT>0?'var(--red)':verifiedT===allT.length?'var(--green)':'var(--orange)')+';font-weight:700">';
+            if(excT>0) trkHtml+='⚠️ Exception: '+excT+' / '+allT.length;
+            else trkHtml+='✅ Verified: '+verifiedT+'/'+allT.length+(inprogT>0?' 🔄 กำลังสแกน: '+inprogT:'');
+            trkHtml+='</div>';
+          } else {
+            var singleSt=allT.length?getTrkSt(ts[allT[0]]):'waiting';
+            trkHtml='<div style="font-size:11px;color:var(--teal);margin-top:1px;font-family:monospace">'+(o.tracking||'')+'</div>';
+            if(singleSt==='exception'){var m=tm[allT[0]]||{};trkHtml+='<div style="font-size:10px;color:var(--red);font-weight:700">⚠️ '+(m.reason||'Exception')+'</div>';}
+          }
+          return trkHtml+'<div style="font-size:11px;color:var(--text2);margin-top:2px">'+o.items.length+' รายการ</div>';
         })()+'</div>'
       +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">'
-      +'<span class="badge '+(SB[o.status]||'b-new')+'">'+(SL[o.status]||'—')+'</span>'
-      +(o.status==='new'||o.status==='pick'||o.status==='qc'?'<button onclick="goQC(\''+o.id+'\')" style="padding:7px 14px;background:var(--primary);color:#fff;border:none;border-radius:var(--rx);font-weight:700;font-size:12px;cursor:pointer">🔍 QC</button>':'')
+      +(function(){var cs=computeOrderStatus(o);return '<span class="badge '+(SB[cs]||'b-new')+'">'+(SL[cs]||'—')+'</span>';})()
+      +(function(){var cs=computeOrderStatus(o);return cs==='new'||cs==='pick'||cs==='qc'||cs==='partial'?'<button onclick="goQC(\''+o.id+'\')" style="padding:7px 14px;background:var(--primary);color:#fff;border:none;border-radius:var(--rx);font-weight:700;font-size:12px;cursor:pointer">🔍 QC</button>':'';})()
       +(o.status==='pack'?'<button onclick="doShip(\''+o.id+'\')" style="padding:7px 14px;background:#7C3AED;color:#fff;border:none;border-radius:var(--rx);font-weight:700;font-size:12px;cursor:pointer">🚚 ส่งแล้ว</button>':'')
       +(o.status==='ship'?'<button onclick="doDone(\''+o.id+'\')" style="padding:7px 14px;background:#16A34A;color:#fff;border:none;border-radius:var(--rx);font-weight:700;font-size:12px;cursor:pointer">✔ Done</button>':'')
       +'<button onclick="openTrkModal(\''+o.id+'\')" style="padding:5px 10px;background:var(--bg3);color:var(--text2);border:1px solid var(--border);border-radius:var(--rx);font-size:11px;cursor:pointer">✏️ Tracking</button>'
@@ -1459,8 +1628,8 @@ function onShipIn(val){
   _shipOid=o.id;
   _shipTrk=matchedTrk||val;
   // trkQCd = tracking นี้ QC แล้ว หรือ order ผ่าน qc/ship/pack แล้ว
-  var trkQCd=o.trkStatus&&(o.trkStatus[_shipTrk]==='qc'||o.trkStatus[_shipTrk]==='done');
-  var canShip=o.status==='ship'||o.status==='pack'||o.status==='qc'||trkQCd;
+  var trkQCd=o.trkStatus&&isTrkVerified(o.trkStatus[_shipTrk]);
+  var canShip=o.status==='ship'||o.status==='pack'||o.status==='qc'||o.status==='completed'||trkQCd;
   if(!canShip){
     hint.className='hint h-err';hint.textContent='Order นี้ status: '+(SL[o.status]||o.status)+' (ยัง QC ไม่ครบ)';
     prev.style.display='none';return;
@@ -1481,8 +1650,8 @@ function confirmShip(){
   if(!_shipOid){var h=document.getElementById('ship-hint');h.className='hint h-err';h.textContent='กรุณาสแกน Tracking หรือ Order ID ก่อน';return;}
   var o=ORDERS[_shipOid];
   if(!o)return;
-  var _trkQCd=o.trkStatus&&(o.trkStatus[_shipTrk]==='qc'||o.trkStatus[_shipTrk]==='done');
-  if(!(o.status==='ship'||o.status==='pack'||o.status==='qc'||_trkQCd)){return;}
+  var _trkQCd=o.trkStatus&&isTrkVerified(o.trkStatus[_shipTrk]);
+  if(!(o.status==='ship'||o.status==='pack'||o.status==='qc'||o.status==='completed'||_trkQCd)){return;}
   // mark เฉพาะ tracking นี้เป็น done
   var nowTs=new Date().toISOString();
   if(!o.trkStatus) o.trkStatus={};
@@ -1492,6 +1661,7 @@ function confirmShip(){
   o.updatedAt=nowTs;
   // ตรวจว่า tracking ทั้งหมดส่งแล้วหรือยัง
   var allTrks=[];
+  (o.trackings||[]).forEach(function(t){if(t&&allTrks.indexOf(t)<0)allTrks.push(t);});
   (o.items||[]).forEach(function(it){var t=it.tracking||o.tracking||'';if(t&&allTrks.indexOf(t)<0)allTrks.push(t);});
   if(!allTrks.length&&o.tracking) allTrks=[o.tracking];
   var allDone=allTrks.length>0&&allTrks.every(function(t){return o.trkStatus[t]==='done';});
@@ -1630,8 +1800,68 @@ function saveTrkModal(){
   showAl('✅ แก้ Tracking สำเร็จ','ok');
 }
 
+/* ===== EXCEPTION MODAL ===== */
+var _excSelectedReason='';
+function openExceptionModal(){
+  if(!CUR_OID){showAl('กรุณาเลือก Order ก่อน','err');return;}
+  _excSelectedReason='';
+  var lbl=document.getElementById('exc-trk-label');
+  if(lbl) lbl.textContent=(CUR_OID||'')+(CUR_TRK?' · '+CUR_TRK:'');
+  // reset reason buttons
+  document.querySelectorAll('.exc-r-btn').forEach(function(b){
+    b.style.background='var(--bg2)';b.style.borderColor='var(--border2)';b.style.color='var(--text)';
+  });
+  var noteEl=document.getElementById('exc-note');
+  if(noteEl) noteEl.value='';
+  var confirmBtn=document.getElementById('exc-confirm-btn');
+  if(confirmBtn){confirmBtn.disabled=true;confirmBtn.style.opacity='.4';}
+  document.getElementById('exc-modal').style.display='flex';
+}
+function closeExceptionModal(){
+  document.getElementById('exc-modal').style.display='none';
+}
+function selectExcReason(btn, reason){
+  _excSelectedReason=reason;
+  document.querySelectorAll('.exc-r-btn').forEach(function(b){
+    b.style.background='var(--bg2)';b.style.borderColor='var(--border2)';b.style.color='var(--text)';
+  });
+  btn.style.background='#FEE2E2';btn.style.borderColor='#FCA5A5';btn.style.color='#DC2626';
+  var confirmBtn=document.getElementById('exc-confirm-btn');
+  if(confirmBtn){confirmBtn.disabled=false;confirmBtn.style.opacity='1';}
+}
+function confirmException(){
+  if(!CUR_OID||!_excSelectedReason) return;
+  var excOid=CUR_OID, excTrk=CUR_TRK;
+  var note=(document.getElementById('exc-note').value||'').trim();
+  var nowTs=new Date().toISOString();
+  var o=ORDERS[excOid]; if(!o) return;
+  if(!o.trkStatus) o.trkStatus={};
+  if(!o.trkMeta) o.trkMeta={};
+  o.trkStatus[excTrk]='exception';
+  o.trkMeta[excTrk]={reason:_excSelectedReason,note:note,by:USR,at:nowTs,device:DEV};
+  if(!o.timeline) o.timeline=[];
+  o.timeline.push({time:nowTs,status:'exception',action:'⚠️ Exception: '+_excSelectedReason+(note?' — '+note:''),tracking:excTrk,user:USR,device:DEV});
+  o.updatedAt=nowTs;
+  save();refreshStats();renderDashboard();
+  // push to Firebase
+  if(FB){
+    fbPatch('/orders/'+encId(excOid),{trkStatus:o.trkStatus,trkMeta:o.trkMeta,timeline:o.timeline,updatedAt:nowTs});
+    fbPatch('/statuses/'+encId(excOid),{trkStatus:o.trkStatus,trkMeta:o.trkMeta,updatedAt:nowTs,device:DEV,user:USR});
+    // clear lock
+    fbPut('/trkLocks/'+encId(excTrk),null);
+  }
+  closeExceptionModal();
+  // show notification
+  var msg='⚠️ Exception: '+_excSelectedReason+(note?' — '+note:'');
+  showAl(msg,'err');
+  if(navigator.vibrate) navigator.vibrate([200,100,200]);
+  setTimeout(function(){resetScan();},2000);
+}
+
 /* ===== RESET ===== */
 function resetScan(){
+  // clear tracking lock if was scanning
+  if(CUR_TRK&&FB) fbPut('/trkLocks/'+encId(CUR_TRK),null);
   CUR_OID='';CUR_TRK='';CUR_ITEMS=[];
   document.getElementById('in1').value='';
   document.getElementById('h1').className='hint';

@@ -90,6 +90,11 @@ tr:hover td{background:var(--bg3)}
 .b-qc{background:var(--ob);color:var(--orange);border:1px solid var(--obr)}
 .b-pick{background:#E0F2FE;color:#0369A1;border:1px solid #BAE6FD}.b-pack{background:var(--pb);color:var(--purple);border:1px solid var(--pbr)}.b-ship{background:#F3E8FF;color:#7C3AED;border:1px solid #DDD6FE}
 .b-done{background:var(--gb);color:var(--green);border:1px solid var(--gbr)}
+.b-verified{background:#DCFCE7;color:#15803D;border:1px solid #86EFAC}
+.b-exception{background:#FEE2E2;color:#DC2626;border:1px solid #FCA5A5}
+.b-inprog{background:#DBEAFE;color:#1D4ED8;border:1px solid #93C5FD}
+.b-partial{background:#FEF9C3;color:#A16207;border:1px solid #FDE047}
+.b-completed{background:#DCFCE7;color:#15803D;border:1px solid #86EFAC}
 .b-cancel{background:var(--rb);color:var(--red);border:1px solid var(--rbr)}.b-postponed{background:#FEF3C7;color:#92400E;border:1px solid #FCD34D}
 .b-hold{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
 .b-draft{background:var(--tb);color:var(--teal);border:1px solid var(--tbr)}
@@ -1613,6 +1618,18 @@ function renderOrders(){
   document.getElementById('nb-new').textContent=Object.values(ORDERS).filter(o=>o.status==='new').length;
   if(!orders.length){document.getElementById('ord-tbody').innerHTML='<tr><td colspan="10" class="empty">ไม่พบออเดอร์</td></tr>';return;}
 
+  // helper normalize trkStatus — declared once outside the loop
+  function _pcTrkSt(val){
+    if(!val) return 'waiting';
+    if(val==='qc'||val==='verified') return 'verified';
+    if(val==='done'||val==='shipped') return 'shipped';
+    if(val==='exception') return 'exception';
+    if(val==='in_progress') return 'in_progress';
+    return 'waiting';
+  }
+  var _SL_ext=Object.assign({partial:'⏳ Partial Verified',completed:'✅ Completed'},SL);
+  var _SB_ext=Object.assign({partial:'b-partial',completed:'b-completed'},SB);
+
   var allRows=[];
   orders.forEach(function(o){
     // จัดกลุ่ม items ตาม tracking
@@ -1625,19 +1642,49 @@ function renderOrders(){
     var trkKeys=Object.keys(trkMap);
     if(!trkKeys.length){trkKeys=[o.tracking||'—'];trkMap[o.tracking||'—']=[];}
     var sup=escHtml(getOrderSUP(o)||'—');
-    var oStat='<span class="badge '+(SB[o.status]||'b-new')+'">'+(SL[o.status]||o.status)+'</span>'
+
+    // คำนวณ order status รวมจาก trackings ทั้งหมด
+    var _allTrksForOrder=[];
+    (o.trackings||[]).forEach(function(t){if(t&&_allTrksForOrder.indexOf(t)<0)_allTrksForOrder.push(t);});
+    trkKeys.forEach(function(t){if(t&&t!=='—'&&_allTrksForOrder.indexOf(t)<0)_allTrksForOrder.push(t);});
+    var _ts=o.trkStatus||{};
+    var _verifiedAll=_allTrksForOrder.length>0&&_allTrksForOrder.every(function(t){var s=_pcTrkSt(_ts[t]);return s==='verified'||s==='shipped';});
+    var _verifiedSome=_allTrksForOrder.some(function(t){var s=_pcTrkSt(_ts[t]);return s==='verified'||s==='shipped'||s==='exception';});
+    var _computedOSt=_verifiedAll?'completed':(_verifiedSome?'partial':o.status);
+    var oStat='<span class="badge '+(_SB_ext[_computedOSt]||'b-new')+'">'+(_SL_ext[_computedOSt]||o.status)+'</span>'
       +(o.postponedFrom?'<br><span style="font-size:9px;padding:1px 5px;background:#FEF3C7;color:#92400E;border-radius:6px;font-weight:700">เลื่อน</span>':'');
 
     trkKeys.forEach(function(trk,ti){
       var _oSt=String(o.status||'');
-      var trkQCd=(o.trkStatus&&o.trkStatus[trk]==='qc')||(_oSt==='qc'||_oSt==='ship'||_oSt==='pack'||_oSt==='done');
+      var rawTrkSt=o.trkStatus&&o.trkStatus[trk];
+      var trkStNorm=_pcTrkSt(rawTrkSt);
+      // backward compat: ถ้า order status บอกว่า qc/ship/done ถือว่า tracking ผ่านแล้ว
+      var orderPassedAll=_oSt==='qc'||_oSt==='ship'||_oSt==='pack'||_oSt==='done'||_oSt==='completed';
+      if(orderPassedAll&&trkStNorm==='waiting') trkStNorm='verified';
       var trkItems=trkMap[trk]||[];
-      var rowBg=trkQCd?'background:#F0FDF4':'';
+      var meta=(o.trkMeta&&o.trkMeta[trk])||{};
+      // row background by status
+      var rowBg=trkStNorm==='verified'||trkStNorm==='shipped'?'background:#F0FDF4'
+        :trkStNorm==='exception'?'background:#FFF1F2'
+        :trkStNorm==='in_progress'?'background:#EFF6FF':'';
       var borderTop=ti===0?'border-top:2px solid var(--border2)':'border-top:1px solid var(--border)';
-      var trkBadge=trkQCd
-        ?'<span class="badge b-qc" style="font-size:10px;white-space:nowrap">✅ QC ผ่าน</span>'
-        :'<span class="badge" style="font-size:10px;background:#F1F5F9;color:#64748B;border:1px solid #CBD5E1;white-space:nowrap">รอ QC</span>';
-      var trkDisp='<span class="mono" style="font-size:11px;font-weight:700;color:'+(trkQCd?'#15803D':'var(--text)')+'">'+escHtml(trk==='—'?'':trk)+'</span>';
+      // tracking badge
+      var trkBadge;
+      if(trkStNorm==='verified'||trkStNorm==='shipped'){
+        trkBadge='<span class="badge b-verified" style="font-size:10px">✅ Verified</span>'
+          +(meta.by?'<div style="font-size:9px;color:#15803D;margin-top:2px">by '+escHtml(meta.by)+'</div>':'');
+      } else if(trkStNorm==='exception'){
+        trkBadge='<span class="badge b-exception" style="font-size:10px">⚠️ Exception</span>'
+          +(meta.reason?'<div style="font-size:9px;color:#DC2626;margin-top:2px">'+escHtml(meta.reason)+'</div>':'')
+          +(meta.note?'<div style="font-size:9px;color:#DC2626">'+escHtml(meta.note)+'</div>':'');
+      } else if(trkStNorm==='in_progress'){
+        trkBadge='<span class="badge b-inprog" style="font-size:10px">🔄 In Progress</span>'
+          +(meta.device?'<div style="font-size:9px;color:#1D4ED8;margin-top:2px">'+escHtml(meta.device)+'</div>':'');
+      } else {
+        trkBadge='<span class="badge" style="font-size:10px;background:#F1F5F9;color:#64748B;border:1px solid #CBD5E1">⏳ รอ Verify</span>';
+      }
+      var trkColor=trkStNorm==='verified'||trkStNorm==='shipped'?'#15803D':trkStNorm==='exception'?'#DC2626':trkStNorm==='in_progress'?'#1D4ED8':'var(--text)';
+      var trkDisp='<span class="mono" style="font-size:11px;font-weight:700;color:'+trkColor+'">'+escHtml(trk==='—'?'':trk)+'</span>';
       var oid_s=escHtml(o.id); var trk_s=escHtml(trk);
 
       // ข้อมูล items ของ tracking นี้
@@ -1664,7 +1711,7 @@ function renderOrders(){
       // ===== ACTIONS =====
       row+='<td style="vertical-align:top"><div class="brow" style="flex-wrap:wrap;gap:4px">';
       row+='<button class="btn btn-xs" onclick="openOrder(\''+oid_s+'\')" style="background:var(--primary);color:#fff;border:none;font-weight:700">🔎 ดูรายละเอียด</button>';
-      row+='<button class="btn btn-xs" style="background:#F59E0B;color:#fff;border:none;font-weight:700" onclick="openEditOrder(\''+oid_s+'\')">✏️ แก้ไข</button>';
+      row+='<button class="btn btn-xs" style="background:#F59E0B;color:#fff;border:none;font-weight:700" onclick="openEditOrder(\''+oid_s+'\',\''+trk_s+'\')">✏️ แก้ไข</button>';
       row+='</div></td></tr>';
       allRows.push(row);
     });
@@ -2880,17 +2927,21 @@ function exportMatcherCSV(){
 
 /* ===== EDIT ORDER ===== */
 var _editOid=null;
+var _editTrk=null; // tracking ที่กำลังแก้ไข (null = แก้ทั้ง order)
 
-function openEditOrder(oid){
+function openEditOrder(oid, trk){
   var o=ORDERS[oid]; if(!o)return;
   _editOid=oid;
-  document.getElementById('edit-oid-label').textContent=oid;
+  _editTrk=trk||null;
+  // label แสดง order + tracking ที่กำลังแก้
+  var label=oid+(trk&&trk!=='—'?' · Tracking: '+trk:'');
+  document.getElementById('edit-oid-label').textContent=label;
   document.getElementById('edit-consign').value=o.consign||'';
-  document.getElementById('edit-tracking').value=o.tracking||'';
+  // Tracking field: แสดง tracking ที่กดแก้ไข (ถ้ามี) หรือ tracking หลัก
+  document.getElementById('edit-tracking').value=trk&&trk!=='—'?trk:(o.tracking||'');
   var supEl=document.getElementById('edit-sup');
   if(supEl) supEl.value=o.sup||detectCarrier(o.tracking||'').short||'';
   var sdEl=document.getElementById('edit-shipdate');
-  // แปลง date เป็น YYYY-MM-DD เพื่อให้ input[type=date] รับได้
   function toInputDate(ds){
     if(!ds) return '';
     if(/^\d{4}-\d{2}-\d{2}/.test(ds)) return ds.slice(0,10);
@@ -2901,7 +2952,15 @@ function openEditOrder(oid){
   if(sdEl) sdEl.value=toInputDate(o.shipDate||o.date||'');
   var stEl=document.getElementById('edit-status');
   if(stEl) stEl.value=o.status||'new';
-  renderEditItems(o.items||[]);
+  // กรอง items ให้แสดงแค่ tracking ที่กด (ถ้า trk ระบุมา)
+  var itemsToEdit=o.items||[];
+  if(trk&&trk!=='—'){
+    itemsToEdit=(o.items||[]).filter(function(it){
+      var t=it.tracking||o.tracking||'—';
+      return t===trk;
+    });
+  }
+  renderEditItems(itemsToEdit);
   document.getElementById('edit-order-modal').style.display='block';
 }
 
@@ -2954,8 +3013,16 @@ function removeEditItem(idx){
 
 function addEditItem(){
   if(!_editOid||!ORDERS[_editOid])return;
-  ORDERS[_editOid].items.push({sku:'',name:'',size:'',qty:1,tracking:'',consign:''});
-  renderEditItems(ORDERS[_editOid].items);
+  var o=ORDERS[_editOid];
+  if(!o.items) o.items=[];
+  // item ใหม่ใช้ tracking ที่กำลังแก้ไขเป็น default
+  var defTrk=_editTrk&&_editTrk!=='—'?_editTrk:(o.tracking||'');
+  o.items.push({sku:'',name:'',size:'',qty:1,tracking:defTrk,consign:''});
+  // re-render เฉพาะ items ของ tracking นี้
+  var itemsToEdit=_editTrk&&_editTrk!=='—'
+    ?o.items.filter(function(it){return (it.tracking||o.tracking||'—')===_editTrk;})
+    :o.items;
+  renderEditItems(itemsToEdit);
 }
 
 function resetOrderToPick(){
@@ -2989,8 +3056,12 @@ function saveEditOrder(){
 
   // อ่าน items จาก DOM โดยตรง (ป้องกัน onchange ไม่ fire)
   var list=document.getElementById('edit-items-list');
-  if(list&&list.children.length>0){
-    var newItems=[];
+  if(list&&list.children.length>=0){
+    var editedItems=[];
+    // หา items ของ tracking นี้ใน ORDERS เพื่อ map oldItem
+    var srcItems=_editTrk&&_editTrk!=='—'
+      ?(o.items||[]).filter(function(it){return (it.tracking||o.tracking||'—')===_editTrk;})
+      :(o.items||[]);
     Array.from(list.children).forEach(function(row,ri){
       var inputs=row.querySelectorAll('input');
       if(inputs.length>=4){
@@ -2999,17 +3070,27 @@ function saveEditOrder(){
         var size=(inputs[2].value||'').trim();
         var qty=parseInt(inputs[3].value)||1;
         var trk=inputs.length>=5?(inputs[4].value||'').trim():'';
-        if(sku||name){ // เก็บเฉพาะ row ที่มีข้อมูล
-          var oldItem=o.items&&o.items[ri]?o.items[ri]:{};
-          newItems.push({
+        if(sku||name){
+          var oldItem=srcItems[ri]||{};
+          // ถ้าไม่ได้ระบุ tracking ใน input ให้ใช้ _editTrk หรือ tracking เดิม
+          var finalTrk=trk||(oldItem.tracking||(_editTrk&&_editTrk!=='—'?_editTrk:o.tracking)||'');
+          editedItems.push({
             sku:sku,name:name,size:size,qty:qty,
-            tracking:trk||oldItem.tracking||'',
+            tracking:finalTrk,
             sup:oldItem.sup||''
           });
         }
       }
     });
-    if(newItems.length>0) o.items=newItems;
+    if(_editTrk&&_editTrk!=='—'){
+      // merge: เก็บ items tracking อื่นไว้ แทนที่แค่ tracking นี้
+      var otherItems=(o.items||[]).filter(function(it){
+        return (it.tracking||o.tracking||'—')!==_editTrk;
+      });
+      o.items=otherItems.concat(editedItems);
+    } else {
+      if(editedItems.length>0) o.items=editedItems;
+    }
   }
 
   o.updatedAt=new Date().toISOString();
