@@ -2179,33 +2179,77 @@ function startFirebaseStream(){
   if(!FB_URL||_fbStream)return;
   try{
     _fbStream=new EventSource(FB_URL+'/statuses.json');
-    _fbStream.onmessage=function(e){
+
+    // ฟังก์ชันกลางสำหรับประมวลผล SSE event (รองรับทั้ง put และ patch)
+    function handleFBEvent(e){
       if(!e.data||e.data==='null')return;
       try{
         var msg=JSON.parse(e.data);
-        var data=msg&&msg.data?msg.data:msg;
-        if(!data)return;
+        if(!msg)return;
+        var path=msg.path||'/';
+        var payload=msg.data;
+        if(payload===null||payload===undefined)return;
         var changed=false;
         var rank={new:0,pick:1,qc:2,ship:3,pack:3,done:4,cancel:5};
-        Object.keys(data).forEach(function(rawOid){
+
+        function applyEntry(rawOid,entry){
           var oid=decodeId(rawOid);
-          var entry=data[rawOid];
-          var st=typeof entry==='string'?entry:(entry&&entry.status?entry.status:'');
           if(!ORDERS[oid])return;
+          var st=typeof entry==='string'?entry:(entry&&entry.status?entry.status:'');
           if(st&&(rank[st]||0)>=(rank[ORDERS[oid].status]||0)&&ORDERS[oid].status!==st){
             ORDERS[oid].status=st;changed=true;
+            if(entry&&entry.user) ORDERS[oid].user=entry.user;
+            if(entry&&entry.device) ORDERS[oid].device=entry.device;
+            if(entry&&entry.updatedAt) ORDERS[oid].updatedAt=entry.updatedAt;
+            if(entry&&entry.editedAt&&(!ORDERS[oid].editedAt||entry.editedAt>ORDERS[oid].editedAt)){
+              (function(o){fbGet('/orders/'+encodeId(o),function(err,d){
+                if(!err&&d&&d.items){ORDERS[o]=Object.assign({},ORDERS[o],{items:d.items,editedAt:d.editedAt||''});saveLocal();refreshAll();}
+              });})(oid);
+            }
           }
           if(entry&&entry.trkStatus){
             ORDERS[oid].trkStatus=Object.assign({},ORDERS[oid].trkStatus||{},entry.trkStatus);
             changed=true;
           }
-        });
-        if(changed){saveLocal();refreshAll();
-          let ind=document.getElementById('conn-ind');
-          if(ind){ind.textContent='🔥 Firebase sync';setTimeout(()=>updateConn(),2000);}
+        }
+
+        if(path==='/'||path===''){
+          // root put/patch — payload คือ {rawOid: entry, ...}
+          if(typeof payload==='object'&&payload!==null){
+            Object.keys(payload).forEach(function(rawOid){applyEntry(rawOid,payload[rawOid]);});
+          }
+        } else {
+          // child put/patch — path="/encodedId" หรือ "/encodedId/field"
+          var parts=path.replace(/^\//,'').split('/');
+          var rawOid=parts[0];
+          if(parts.length===1){
+            // อัปเดตทั้ง node ของ order นี้
+            applyEntry(rawOid,payload);
+          } else {
+            // อัปเดต field เดียว เช่น /encodedId/status
+            var field=parts[1];
+            var oid=decodeId(rawOid);
+            if(ORDERS[oid]){
+              var fakeEntry={};
+              fakeEntry[field]=payload;
+              applyEntry(rawOid,fakeEntry);
+            }
+          }
+        }
+        if(changed){
+          saveLocal();refreshAll();
+          var ind=document.getElementById('conn-ind');
+          if(ind){ind.textContent='🔥 Firebase sync';setTimeout(function(){updateConn();},2000);}
         }
       }catch(_){}
-    };
+    }
+
+    // Firebase SSE ส่ง named events 'put' และ 'patch' — ต้องใช้ addEventListener
+    _fbStream.addEventListener('put', handleFBEvent);
+    _fbStream.addEventListener('patch', handleFBEvent);
+    // fallback สำหรับ browser/server ที่ส่งเป็น default 'message'
+    _fbStream.onmessage=handleFBEvent;
+
     _fbStream.onerror=function(){
       _fbStream.close();_fbStream=null;
       setTimeout(startFirebaseStream,5000); // retry
@@ -2213,6 +2257,11 @@ function startFirebaseStream(){
     console.log('Firebase stream started');
   }catch(e){console.log('Firebase stream error:',e);}
 }
+
+// Periodic status sync เป็น fallback กรณี SSE ขาด
+setInterval(function(){
+  if(FB_URL&&document.visibilityState==='visible') syncStatusesNow();
+},60000);
 
 // Push order status to Firebase when changed
 function fbPushStatus(oid,status){
@@ -3010,13 +3059,22 @@ function syncDraftsFromFB(){
     var changed=false;
     var remoteOids={};
     var DONE_ST=['qc','ship','done','cancel'];
+    var now=Date.now();
+    var DRAFT_TTL_MS=24*60*60*1000; // draft เก่าเกิน 24h ลบทิ้ง
     Object.keys(data).forEach(function(rawOid){
       var d=data[rawOid];
       if(!d||!d.oid)return;
       var oid=d.oid;
-      // ถ้า order ผ่าน QC/Done แล้ว → draft ค้างอยู่บน Firebase (race condition)
-      // → ลบออกจาก Firebase ทันที และไม่ดึงกลับมา
+      // ถ้า order ผ่าน QC/Done แล้ว → draft ค้างอยู่บน Firebase → ลบทันที
       if(ORDERS[oid]&&DONE_ST.indexOf(ORDERS[oid].status)>=0){
+        fbPut('/drafts/'+encodeId(oid),null);
+        return;
+      }
+      // ตรวจ Firebase /statuses ว่า order นี้ done จริงหรือเปล่า (กรณี ORDERS ไม่มี order นี้)
+      // (async — จะ handle ได้ใน syncStatusesNow ที่รันทุก 60s)
+
+      // draft เก่าเกิน 24 ชั่วโมง → ลบออก (stale draft จาก scan ที่ค้างนาน)
+      if(d.ts&&(now-d.ts)>DRAFT_TTL_MS){
         fbPut('/drafts/'+encodeId(oid),null);
         return;
       }
