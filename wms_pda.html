@@ -159,6 +159,7 @@ input:focus{outline:none;border-color:var(--primary)}
     <div class="card-t">Sync ข้อมูล</div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <button class="btn btn-fb" onclick="syncOrdersFromFirebase()">🔥 ดึงออเดอร์จาก Firebase</button>
+      <button class="btn" style="background:#DC2626;color:#fff;font-weight:700" onclick="clearSyncOrders()">🗑 ล้างและ Sync ใหม่ทั้งหมด</button>
       <div id="sync-debug" style="font-size:11px;color:var(--text2);padding:6px;background:var(--bg3);border-radius:6px;word-break:break-all"></div>
     </div>
   </div>
@@ -588,18 +589,40 @@ function syncOrdersFromFirebase(){
       var keys=Object.keys(data);
       if(!keys.length){setSyncErr('Firebase ว่างเปล่า');return;}
       setSyncOk('⏳ ดึง '+keys.length+' orders...');
-      pdaBatch(keys,0,40,0);
+      // เก็บ set ของ order IDs ที่มีใน Firebase สำหรับ cleanup ทีหลัง
+      var fbOidSet={};
+      pdaBatch(keys,0,40,0,fbOidSet,function(totalDone){
+        // cleanup: ลบ orders ที่ไม่มีใน Firebase ออกจาก local
+        var removed=0;
+        Object.keys(ORDERS).forEach(function(oid){
+          if(!fbOidSet[oid]){delete ORDERS[oid];removed++;}
+        });
+        save();refreshStats();renderDashboard();
+        var msg='🔥 '+totalDone+'/'+keys.length+' orders';
+        if(removed>0) msg+=' (ลบค้าง '+removed+' orders)';
+        setSyncOk(msg);
+      });
     }catch(e){setSyncErr('Firebase error');}
   };
   xhr.onerror=function(){setSyncErr('เชื่อมต่อ Firebase ไม่ได้');};
   xhr.ontimeout=function(){setSyncErr('Firebase timeout');};
   xhr.send();
 }
-function pdaBatch(keys,offset,size,done){
+
+// clearSyncOrders — ล้าง localStorage แล้ว sync ใหม่จาก Firebase
+function clearSyncOrders(){
+  if(!FB){showAl('ไม่มี Firebase URL','err');return;}
+  if(!confirm('ล้างข้อมูลออเดอร์ทั้งหมดในเครื่องแล้วดึงจาก Firebase ใหม่?'))return;
+  ORDERS={};SC={};
+  save();refreshStats();
+  syncOrdersFromFirebase();
+}
+
+function pdaBatch(keys,offset,size,done,fbOidSet,onFinish){
   var batch=keys.slice(offset,offset+size);
   if(!batch.length){
-    save();refreshStats();renderDashboard();
-    setSyncOk('🔥 '+done+'/'+keys.length+' orders พร้อมแล้ว');
+    if(onFinish) onFinish(done);
+    else{save();refreshStats();renderDashboard();setSyncOk('🔥 '+done+'/'+keys.length+' orders พร้อมแล้ว');}
     return;
   }
   setSyncOk('⏳ ดึง '+(offset+1)+'-'+Math.min(offset+size,keys.length)+'/'+keys.length);
@@ -614,11 +637,12 @@ function pdaBatch(keys,offset,size,done){
         if(o&&o.id){
           var oid=o.id;
           // ข้าม orders เก่า id ตัวเลขล้วน
-          if(/^\d+$/.test(oid)){if(--left===0)pdaBatch(keys,offset+size,size,done);return;}
+          if(/^\d+$/.test(oid)){if(--left===0)pdaBatch(keys,offset+size,size,done,fbOidSet,onFinish);return;}
+          fbOidSet[oid]=true; // บันทึกว่า order นี้มีใน Firebase
           var _stRank={new:0,postponed:0,pick:1,qc:2,pack:3,ship:3,done:4,cancel:5};
           var ex=ORDERS[oid]?ORDERS[oid].status:'';
           var fbSt=o.status||'new';
-          // ใช้ status ที่ก้าวหน้ากว่าเสมอ — ป้องกัน downgrade เมื่อ Firebase อัปเดตก่อน
+          // ใช้ status ที่ก้าวหน้ากว่าเสมอ — Firebase 'done' ชนะ local 'pick' เสมอ
           var finalSt=(_stRank[ex]||0)>(_stRank[fbSt]||0)?ex:fbSt;
           ORDERS[oid]={id:oid,consign:o.consign||'',tracking:o.tracking||'',
             trackings:o.trackings||[],items:o.items||[],
@@ -629,9 +653,9 @@ function pdaBatch(keys,offset,size,done){
           done++;
         }
       }catch(e){}
-      if(--left===0) pdaBatch(keys,offset+size,size,done);
+      if(--left===0) pdaBatch(keys,offset+size,size,done,fbOidSet,onFinish);
     };
-    x.onerror=x.ontimeout=function(){if(--left===0) pdaBatch(keys,offset+size,size,done);};
+    x.onerror=x.ontimeout=function(){if(--left===0) pdaBatch(keys,offset+size,size,done,fbOidSet,onFinish);};
     x.send();
   });
 }
