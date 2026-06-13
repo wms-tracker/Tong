@@ -414,7 +414,7 @@ input:focus{outline:none;border-color:var(--primary)}
 var ORDERS={},SC={},DRAFTS={};
 var API='',FB='',DEV='PDA-01',USR='user01';
 var MODE='tracking',CUR_OID='',CUR_TRK='',CUR_ITEMS=[];
-var SL={new:'🆕 รับแล้ว',pick:'🔍 Pick',qc:'✅ QC ผ่าน',pack:'📦 Pack',ship:'🚚 Ship',done:'✔ Done',cancel:'🚫 Cancel',postponed:'📅 เลื่อน',hold:'⏸ พักไว้',draft:'📝 ร่าง',partial:'⏳ Partial Verified',completed:'✅ Completed'};
+var SL={new:'🆕 รับแล้ว',pick:'🔍 Pick',qc:'✅ QC ผ่าน',pack:'📦 Pack',ship:'🚚 Ship',done:'✔ Done',cancel:'🚫 Cancel',postponed:'📅 เลื่อน',hold:'⏸ พักไว้',draft:'📝 ร่าง',partial:'⏳ ตรวจบางส่วน',completed:'✅ ตรวจครบแล้ว'};
 var SB={new:'b-new',pick:'b-pick',qc:'b-qc',pack:'b-pack',ship:'b-ship',done:'b-done',cancel:'b-cancel',postponed:'b-postponed',hold:'b-hold',draft:'b-draft',partial:'b-partial',completed:'b-completed'};
 
 // ===== TRACKING STATUS HELPERS =====
@@ -431,7 +431,7 @@ function isTrkVerified(val){var s=getTrkSt(val);return s==='verified'||s==='ship
 function isTrkDone(val){return getTrkSt(val)==='shipped';}
 function trkStLabel(val){
   var s=getTrkSt(val);
-  return {verified:'✅ Verified',shipped:'📦 Shipped',exception:'⚠️ Exception',in_progress:'🔄 In Progress',waiting:'⏳ Waiting'}[s]||'⏳ Waiting';
+  return {verified:'✅ ตรวจแล้ว',shipped:'📦 ส่งแล้ว',exception:'⚠️ มีปัญหา',in_progress:'🔄 กำลังตรวจ',waiting:'⏳ รอตรวจ'}[s]||'⏳ รอตรวจ';
 }
 function trkStBadgeClass(val){
   var s=getTrkSt(val);
@@ -597,6 +597,7 @@ function init(){
     setTimeout(function(){syncEditedOrders();},3500);
     setTimeout(function(){startStatusSSE();},4000);   // real-time status จาก PC
     setTimeout(function(){startCancelSSE();},4500);   // real-time cancel จาก PC
+    setTimeout(function(){startUploadSSE();},5500);   // auto re-sync เมื่อ PC อัพโหลดใหม่
     setTimeout(function(){syncFBStatuses();},5000);   // initial status+trkStatus pull
   }
   if(API) setTimeout(startAutoSync,2000);
@@ -916,6 +917,32 @@ function startStatusSSE(){
     _statusSSE.addEventListener('patch',handleStatusEv);
     _statusSSE.onmessage=handleStatusEv;
     _statusSSE.onerror=function(){_statusSSE.close();_statusSSE=null;setTimeout(startStatusSSE,5000);};
+  }catch(ex){}
+}
+
+/* ===== LASTUPLOAD SSE — auto re-sync เมื่อ PC อัพโหลดไฟล์ใหม่ ===== */
+var _uploadSSE=null;
+var _lastUploadAt='';
+function startUploadSSE(){
+  if(!FB||_uploadSSE) return;
+  try{
+    _uploadSSE=new EventSource(FB+'/lastUpload.json');
+    function handleUploadEv(e){
+      if(!e.data||e.data==='null') return;
+      try{
+        var msg=JSON.parse(e.data);
+        var d=msg&&msg.data?msg.data:msg;
+        if(!d||!d.at) return;
+        if(d.at===_lastUploadAt) return; // ไม่ซ้ำ
+        _lastUploadAt=d.at;
+        showAl('📦 PC อัพโหลดใหม่ '+d.count+' orders — กำลัง sync...','ok');
+        setTimeout(function(){syncOrdersFromFirebase();},1000);
+      }catch(ex){}
+    }
+    _uploadSSE.addEventListener('put',handleUploadEv);
+    _uploadSSE.addEventListener('patch',handleUploadEv);
+    _uploadSSE.onmessage=handleUploadEv;
+    _uploadSSE.onerror=function(){_uploadSSE.close();_uploadSSE=null;setTimeout(startUploadSSE,8000);};
   }catch(ex){}
 }
 

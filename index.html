@@ -442,7 +442,7 @@ tr:hover td{background:var(--bg3)}
     <div class="brow">
       <div style="position:relative;flex:1;min-width:180px">
         <span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text3)">🔍</span>
-        <input type="search" id="ord-q" placeholder="ค้นหา Order, SKU, Consign..." oninput="filterOrders()" style="padding-left:32px">
+        <input type="search" id="ord-q" placeholder="ค้นหา Order, SKU, Consign..." oninput="_ORD_Q=this.value;filterOrders()" style="padding-left:32px">
       </div>
       <select id="ord-f" onchange="filterOrders()" style="width:140px">
         <option value="">ทุกสถานะ</option>
@@ -460,6 +460,7 @@ tr:hover td{background:var(--bg3)}
       <button class="btn btn-o btn-sm" onclick="confirmExportCSV()">⬇ Export CSV</button>
     </div>
   </div>
+  <div id="dbg-bar" style="background:#FEF9C3;border:1px solid #FDE68A;padding:6px 12px;font-size:12px;font-family:monospace;margin-bottom:4px;display:none"></div>
   <div class="tw">
     <table style="table-layout:fixed;min-width:900px"><thead>
         <tr id="bulk-toolbar" style="display:none;background:var(--primary)">
@@ -1196,9 +1197,27 @@ function confirmUpload(mode){
     if(!grouped[oid]) delete ORDERS[oid];
   });
   saveLocal();
+  // Push ขึ้น Firebase
+  if(FB_URL){
+    var _fbCount=0,_fbTotal=Object.keys(grouped).length;
+    Object.keys(grouped).forEach(function(oid,idx){
+      setTimeout(function(){
+        fbPut('/orders/'+encodeId(oid),ORDERS[oid]);
+        var st=ORDERS[oid].status||'new';
+        fbPatch('/statuses/'+encodeId(oid),{status:st,updatedAt:ORDERS[oid].updatedAt||new Date().toISOString()});
+        _fbCount++;
+        if(_fbCount===_fbTotal){
+          console.log('Firebase: pushed '+_fbCount+' orders');
+          // แจ้งเตือน PDA ให้ re-sync
+          var _usr=localStorage.getItem('WMS_USR')||'PC';
+          fbPut('/lastUpload',{at:new Date().toISOString(),by:_usr,count:_fbTotal});
+        }
+      },idx*120);
+    });
+  }
   document.getElementById('prev-card').style.display='none';
   pendingData=[];
-  ulAlert(`✓ เพิ่ม ${added} ออเดอร์ใหม่, อัปเดต ${updated} ออเดอร์`,'ok');
+  ulAlert(`✓ เพิ่ม ${added} ออเดอร์ใหม่, อัปเดต ${updated} ออเดอร์`+(FB_URL?' (sync Firebase แล้ว)':''),'ok');
   refreshAll();
   setTimeout(()=>goPage('orders'),1200);
 }
@@ -1593,15 +1612,24 @@ function renderOrders(){
       return '<option value="'+s+'"'+(s===curSup?' selected':'')+'>'+(s===''?'ทุกขนส่ง':s)+'</option>';
     }).join('');
   }
-  let q=(document.getElementById('ord-q')?.value||'').toLowerCase();
+  let q=(typeof _ORD_Q!=='undefined'?_ORD_Q:(document.getElementById('ord-q')?.value||'')).toLowerCase().trim();
   let f=document.getElementById('ord-f')?.value||'';
   let supF=document.getElementById('ord-sup')?document.getElementById('ord-sup').value:'';
+  console.log('[DBG] renderOrders q=',JSON.stringify(q),'f=',JSON.stringify(f),'supF=',JSON.stringify(supF));
+  var _dbgEl=document.getElementById('dbg-bar');
+  if(_dbgEl){_dbgEl.style.display='block';_dbgEl.textContent='[DBG] q='+JSON.stringify(q)+' f='+JSON.stringify(f)+' supF='+JSON.stringify(supF)+' ORDERS.keys='+Object.keys(ORDERS).length+' TP21971.trks='+(ORDERS['TP-21971']?.trackings?.length);};
   let orders=Object.values(ORDERS).filter(o=>{
     if(f==='postponed'){if(!o.postponedFrom)return false;}
     else if(f&&o.status!==f)return false;
     if(supF&&getOrderSUP(o)!==supF)return false;
     if(!q)return true;
-    return o.id.toLowerCase().includes(q)||(o.consign||'').toLowerCase().includes(q)||(o.tracking||'').toLowerCase().includes(q)||o.items.some(i=>(i.sku||'').toLowerCase().includes(q)||(i.name||'').toLowerCase().includes(q));
+    if(o.id.toLowerCase().includes(q)) return true;
+    if((o.consign||'').toLowerCase().includes(q)) return true;
+    if((o.tracking||'').toLowerCase().includes(q)) return true;
+    if((o.trackings||[]).some(function(t){return (t||'').toLowerCase().includes(q);})) return true;
+    if((o.items||[]).some(function(i){return (i.sku||'').toLowerCase().includes(q)||(i.name||'').toLowerCase().includes(q)||(i.tracking||'').toLowerCase().includes(q);})) return true;
+    if(Object.keys(o.trkStatus||{}).some(function(t){return t.toLowerCase().includes(q);})) return true;
+    return false;
   }).sort(function(a,b){
     // เรียงวันที่ใหม่ก่อน — ใช้ updatedAt ก่อน ตกไปใช้ date
     function _ts(o){
@@ -1627,7 +1655,7 @@ function renderOrders(){
     if(val==='in_progress') return 'in_progress';
     return 'waiting';
   }
-  var _SL_ext=Object.assign({partial:'⏳ Partial Verified',completed:'✅ Completed'},SL);
+  var _SL_ext=Object.assign({partial:'⏳ ตรวจบางส่วน',completed:'✅ ตรวจครบแล้ว'},SL);
   var _SB_ext=Object.assign({partial:'b-partial',completed:'b-completed'},SB);
 
   var allRows=[];
@@ -1671,17 +1699,17 @@ function renderOrders(){
       // tracking badge
       var trkBadge;
       if(trkStNorm==='verified'||trkStNorm==='shipped'){
-        trkBadge='<span class="badge b-verified" style="font-size:10px">✅ Verified</span>'
-          +(meta.by?'<div style="font-size:9px;color:#15803D;margin-top:2px">by '+escHtml(meta.by)+'</div>':'');
+        trkBadge='<span class="badge b-verified" style="font-size:10px">✅ ตรวจแล้ว</span>'
+          +(meta.by?'<div style="font-size:9px;color:#15803D;margin-top:2px">โดย '+escHtml(meta.by)+'</div>':'');
       } else if(trkStNorm==='exception'){
-        trkBadge='<span class="badge b-exception" style="font-size:10px">⚠️ Exception</span>'
+        trkBadge='<span class="badge b-exception" style="font-size:10px">⚠️ มีปัญหา</span>'
           +(meta.reason?'<div style="font-size:9px;color:#DC2626;margin-top:2px">'+escHtml(meta.reason)+'</div>':'')
           +(meta.note?'<div style="font-size:9px;color:#DC2626">'+escHtml(meta.note)+'</div>':'');
       } else if(trkStNorm==='in_progress'){
-        trkBadge='<span class="badge b-inprog" style="font-size:10px">🔄 In Progress</span>'
+        trkBadge='<span class="badge b-inprog" style="font-size:10px">🔄 กำลังตรวจ</span>'
           +(meta.device?'<div style="font-size:9px;color:#1D4ED8;margin-top:2px">'+escHtml(meta.device)+'</div>':'');
       } else {
-        trkBadge='<span class="badge" style="font-size:10px;background:#F1F5F9;color:#64748B;border:1px solid #CBD5E1">⏳ รอ Verify</span>';
+        trkBadge='<span class="badge" style="font-size:10px;background:#F1F5F9;color:#64748B;border:1px solid #CBD5E1">⏳ รอตรวจ</span>';
       }
       var trkColor=trkStNorm==='verified'||trkStNorm==='shipped'?'#15803D':trkStNorm==='exception'?'#DC2626':trkStNorm==='in_progress'?'#1D4ED8':'var(--text)';
       var trkDisp='<span class="mono" style="font-size:11px;font-weight:700;color:'+trkColor+'">'+escHtml(trk==='—'?'':trk)+'</span>';
