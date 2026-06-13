@@ -458,6 +458,7 @@ tr:hover td{background:var(--bg3)}
         <option value="">ทุกขนส่ง</option>
       </select>
       <button class="btn btn-o btn-sm" onclick="confirmExportCSV()">⬇ Export CSV</button>
+      <button class="btn btn-sm" id="fb-sync-btn" onclick="forceSyncFirebase()" style="background:#F97316;color:#fff;border:none;font-weight:700" title="Push ออเดอร์ทั้งหมดขึ้น Firebase">🔥 Sync Firebase</button>
     </div>
   </div>
   <div id="dbg-bar" style="background:#FEF9C3;border:1px solid #FDE68A;padding:6px 12px;font-size:12px;font-family:monospace;margin-bottom:4px;display:none"></div>
@@ -1785,6 +1786,28 @@ function quickCancel(oid){
   setStatus(oid,'cancel');renderOrders();
 }
 function filterOrders(){renderOrders();}
+function forceSyncFirebase(){
+  if(!FB_URL){alert('ไม่พบ Firebase URL — ไปที่ ตั้งค่า เพื่อใส่ URL');return;}
+  var oids=Object.keys(ORDERS);
+  if(!oids.length){alert('ไม่มีออเดอร์ในระบบ');return;}
+  var btn=document.getElementById('fb-sync-btn');
+  if(btn){btn.textContent='⏳ กำลัง sync...';btn.disabled=true;}
+  var done=0,total=oids.length;
+  oids.forEach(function(oid,idx){
+    setTimeout(function(){
+      fbPut('/orders/'+encodeId(oid),ORDERS[oid]);
+      var st=ORDERS[oid].status||'new';
+      fbPatch('/statuses/'+encodeId(oid),{status:st,updatedAt:ORDERS[oid].updatedAt||new Date().toISOString()});
+      done++;
+      if(done===total){
+        var usr=localStorage.getItem('WMS_USR')||'PC';
+        fbPut('/lastUpload',{at:new Date().toISOString(),by:usr,count:total});
+        if(btn){btn.textContent='✅ Sync แล้ว ('+total+')';btn.disabled=false;setTimeout(function(){btn.textContent='🔥 Sync Firebase';},3000);}
+        ulAlert('🔥 Sync '+total+' ออเดอร์ขึ้น Firebase แล้ว — PDA กำลัง sync...','ok');
+      }
+    },idx*30);
+  });
+}
 
 function goQCScan(oid){
   curQCOid=oid;
