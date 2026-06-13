@@ -461,7 +461,6 @@ tr:hover td{background:var(--bg3)}
       <button class="btn btn-sm" id="fb-sync-btn" onclick="forceSyncFirebase()" style="background:#F97316;color:#fff;border:none;font-weight:700" title="Push ออเดอร์ทั้งหมดขึ้น Firebase">🔥 Sync Firebase</button>
     </div>
   </div>
-  <div id="dbg-bar" style="background:#FEF9C3;border:1px solid #FDE68A;padding:6px 12px;font-size:12px;font-family:monospace;margin-bottom:4px;display:none"></div>
   <div class="tw">
     <table style="table-layout:fixed;min-width:900px"><thead>
         <tr id="bulk-toolbar" style="display:none;background:var(--primary)">
@@ -1616,9 +1615,6 @@ function renderOrders(){
   let q=(typeof _ORD_Q!=='undefined'?_ORD_Q:(document.getElementById('ord-q')?.value||'')).toLowerCase().trim();
   let f=document.getElementById('ord-f')?.value||'';
   let supF=document.getElementById('ord-sup')?document.getElementById('ord-sup').value:'';
-  console.log('[DBG] renderOrders q=',JSON.stringify(q),'f=',JSON.stringify(f),'supF=',JSON.stringify(supF));
-  var _dbgEl=document.getElementById('dbg-bar');
-  if(_dbgEl){_dbgEl.style.display='block';_dbgEl.textContent='[DBG] q='+JSON.stringify(q)+' f='+JSON.stringify(f)+' supF='+JSON.stringify(supF)+' ORDERS.keys='+Object.keys(ORDERS).length+' TP21971.trks='+(ORDERS['TP-21971']?.trackings?.length);};
   let orders=Object.values(ORDERS).filter(o=>{
     if(f==='postponed'){if(!o.postponedFrom)return false;}
     else if(f&&o.status!==f)return false;
