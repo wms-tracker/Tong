@@ -2004,49 +2004,35 @@ function doManualRefresh(btn){
 async function startAutoSync() {
   if (!API_URL) return;
   if (_syncInterval) clearInterval(_syncInterval);
-  _syncInterval = setInterval(autoSyncTick, 10000); // ทุก 30 วิ
+  _syncInterval = setInterval(autoSyncTick, 20000); // ทุก 20 วิ
   await autoSyncTick(); // sync ทันทีตอนเริ่ม
 }
 
 async function autoSyncTick() {
-  // Firebase real-time stream handles status — fallback to Sheets API
   if(FB_URL){
-    fbGet('/statuses',function(err,data){
-      if(err||!data)return;
-      let changed=false;
-      const rank={new:0,pick:1,qc:2,ship:3,pack:3,done:4,cancel:5};
-      Object.keys(data).forEach(function(rawOid){
-        const oid=decodeId(rawOid);
-        const entry=data[rawOid];
-        const st=typeof entry==='string'?entry:(entry&&entry.status?entry.status:'');
-        if(st&&ORDERS[oid]&&(rank[st]||0)>=(rank[ORDERS[oid].status]||0)&&ORDERS[oid].status!==st){
-          ORDERS[oid].status=st;changed=true;
-          if(st==='cancel')showCancelNotif(oid);
-        }
-      });
-      if(changed){saveLocal();refreshAll();}
-      let el=document.getElementById('last-sync-txt');
-      if(el)el.textContent='sync '+new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-    });
+    // ใช้ syncStatusesNow ซึ่ง handle ทั้ง status + trkStatus + editedAt ครบ
+    syncStatusesNow();
+    var el=document.getElementById('last-sync-txt');
+    if(el)el.textContent='sync '+new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     return;
   }
-  if (!API_URL) return;
-  try {
-    const r = await jFetch(API_URL + '?action=getStatuses');
-    if (!r || !r.ok || !r.statuses) return;
-    let changed = false;
-    Object.keys(r.statuses).forEach(oid => {
-      const st = r.statuses[oid];
-      const rank = {new:0,pick:1,qc:2,ship:3,pack:3,done:4,cancel:5};
-      if (st && ORDERS[oid] && rank[st] >= (rank[ORDERS[oid].status]||0) && ORDERS[oid].status !== st) {
-        ORDERS[oid].status = st; changed = true;
+  if(!API_URL)return;
+  try{
+    const r=await jFetch(API_URL+'?action=getStatuses');
+    if(!r||!r.ok||!r.statuses)return;
+    let changed=false;
+    const rank={new:0,pick:1,qc:2,ship:3,pack:3,done:4,cancel:5};
+    Object.keys(r.statuses).forEach(oid=>{
+      const st=r.statuses[oid];
+      if(st&&ORDERS[oid]&&rank[st]>=(rank[ORDERS[oid].status]||0)&&ORDERS[oid].status!==st){
+        ORDERS[oid].status=st;changed=true;
         if(st==='cancel')showCancelNotif(oid);
       }
     });
-    if (changed) { saveLocal(); refreshAll(); }
-    let el=document.getElementById('last-sync-txt');
-    if(el)el.textContent='sync '+new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  } catch(_) {}
+    if(changed){saveLocal();refreshAll();}
+    var el2=document.getElementById('last-sync-txt');
+    if(el2)el2.textContent='sync '+new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }catch(_){}
 }
 
 
@@ -2154,8 +2140,10 @@ function fbGet(path,cb){
   if(!FB_URL)return;
   var xhr=new XMLHttpRequest();
   xhr.open('GET',FB_URL+path+'.json');
+  xhr.timeout=12000;
   xhr.onload=function(){try{cb(null,JSON.parse(xhr.responseText));}catch(e){cb(e);}};
   xhr.onerror=function(){cb(new Error('FB GET failed'));};
+  xhr.ontimeout=function(){cb(new Error('FB GET timeout'));};
   xhr.send();
 }
 function fbPut(path,data){
@@ -2258,10 +2246,10 @@ function startFirebaseStream(){
   }catch(e){console.log('Firebase stream error:',e);}
 }
 
-// Periodic status sync ทุก 30 วิ (fallback กรณี SSE ขาด + sync trkStatus)
+// Periodic status sync ทุก 15 วิ (fallback กรณี SSE ขาด + sync trkStatus)
 setInterval(function(){
   if(FB_URL&&document.visibilityState==='visible') syncStatusesNow();
-},30000);
+},15000);
 
 // Push order status to Firebase when changed
 function fbPushStatus(oid,status){
