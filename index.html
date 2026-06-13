@@ -2306,14 +2306,16 @@ function syncFromFirebase(){
           var oid=o.id;
           // ข้าม orders เก่า (id เป็นตัวเลขล้วน = ข้อมูลเก่าก่อนระบบใหม่)
           if(/^\d+$/.test(oid)){old++;return;}
+          var _stRank={new:0,postponed:0,pick:1,qc:2,pack:3,ship:3,done:4,cancel:5};
           var ex=ORDERS[oid]?ORDERS[oid].status:'';
-          var keep=['pick','qc','ship','done'].indexOf(ex)>=0;
+          var fbSt=o.status||'new';
+          var finalSt=(_stRank[ex]||0)>(_stRank[fbSt]||0)?ex:fbSt;
           if(ORDERS[oid])updated++;else added++;
           ORDERS[oid]={
             id:oid,consign:o.consign||'',tracking:o.tracking||'',
             trackings:o.trackings||[],items:o.items||[],
-            status:keep?ex:(o.status||'new'),
-            trkStatus:o.trkStatus||{},
+            status:finalSt,
+            trkStatus:Object.assign({},o.trkStatus||{},ORDERS[oid]?ORDERS[oid].trkStatus||{}:{}),
             date:o.date||'',sup:o.sup||'',
             updatedAt:o.updatedAt||'',
             note:o.note||'',timeline:o.timeline||[],
@@ -2373,12 +2375,14 @@ function fetchOrdersBatch(keys,offset,batchSize,done,total){
         var o=JSON.parse(xhr.responseText);
         if(o&&o.id){
           var oid=o.id;
+          var _stRank={new:0,postponed:0,pick:1,qc:2,pack:3,ship:3,done:4,cancel:5};
           var ex=ORDERS[oid]?ORDERS[oid].status:'';
-          var keep=['pick','qc','ship','done'].indexOf(ex)>=0;
+          var fbSt=o.status||'new';
+          var finalSt=(_stRank[ex]||0)>(_stRank[fbSt]||0)?ex:fbSt;
           ORDERS[oid]={id:oid,consign:o.consign||'',tracking:o.tracking||'',
             trackings:o.trackings||[],items:o.items||[],
-            status:keep?ex:(o.status||'new'),
-            trkStatus:o.trkStatus||{},
+            status:finalSt,
+            trkStatus:Object.assign({},o.trkStatus||{},ORDERS[oid]?ORDERS[oid].trkStatus||{}:{}),
             sup:o.sup||'',date:o.date||'',updatedAt:o.updatedAt||'',
             shipDate:o.shipDate||'',user:o.user||'',device:o.device||'',
             note:o.note||'',timeline:o.timeline||[]};

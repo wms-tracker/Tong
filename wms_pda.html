@@ -615,12 +615,15 @@ function pdaBatch(keys,offset,size,done){
           var oid=o.id;
           // ข้าม orders เก่า id ตัวเลขล้วน
           if(/^\d+$/.test(oid)){if(--left===0)pdaBatch(keys,offset+size,size,done);return;}
+          var _stRank={new:0,postponed:0,pick:1,qc:2,pack:3,ship:3,done:4,cancel:5};
           var ex=ORDERS[oid]?ORDERS[oid].status:'';
-          var keep=['pick','qc','pack','ship','done','postponed'].indexOf(ex)>=0;
+          var fbSt=o.status||'new';
+          // ใช้ status ที่ก้าวหน้ากว่าเสมอ — ป้องกัน downgrade เมื่อ Firebase อัปเดตก่อน
+          var finalSt=(_stRank[ex]||0)>(_stRank[fbSt]||0)?ex:fbSt;
           ORDERS[oid]={id:oid,consign:o.consign||'',tracking:o.tracking||'',
             trackings:o.trackings||[],items:o.items||[],
-            status:keep?ex:(o.status||'new'),
-            trkStatus:o.trkStatus||{},
+            status:finalSt,
+            trkStatus:Object.assign({},o.trkStatus||{},ORDERS[oid]?ORDERS[oid].trkStatus||{}:{}),
             sup:o.sup||'',date:o.date||'',batchId:o.batchId||'',
             updatedAt:o.updatedAt||'',editedAt:o.editedAt||''};
           done++;
@@ -870,7 +873,7 @@ function refreshStats(){
   var qc=0,done=0;
   orders.forEach(function(o){
     if(o.status==='new'||o.status==='pick') qc++;
-    else if(o.status==='done') done++;
+    else if(o.status==='done'||o.status==='ship') done++;
   });
   var dr=Object.keys(DRAFTS).length;
   var set=function(id,v){var el=document.getElementById(id);if(el)el.textContent=v;};
