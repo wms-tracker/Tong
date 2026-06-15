@@ -3553,7 +3553,7 @@ function getOrderSUP(o){
   // 5. ถ้าไม่มี tracking = รับที่คลัง → ดูจาก SKU prefix
   for(var jj=0;jj<its.length;jj++){
     var sk=(its[jj].sku||'').trim();
-    if(/^(LNO|FRE|LEG|ZCP|EMS|NOZ|PRT)/i.test(sk)&&!trk) return con||'Lunio';
+    if(/^(LNO|FRE|LEG|ZCP|EMS|NOZ|PRT|QA|DAM)/i.test(sk)) return con||'Lunio';
   }
   return '—';
 }
