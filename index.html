@@ -1139,10 +1139,11 @@ function parseRows(rows){
   let h=Object.keys(rows[0]);
   function fc(cands){for(let c of cands){let f=h.find(x=>x.replace(/\s+/g,'').toLowerCase()===c.replace(/\s+/g,'').toLowerCase());if(f)return f;f=h.find(x=>x.toLowerCase().includes(c.toLowerCase())||c.toLowerCase().includes(x.toLowerCase()));if(f)return f;}return null;}
   let cO=fc(['order id','orderid']),cS=fc(['sku']),cN=fc(['แบรนด์','brand','name','ชื่อสินค้า']),cSz=fc(['ขนาด','size']),cQ=fc(['sum of','qty','จำนวน']),cC=fc(['เลข consign','consign']),cT=fc(['tracking']),cSt=fc(['status','สถานะ']);
-  // คอลัม B = วันที่จัดส่ง (index 1 ของ headers)
-  let cD=fc(['วันที่','date','Date','Created','order date'])||h[1];
+  // คอลัม B = ขนส่ง (SUP), คอลัม C = วันที่จัดส่ง
+  let cSup=fc(['ขนส่ง','sup','carrier','supplier'])||h[1];
+  let cD=fc(['วันที่','date','Date','Created','order date'])||h[2]||h[1];
   if(!cO){ulAlert('ไม่พบคอลัมน์ Order ID','err');return;}
-  pendingData=rows.filter(r=>r[cO]).map(r=>({o:String(r[cO]).trim(),sku:cS?String(r[cS]).trim():'',name:cN?String(r[cN]).trim():'',size:cSz?String(r[cSz]).trim():'',qty:parseInt(r[cQ])||1,c:cC?String(r[cC]).trim():'',tracking:cT?String(r[cT]).trim():'',status:cSt?String(r[cSt]).trim().toLowerCase():'',date:cD?normalizeDate(String(r[cD]||'').trim()):''}));
+  pendingData=rows.filter(r=>r[cO]).map(r=>({o:String(r[cO]).trim(),sku:cS?String(r[cS]).trim():'',name:cN?String(r[cN]).trim():'',size:cSz?String(r[cSz]).trim():'',qty:parseInt(r[cQ])||1,c:cC?String(r[cC]).trim():'',tracking:cT?String(r[cT]).trim():'',status:cSt?String(r[cSt]).trim().toLowerCase():'',date:cD?normalizeDate(String(r[cD]||'').trim()):'',sup:cSup?String(r[cSup]||'').trim():''}));
   // Build trackings array per order for display
   let _trkMap={};
   pendingData.forEach(r=>{if(!_trkMap[r.o])_trkMap[r.o]=[];if(r.tracking&&!_trkMap[r.o].includes(r.tracking))_trkMap[r.o].push(r.tracking);});
@@ -1165,7 +1166,7 @@ function confirmUpload(mode){
   if(mode==='replace')ORDERS={};
   let grouped={};
   pendingData.forEach(r=>{
-    if(!grouped[r.o])grouped[r.o]={id:r.o,consign:r.c,tracking:r.tracking,trackings:[],items:[],date:r.date||now,note:'',timeline:[]};
+    if(!grouped[r.o])grouped[r.o]={id:r.o,consign:r.c,tracking:r.tracking,trackings:[],items:[],date:r.date||now,sup:r.sup||'',note:'',timeline:[]};
     grouped[r.o].items.push({sku:r.sku,name:r.name,size:r.size,qty:r.qty,tracking:r.tracking||''});
     let t=String(r.tracking||'').trim();
     if(t&&!grouped[r.o].trackings.includes(t))grouped[r.o].trackings.push(t);
@@ -1181,13 +1182,14 @@ function confirmUpload(mode){
       ORDERS[oid].consign=order.consign;
       ORDERS[oid].tracking=order.tracking;
       ORDERS[oid].trackings=order.trackings||[];
+      if(order.sup)ORDERS[oid].sup=order.sup;
       if(isCancelled)ORDERS[oid].status='cancel';
       else if(!keep)ORDERS[oid].status='new';
       ORDERS[oid].timeline.push({time:now,action:'อัปเดตข้อมูล',user:'System'});
       updated++;
     }else{
       ORDERS[oid]={id:oid,consign:order.consign,tracking:order.tracking,trackings:order.trackings||[],
-        items:order.items,status:isCancelled?'cancel':'new',date:now,note:'',
+        items:order.items,status:isCancelled?'cancel':'new',date:now,sup:order.sup||'',note:'',
         timeline:[{time:now,action:'รับออเดอร์เข้าระบบ',user:'System'}]};
       added++;
     }
