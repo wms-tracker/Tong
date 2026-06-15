@@ -4093,7 +4093,6 @@ function renderDailyReport(){
     kpiTile('QC ผ่าน',qcCount,'orders','#0D9488','✅')+
     kpiTile('Done',doneCount,'orders','#22C55E','🎉')+
     kpiTile('Cancel',cancelCount||'—','orders','#EF4444','🚫')+
-    kpiTile('พนักงาน',Object.keys(workers).length||'—','คน','#8B5CF6','👤')+
     Object.keys(supMap).map(function(s){
       var c=s.indexOf('Best')>=0?'#2563EB':'#0D9488';
       return kpiTile(s,supMap[s],'orders',c,'🚚');
