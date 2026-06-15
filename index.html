@@ -446,7 +446,7 @@ tr:hover td{background:var(--bg3)}
       </div>
       <select id="ord-f" onchange="filterOrders()" style="width:140px">
         <option value="">ทุกสถานะ</option>
-        <option value="new">🆕 รับแล้ว</option>
+        <option value="new" selected>🆕 รับแล้ว</option>
         <option value="pick">→ Pick</option>
         <option value="qc">🔍 QC</option>
         <option value="ship">🚚 Ship</option>
@@ -3555,7 +3555,7 @@ function getOrderSUP(o){
   // 5. ถ้าไม่มี tracking = รับที่คลัง → ดูจาก SKU prefix
   for(var jj=0;jj<its.length;jj++){
     var sk=(its[jj].sku||'').trim();
-    if(/^(LNO|FRE|LEG|ZCP|EMS|NOZ|PRT|QA|DAM)/i.test(sk)) return con||'Lunio';
+    if(/^(LNO|FRE|LEG|ZCP|EMS|NOZ|PRT|QA|DAM|MNS)/i.test(sk)) return con||'Lunio';
   }
   return '—';
 }
