@@ -1142,7 +1142,7 @@ function parseRows(rows){
   let cO=fc(['order id','orderid']),cS=fc(['sku']),cN=fc(['แบรนด์','brand','name','ชื่อสินค้า']),cSz=fc(['ขนาด','size']),cQ=fc(['sum of','qty','จำนวน']),cC=fc(['เลข consign','consign']),cT=fc(['tracking']),cSt=fc(['status','สถานะ']);
   // คอลัม B = ขนส่ง (SUP), คอลัม C = วันที่จัดส่ง
   let cSup=fc(['ขนส่ง','sup','carrier','supplier'])||h[1];
-  let cD=fc(['วันที่','date','Date','Created','order date'])||h[2]||h[1];
+  let cD=fc(['จัดส่ง','วันที่จัดส่ง','วันที่','ship date','shipdate','date','created','order date','delivery date'])||h[2]||h[1];
   if(!cO){ulAlert('ไม่พบคอลัมน์ Order ID','err');return;}
   pendingData=rows.filter(r=>r[cO]).map(r=>({o:String(r[cO]).trim(),sku:cS?String(r[cS]).trim():'',name:cN?String(r[cN]).trim():'',size:cSz?String(r[cSz]).trim():'',qty:parseInt(r[cQ])||1,c:cC?String(r[cC]).trim():'',tracking:cT?String(r[cT]).trim():'',status:cSt?String(r[cSt]).trim().toLowerCase():'',date:cD?normalizeDate(String(r[cD]||'').trim()):'',sup:cSup?String(r[cSup]||'').trim():''}));
   // Build trackings array per order for display
