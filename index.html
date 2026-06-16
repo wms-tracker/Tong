@@ -1184,6 +1184,7 @@ function confirmUpload(mode){
       ORDERS[oid].tracking=order.tracking;
       ORDERS[oid].trackings=order.trackings||[];
       if(order.sup)ORDERS[oid].sup=order.sup;
+      if(order.date)ORDERS[oid].date=order.date;
       if(isCancelled)ORDERS[oid].status='cancel';
       else if(!keep)ORDERS[oid].status='new';
       ORDERS[oid].timeline.push({time:now,action:'อัปเดตข้อมูล',user:'System'});
