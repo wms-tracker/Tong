@@ -1920,44 +1920,49 @@ function refreshAll(){
 
 /* ======= BOX PACKING ======= */
 var PILLOW_SKUS=['LNO0000000128','LNO0000000129','FRE0000000138','FRE0000000139','LNO0000000064','FRE0000000052'];
-function calcBoxPlan(items){
-  // expand items by qty into flat list
-  var pillows=[];var others=[];
-  items.forEach(function(it){
-    var qty=parseInt(it.qty)||1;
-    var isPillow=PILLOW_SKUS.includes((it.sku||'').trim());
-    for(var q=0;q<qty;q++){
-      if(isPillow)pillows.push(it);else others.push(it);
-    }
-  });
-  if(pillows.length===0)return '';
-  // build boxes: max 2 pillows per box; others go in box 1
-  var boxes=[];
-  for(var i=0;i<pillows.length;i+=2){
-    var box={pillows:pillows.slice(i,i+2),others:i===0?others:[]};
-    boxes.push(box);
-  }
-  function rowHtml(label,items,color){
-    return items.map(function(it){
-      return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12px">'
-        +'<span style="width:8px;height:8px;border-radius:50%;background:'+color+';flex-shrink:0;display:inline-block"></span>'
-        +'<span class="mono" style="color:var(--text2);font-size:11px">'+escHtml(it.sku||'')+'</span>'
-        +' <span style="color:var(--text)">'+escHtml(it.name||'')+(it.size?' ('+escHtml(it.size)+')':'')+'</span>'
-        +'</div>';
+function renderItemsWithBoxes(items){
+  if(!items||!items.length)return '';
+  var hasPillow=items.some(function(it){return PILLOW_SKUS.includes((it.sku||'').trim());});
+  if(!hasPillow){
+    return items.map(function(it,i){
+      return '<tr><td>'+(i+1)+'</td><td class="mono">'+escHtml(it.sku||'—')+'</td><td>'+escHtml(it.name||'—')+'</td><td>'+escHtml(it.size||'—')+'</td><td>'+it.qty+'</td><td class="mono" style="font-size:10px;color:var(--text2)">'+escHtml(it.tracking||'')+'</td></tr>';
     }).join('');
   }
-  var html='<div class="card-t">📦 แผนจัดกล่อง DreamsTown XL (46×46×80 ซม.)</div>';
-  html+='<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:4px">';
-  boxes.forEach(function(box,bi){
-    var total=box.pillows.length+box.others.length;
-    html+='<div style="border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;background:var(--card)">'
-      +'<div style="font-weight:700;font-size:13px;margin-bottom:6px">กล่องที่ '+(bi+1)+' <span style="font-size:11px;font-weight:400;color:var(--text2)">('+total+' ชิ้น)</span></div>'
-      +rowHtml('pillow',box.pillows,'#F97316')
-      +rowHtml('other',box.others,'#6B7280')
-      +'</div>';
+  // build boxes: expand pillows by qty, others all go in box 1
+  var pillowUnits=[];var otherItems=[];
+  items.forEach(function(it){
+    var qty=parseInt(it.qty)||1;
+    if(PILLOW_SKUS.includes((it.sku||'').trim())){
+      for(var q=0;q<qty;q++) pillowUnits.push(it);
+    } else {
+      otherItems.push(it);
+    }
   });
-  html+='</div>';
-  return html;
+  // group pillow units into boxes of 2
+  var boxes=[];
+  for(var i=0;i<pillowUnits.length;i+=2){
+    boxes.push({pillows:pillowUnits.slice(i,i+2),others:i===0?otherItems:[]});
+  }
+  var rows='';
+  var rowNum=0;
+  boxes.forEach(function(box,bi){
+    var pillowQty=box.pillows.length;
+    var otherQty=box.others.reduce(function(s,it){return s+(parseInt(it.qty)||1);},0);
+    var total=pillowQty+otherQty;
+    rows+='<tr><td colspan="6" style="background:var(--bg2,#f3f4f6);font-weight:700;font-size:11px;color:var(--text2);padding:4px 8px;letter-spacing:.5px">📦 กล่องที่ '+(bi+1)+' — '+total+' ชิ้น</td></tr>';
+    // aggregate pillow units back to sku+qty rows
+    var pillowMap={};
+    box.pillows.forEach(function(it){var k=it.sku||'';pillowMap[k]=pillowMap[k]||{it:it,qty:0};pillowMap[k].qty++;});
+    Object.values(pillowMap).forEach(function(p){
+      rowNum++;
+      rows+='<tr style="background:rgba(249,115,22,.07)"><td>'+rowNum+'</td><td class="mono">'+escHtml(p.it.sku||'—')+'</td><td>'+escHtml(p.it.name||'—')+'</td><td>'+escHtml(p.it.size||'—')+'</td><td>'+p.qty+'</td><td class="mono" style="font-size:10px;color:var(--text2)">'+escHtml(p.it.tracking||'')+'</td></tr>';
+    });
+    box.others.forEach(function(it){
+      rowNum++;
+      rows+='<tr><td>'+rowNum+'</td><td class="mono">'+escHtml(it.sku||'—')+'</td><td>'+escHtml(it.name||'—')+'</td><td>'+escHtml(it.size||'—')+'</td><td>'+it.qty+'</td><td class="mono" style="font-size:10px;color:var(--text2)">'+escHtml(it.tracking||'')+'</td></tr>';
+    });
+  });
+  return rows;
 }
 
 /* ======= ORDER MODAL ======= */
@@ -1984,8 +1989,8 @@ function openOrder(oid){
       trkStatusEl.style.display='none';
     }
   }
-  document.getElementById('m-items').innerHTML=o.items.map((item,i)=>`<tr><td>${i+1}</td><td class="mono">${item.sku||'—'}</td><td>${item.name||'—'}</td><td>${item.size||'—'}</td><td>${item.qty}</td><td class="mono" style="font-size:10px;color:var(--text2)">${item.tracking||''}</td></tr>`).join('');
-  document.getElementById('m-box-plan').innerHTML=calcBoxPlan(o.items||[]);
+  document.getElementById('m-items').innerHTML=renderItemsWithBoxes(o.items||[]);
+  document.getElementById('m-box-plan').innerHTML='';
   var tl=o.timeline||[];
   document.getElementById('m-tl').innerHTML=tl.length?tl.map(function(t){
     return '<div class="tli ok" style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)">'
