@@ -1876,8 +1876,15 @@ function _validDateStr(ds){
 }
 function fixBadOrderDates(){
   Object.values(ORDERS).forEach(function(o){
-    if(_validDateStr(o.date)) return; // ปกติ ไม่ต้องแก้
-    // หา timestamp ที่ดีที่สุด
+    var ds=String(o.date||'').trim();
+    // วันที่มี "/" (DD/MM/YYYY หรือ พ.ศ.) → normalize ให้เป็น ISO
+    if(ds&&ds.includes('/')){
+      var fixed=normalizeDate(ds);
+      if(fixed&&fixed!==ds) o.date=fixed;
+      return;
+    }
+    if(_validDateStr(ds)) return; // ISO format ปกติ ไม่ต้องแก้
+    // หา timestamp จาก timeline/updatedAt
     var ts=o.updatedAt||o.editedAt||o.postponedAt||o.cancelledAt||'';
     if(!ts&&o.timeline&&o.timeline.length) ts=o.timeline[0].time||'';
     if(!ts) return;
