@@ -4155,8 +4155,29 @@ function renderDailyReport(){
   var qcCount=orders.filter(function(o){return o.status==='qc';}).length;
   var doneCount=orders.filter(function(o){return o.status==='done';}).length;
   var cancelCount=orders.filter(function(o){return o.status==='cancel';}).length;
-  var supMap={};
-  orders.forEach(function(o){var s=getOrderSUP(o)||'อื่นๆ';supMap[s]=(supMap[s]||0)+1;});
+  // จัดกลุ่มขนส่ง 5 กลุ่มคงที่ (แสดงแม้จะ 0)
+  var COURIER_GROUPS=[
+    {label:'Best Express Bulky', keys:['best','bulky'],          color:'#2563EB', icon:'🚛'},
+    {label:'Lunio',              keys:['lunio'],                  color:'#8B5CF6', icon:'🛏️'},
+    {label:'KEX HRZ',            keys:['kex','kerry'],            color:'#0D9488', icon:'🚚'},
+    {label:'Business Idea HRZ', keys:['business idea','bihrz','bi hrz'], color:'#F97316', icon:'📦'},
+    {label:'รับที่คลัง',         keys:['รับที่คลัง','pickup','walk in','self'], color:'#6B7280', icon:'🏭'},
+  ];
+  function classifyCourier(o){
+    var s=(getOrderSUP(o)||'').toLowerCase();
+    for(var i=0;i<COURIER_GROUPS.length;i++){
+      if(COURIER_GROUPS[i].keys.some(function(k){return s.includes(k);}))return COURIER_GROUPS[i].label;
+    }
+    return 'อื่นๆ';
+  }
+  var courierMap={};
+  COURIER_GROUPS.forEach(function(g){courierMap[g.label]=0;});
+  orders.forEach(function(o){
+    var g=classifyCourier(o);
+    if(courierMap[g]!==undefined) courierMap[g]++;
+    else courierMap[g]=(courierMap[g]||0)+1;
+  });
+
   var workers={};
   orders.forEach(function(o){if(o.user){workers[o.user]=(workers[o.user]||0)+1;}});
 
@@ -4167,10 +4188,10 @@ function renderDailyReport(){
     kpiTile('QC ผ่าน',qcCount,'orders','#0D9488','✅')+
     kpiTile('Done',doneCount,'orders','#22C55E','🎉')+
     kpiTile('Cancel',cancelCount||'—','orders','#EF4444','🚫')+
-    Object.keys(supMap).map(function(s){
-      var c=s.indexOf('Best')>=0?'#2563EB':'#0D9488';
-      return kpiTile(s,supMap[s],'orders',c,'🚚');
-    }).join('');
+    COURIER_GROUPS.map(function(g){
+      return kpiTile(g.label,courierMap[g.label]||0,'orders',g.color,g.icon);
+    }).join('')+
+    (courierMap['อื่นๆ']?kpiTile('อื่นๆ',courierMap['อื่นๆ'],'orders','#6B7280','🚚'):'');
 
 
 
