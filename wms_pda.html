@@ -719,11 +719,18 @@ function pdaBatch(keys,offset,size,done,fbOidSet,onFinish){
           var oid=o.id;
           // ข้าม orders เก่า id ตัวเลขล้วน
           if(/^\d+$/.test(oid)){if(--left===0)pdaBatch(keys,offset+size,size,done,fbOidSet,onFinish);return;}
-          fbOidSet[oid]=true; // บันทึกว่า order นี้มีใน Firebase
+          var fbSt=o.status||'new';
+          // ดึงเฉพาะ: รอ QC (new/pick/qc), Draft, ส่งสินค้า (ship/pack) — ข้าม done/cancel
+          var _activeStatus={new:1,pick:1,qc:1,pack:1,ship:1,draft:1,postponed:1};
+          if(!_activeStatus[fbSt]){
+            // ถ้า order นี้ done/cancel ให้ลบออกจาก local ด้วย
+            delete ORDERS[oid];
+            if(--left===0)pdaBatch(keys,offset+size,size,done,fbOidSet,onFinish);
+            return;
+          }
+          fbOidSet[oid]=true;
           var _stRank={new:0,postponed:0,pick:1,qc:2,pack:3,ship:3,done:4,cancel:5};
           var ex=ORDERS[oid]?ORDERS[oid].status:'';
-          var fbSt=o.status||'new';
-          // ใช้ status ที่ก้าวหน้ากว่าเสมอ — Firebase 'done' ชนะ local 'pick' เสมอ
           var finalSt=(_stRank[ex]||0)>(_stRank[fbSt]||0)?ex:fbSt;
           ORDERS[oid]={id:oid,consign:o.consign||'',tracking:o.tracking||'',
             trackings:o.trackings||[],items:o.items||[],
