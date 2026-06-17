@@ -4128,18 +4128,18 @@ function renderDailyReport(){
 
   var _now=new Date();
   function _refDate(o){
-    if(o.updatedAt){
-      var upd=new Date(o.updatedAt);
-      if(!isNaN(upd.getTime())) return upd;
-    }
+    // ใช้ o.date (วันที่จากไฟล์) เป็นหลัก ไม่ใช้ updatedAt
     var ds=String(o.date||'').trim();
-    if(!ds||ds==='—') return null;
-    if(/^\d{4}-/.test(ds)){var iso=new Date(ds);if(!isNaN(iso.getTime()))return iso;}
-    var ref=null;
-    var m1=ds.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
-    if(m1){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m1[1]];if(mn!==undefined)ref=new Date(_now.getFullYear(),mn,parseInt(m1[2]));}
-    if(!ref){var m2=ds.match(/^(\d+)\/(\d+)\/(\d+)/);if(m2){var yr2=parseInt(m2[3]);if(yr2>2400)yr2-=543;ref=new Date(yr2,parseInt(m2[2])-1,parseInt(m2[1]));}}
-    return ref;
+    if(ds&&ds!=='—'){
+      if(/^\d{4}-\d{2}-\d{2}/.test(ds)){var iso=new Date(ds+'T00:00:00');if(!isNaN(iso.getTime()))return iso;}
+      var m1=ds.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
+      if(m1){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m1[1]];if(mn!==undefined)return new Date(_now.getFullYear(),mn,parseInt(m1[2]));}
+      var m2=ds.match(/^(\d+)\/(\d+)\/(\d+)/);
+      if(m2){var yr2=parseInt(m2[3]);if(yr2>2400)yr2-=543;return new Date(yr2,parseInt(m2[2])-1,parseInt(m2[1]));}
+    }
+    // fallback: updatedAt
+    if(o.updatedAt){var upd=new Date(o.updatedAt);if(!isNaN(upd.getTime()))return upd;}
+    return null;
   }
   function _ymd(d){
     return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
