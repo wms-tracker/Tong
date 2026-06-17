@@ -656,38 +656,64 @@ function fbPatch(path,data){
 }
 
 /* ===== SYNC ORDERS (BATCH) ===== */
+var _ACTIVE_ST={new:1,pick:1,qc:1,pack:1,ship:1,draft:1,postponed:1};
 function syncOrdersFromFirebase(){
   var dbg=document.getElementById('sync-debug');
   if(dbg) dbg.textContent='Firebase: '+(FB||'ไม่มี URL');
   if(!FB){showAl('ใส่ Firebase URL ในตั้งค่าก่อนครับ','err');goPage('settings');return;}
-  setSyncOk('⏳ ดึงรายชื่อ orders...');
-  var xhr=new XMLHttpRequest();
-  xhr.open('GET',FB+'/orders.json?shallow=true');
-  xhr.timeout=15000;
-  xhr.onload=function(){
+  setSyncOk('⏳ กรอง active orders...');
+  // ขั้น 1: ดึง /statuses.json เพื่อกรองเฉพาะ active order IDs ก่อน (เร็วกว่า shallow+fetch ทุกตัว)
+  var xSt=new XMLHttpRequest();
+  xSt.open('GET',FB+'/statuses.json');
+  xSt.timeout=15000;
+  xSt.onload=function(){
     try{
-      var data=JSON.parse(xhr.responseText)||{};
-      var keys=Object.keys(data);
-      if(!keys.length){setSyncErr('Firebase ว่างเปล่า');return;}
-      setSyncOk('⏳ ดึง '+keys.length+' orders...');
-      // เก็บ set ของ order IDs ที่มีใน Firebase สำหรับ cleanup ทีหลัง
-      var fbOidSet={};
-      pdaBatch(keys,0,40,0,fbOidSet,function(totalDone){
-        // cleanup: ลบ orders ที่ไม่มีใน Firebase ออกจาก local
-        var removed=0;
-        Object.keys(ORDERS).forEach(function(oid){
-          if(!fbOidSet[oid]){delete ORDERS[oid];removed++;}
-        });
-        save();refreshStats();renderDashboard();
-        var msg='🔥 '+totalDone+'/'+keys.length+' orders';
-        if(removed>0) msg+=' (ลบค้าง '+removed+' orders)';
-        setSyncOk(msg);
+      var stData=JSON.parse(xSt.responseText)||{};
+      // กรองเฉพาะ IDs ที่มี status active
+      var activeKeys=Object.keys(stData).filter(function(k){
+        return _ACTIVE_ST[stData[k].status||'new'];
       });
-    }catch(e){setSyncErr('Firebase error');}
+      // cleanup local: ลบ orders ที่ไม่ active ออก
+      Object.keys(ORDERS).forEach(function(oid){
+        if(!_ACTIVE_ST[ORDERS[oid].status||'new']) delete ORDERS[oid];
+      });
+      if(!activeKeys.length){
+        save();refreshStats();renderDashboard();
+        setSyncOk('⚠️ ไม่มี active orders ใน Firebase — กด 🔥 Sync ที่ PC ก่อน');
+        return;
+      }
+      setSyncOk('⏳ ดึง '+activeKeys.length+' active orders...');
+      var fbOidSet={};
+      pdaBatch(activeKeys,0,40,0,fbOidSet,function(totalDone){
+        // cleanup: ลบ orders ที่ไม่อยู่ใน active set
+        Object.keys(ORDERS).forEach(function(oid){if(!fbOidSet[oid])delete ORDERS[oid];});
+        save();refreshStats();renderDashboard();
+        setSyncOk('🔥 '+totalDone+' active orders พร้อมแล้ว');
+      });
+    }catch(e){
+      // fallback: ถ้า statuses.json ไม่มี ใช้วิธีเดิม
+      setSyncOk('⏳ fallback: ดึง orders...');
+      var xFb=new XMLHttpRequest();
+      xFb.open('GET',FB+'/orders.json?shallow=true');xFb.timeout=15000;
+      xFb.onload=function(){
+        try{
+          var data=JSON.parse(xFb.responseText)||{};
+          var keys=Object.keys(data);
+          if(!keys.length){setSyncErr('Firebase ว่างเปล่า');return;}
+          var fbOidSet={};
+          pdaBatch(keys,0,40,0,fbOidSet,function(totalDone){
+            Object.keys(ORDERS).forEach(function(oid){if(!fbOidSet[oid])delete ORDERS[oid];});
+            save();refreshStats();renderDashboard();
+            setSyncOk('🔥 '+totalDone+'/'+keys.length+' orders');
+          });
+        }catch(e2){setSyncErr('Firebase error');}
+      };
+      xFb.onerror=function(){setSyncErr('เชื่อมต่อ Firebase ไม่ได้');};
+      xFb.send();
+    }
   };
-  xhr.onerror=function(){setSyncErr('เชื่อมต่อ Firebase ไม่ได้');};
-  xhr.ontimeout=function(){setSyncErr('Firebase timeout');};
-  xhr.send();
+  xSt.onerror=xSt.ontimeout=function(){setSyncErr('เชื่อมต่อ Firebase ไม่ได้');};
+  xSt.send();
 }
 
 // clearSyncOrders — ล้าง localStorage แล้ว sync ใหม่จาก Firebase
