@@ -1173,21 +1173,34 @@ function confirmUpload(mode){
     if(t&&!grouped[r.o].trackings.includes(t))grouped[r.o].trackings.push(t);
     if(t&&!grouped[r.o].tracking)grouped[r.o].tracking=t;
   });
-  let added=0,updated=0;
+  let added=0,updated=0,rescheduled=0;
   Object.entries(grouped).forEach(([oid,order])=>{
     let isCancelled=pendingData.filter(r=>r.o===oid).some(r=>r.status==='cancel');
     if(ORDERS[oid]){
-      // Keep QC/pack/done status
-      let keep=['qc','pack','done'].includes(ORDERS[oid].status);
+      let existDate=ORDERS[oid].date||'';
+      let newDate=order.date||'';
+      // --- Composite Key check: oid + date ---
+      // ถ้าวันที่ส่งออกต่างกัน = ออเดอร์เลื่อนส่ง/ส่งใหม่ → reset เป็น new เสมอ
+      let isRescheduled=newDate&&existDate&&newDate!==existDate;
+      // ถ้าวันเดิม: keep status qc/pack/done ไว้ | ถ้าวันใหม่: reset ทุกอย่าง
+      let keep=!isRescheduled&&['qc','pack','done'].includes(ORDERS[oid].status);
       ORDERS[oid].items=order.items;
       ORDERS[oid].consign=order.consign;
       ORDERS[oid].tracking=order.tracking;
       ORDERS[oid].trackings=order.trackings||[];
       if(order.sup)ORDERS[oid].sup=order.sup;
       if(order.date)ORDERS[oid].date=order.date;
-      if(isCancelled)ORDERS[oid].status='cancel';
-      else if(!keep)ORDERS[oid].status='new';
-      ORDERS[oid].timeline.push({time:now,action:'อัปเดตข้อมูล',user:'System'});
+      if(isCancelled){
+        ORDERS[oid].status='cancel';
+      }else if(isRescheduled){
+        // ออเดอร์เลื่อนส่ง: เปิดใหม่เป็น new พร้อมบันทึก timeline
+        ORDERS[oid].status='new';
+        ORDERS[oid].timeline.push({time:now,action:'เลื่อนส่ง → ส่งใหม่ '+newDate,user:'System'});
+        rescheduled++;
+      }else if(!keep){
+        ORDERS[oid].status='new';
+      }
+      if(!isRescheduled) ORDERS[oid].timeline.push({time:now,action:'อัปเดตข้อมูล',user:'System'});
       updated++;
     }else{
       ORDERS[oid]={id:oid,consign:order.consign,tracking:order.tracking,trackings:order.trackings||[],
@@ -1221,7 +1234,7 @@ function confirmUpload(mode){
   }
   document.getElementById('prev-card').style.display='none';
   pendingData=[];
-  ulAlert(`✓ เพิ่ม ${added} ออเดอร์ใหม่, อัปเดต ${updated} ออเดอร์`+(FB_URL?' (sync Firebase แล้ว)':''),'ok');
+  ulAlert(`✓ เพิ่ม ${added} ใหม่, อัปเดต ${updated}`+(rescheduled?`, เลื่อนส่งใหม่ ${rescheduled} orders`:'')+(FB_URL?' · sync Firebase แล้ว':''),'ok');
   refreshAll();
   setTimeout(()=>goPage('orders'),1200);
 }
