@@ -1225,11 +1225,13 @@ function confirmUpload(mode){
         _fbCount++;
         if(_fbCount===_fbTotal){
           console.log('Firebase: pushed '+_fbCount+' orders');
-          // แจ้งเตือน PDA ให้ re-sync
+          // แจ้งเตือน PDA + เครื่อง PC อื่นให้ re-sync
           var _usr=localStorage.getItem('WMS_USR')||'PC';
-          fbPut('/lastUpload',{at:new Date().toISOString(),by:_usr,count:_fbTotal});
+          var _at=new Date().toISOString();
+          _pcMyUploadAt=_at;   // กันไม่ให้เครื่องนี้ดึงซ้ำจาก event ของตัวเอง
+          fbPut('/lastUpload',{at:_at,by:_usr,count:_fbTotal});
         }
-      },idx*120);
+      },idx*30);
     });
   }
   document.getElementById('prev-card').style.display='none';
@@ -1814,7 +1816,9 @@ function forceSyncFirebase(){
       done++;
       if(done===total){
         var usr=localStorage.getItem('WMS_USR')||'PC';
-        fbPut('/lastUpload',{at:new Date().toISOString(),by:usr,count:total});
+        var _at=new Date().toISOString();
+        _pcMyUploadAt=_at;
+        fbPut('/lastUpload',{at:_at,by:usr,count:total});
         if(btn){btn.textContent='✅ Sync แล้ว ('+total+')';btn.disabled=false;setTimeout(function(){btn.textContent='🔥 Sync Firebase';},3000);}
         ulAlert('🔥 Sync '+total+' ออเดอร์ขึ้น Firebase แล้ว — PDA กำลัง sync...','ok');
       }
@@ -2276,6 +2280,73 @@ function syncReportFromSheets(){
 /* ===== FIREBASE ===== */
 function encodeId(id){return id.replace(/\./g,'_').replace(/\//g,'-').replace(/\[/g,'(').replace(/\]/g,')');}
 function decodeId(id){return id.replace(/_/g,'.');}
+
+/* ===== LASTUPLOAD SSE (PC) — auto pull new orders เมื่อเครื่องอื่นอัพโหลด ===== */
+var _pcUploadSSE=null;
+var _pcLastUploadAt='';   // event ล่าสุดที่ประมวลผลแล้ว
+var _pcMyUploadAt='';     // timestamp ของการอัพโหลดที่เครื่องนี้ทำเอง (ข้าม)
+var _pcUploadInit=true;   // event แรก = ค่าปัจจุบันตอนเปิดหน้า (ไม่ต้อง pull ซ้ำ)
+function startUploadSSEPc(){
+  if(!FB_URL||_pcUploadSSE) return;
+  try{
+    _pcUploadSSE=new EventSource(FB_URL+'/lastUpload.json');
+    function handlePcUpload(e){
+      if(!e.data||e.data==='null') return;
+      try{
+        var msg=JSON.parse(e.data);
+        var d=msg&&msg.data?msg.data:msg;
+        if(!d||!d.at) return;
+        if(d.at===_pcLastUploadAt) return;   // event ซ้ำ
+        _pcLastUploadAt=d.at;
+        if(_pcUploadInit){_pcUploadInit=false;return;}  // ข้าม event แรกตอนเปิดหน้า
+        if(d.at===_pcMyUploadAt) return;      // เครื่องนี้อัพเอง ไม่ต้อง pull
+        // เครื่องอื่นอัพโหลด → ดึงออเดอร์ใหม่ทั้งหมด
+        ulAlert('📦 '+(d.by||'อีกเครื่อง')+' อัพโหลด '+(d.count||'')+' orders — กำลัง sync...','warn');
+        setTimeout(function(){syncFromFirebaseSilent();},800);
+      }catch(ex){}
+    }
+    _pcUploadSSE.addEventListener('put',handlePcUpload);
+    _pcUploadSSE.addEventListener('patch',handlePcUpload);
+    _pcUploadSSE.onmessage=handlePcUpload;
+    _pcUploadSSE.onerror=function(){if(_pcUploadSSE){_pcUploadSSE.close();}_pcUploadSSE=null;setTimeout(startUploadSSEPc,8000);};
+  }catch(ex){}
+}
+// pull ออเดอร์ทั้งหมดแบบเงียบ (ไม่มี loading overlay เด่น)
+function syncFromFirebaseSilent(){
+  if(!FB_URL)return;
+  var xhr=new XMLHttpRequest();
+  xhr.open('GET',FB_URL+'/orders.json');
+  xhr.timeout=90000;
+  xhr.onload=function(){
+    try{
+      var data=JSON.parse(xhr.responseText);
+      if(!data)return;
+      var added=0;
+      var _stRank={new:0,postponed:0,pick:1,qc:2,pack:3,ship:3,done:4,cancel:5};
+      Object.keys(data).forEach(function(rawKey){
+        var o=data[rawKey];
+        if(!o||!o.id)return;
+        var oid=o.id;
+        if(/^\d+$/.test(oid))return;
+        var ex=ORDERS[oid]?ORDERS[oid].status:'';
+        var fbSt=o.status||'new';
+        var finalSt=(_stRank[ex]||0)>(_stRank[fbSt]||0)?ex:fbSt;
+        if(!ORDERS[oid])added++;
+        ORDERS[oid]={
+          id:oid,consign:o.consign||'',tracking:o.tracking||'',
+          trackings:o.trackings||[],items:o.items||[],
+          status:finalSt,
+          trkStatus:Object.assign({},o.trkStatus||{},ORDERS[oid]?ORDERS[oid].trkStatus||{}:{}),
+          date:o.date||'',sup:o.sup||'',updatedAt:o.updatedAt||'',
+          note:o.note||'',timeline:o.timeline||[],shipDate:o.shipDate||''
+        };
+      });
+      saveLocal();refreshAll();
+      ulAlert('✓ Sync แล้ว — เพิ่ม '+added+' orders ใหม่','ok');
+    }catch(e){}
+  };
+  xhr.send();
+}
 
 function startFBStream(){
   if(!FB_URL||_fbStream)return;
@@ -4849,6 +4920,7 @@ setTimeout(function(){
   if(API_URL)startAutoSync();
   if(FB_URL){
     startFirebaseStream();
+    startUploadSSEPc();   // ฟัง /lastUpload — auto pull เมื่อเครื่องอื่นอัพโหลด
     // Sync drafts from Firebase on startup
     setTimeout(function(){syncDraftsFromFB();},2000);
     // Sync drafts ทุก 10 วิ
