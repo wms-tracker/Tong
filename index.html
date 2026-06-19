@@ -459,6 +459,7 @@ tr:hover td{background:var(--bg3)}
       </select>
       <button class="btn btn-o btn-sm" onclick="confirmExportCSV()">⬇ Export CSV</button>
       <button class="btn btn-sm" id="fb-sync-btn" onclick="forceSyncFirebase()" style="background:#F97316;color:#fff;border:none;font-weight:700" title="Push ออเดอร์ทั้งหมดขึ้น Firebase">🔥 Sync Firebase</button>
+      <span id="fbq-badge" onclick="_drainFbQueue()" style="display:none;cursor:pointer;background:#DC2626;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px" title="ข้อมูลค้างส่ง (offline) — คลิกเพื่อลองส่งใหม่"></span>
     </div>
   </div>
   <div class="tw">
@@ -1214,24 +1215,19 @@ function confirmUpload(mode){
     if(!grouped[oid]) delete ORDERS[oid];
   });
   saveLocal();
-  // Push ขึ้น Firebase
+  // Push ขึ้น Firebase แบบ batch (PERF-02)
   if(FB_URL){
-    var _fbCount=0,_fbTotal=Object.keys(grouped).length;
-    Object.keys(grouped).forEach(function(oid,idx){
-      setTimeout(function(){
-        fbPut('/orders/'+encodeId(oid),ORDERS[oid]);
-        var st=ORDERS[oid].status||'new';
-        fbPatch('/statuses/'+encodeId(oid),{status:st,updatedAt:ORDERS[oid].updatedAt||new Date().toISOString()});
-        _fbCount++;
-        if(_fbCount===_fbTotal){
-          console.log('Firebase: pushed '+_fbCount+' orders');
-          // แจ้งเตือน PDA + เครื่อง PC อื่นให้ re-sync
-          var _usr=localStorage.getItem('WMS_USR')||'PC';
-          var _at=new Date().toISOString();
-          _pcMyUploadAt=_at;   // กันไม่ให้เครื่องนี้ดึงซ้ำจาก event ของตัวเอง
-          fbPut('/lastUpload',{at:_at,by:_usr,count:_fbTotal});
-        }
-      },idx*30);
+    var _gOids=Object.keys(grouped);
+    var _fbTotal=_gOids.length;
+    fbBatchOrders(_gOids,function(d,t){
+      ulAlert('🔥 กำลัง push '+d+'/'+t+' orders ขึ้น Firebase...','warn');
+    },function(sent){
+      console.log('Firebase batch: pushed '+sent+' orders');
+      // แจ้งเตือน PDA + เครื่อง PC อื่นให้ re-sync
+      var _usr=localStorage.getItem('WMS_USR')||'PC';
+      var _at=new Date().toISOString();
+      _pcMyUploadAt=_at;   // กันไม่ให้เครื่องนี้ดึงซ้ำจาก event ของตัวเอง
+      fbPut('/lastUpload',{at:_at,by:_usr,count:_fbTotal});
     });
   }
   document.getElementById('prev-card').style.display='none';
@@ -1807,22 +1803,16 @@ function forceSyncFirebase(){
   if(!oids.length){alert('ไม่มีออเดอร์ในระบบ');return;}
   var btn=document.getElementById('fb-sync-btn');
   if(btn){btn.textContent='⏳ กำลัง sync...';btn.disabled=true;}
-  var done=0,total=oids.length;
-  oids.forEach(function(oid,idx){
-    setTimeout(function(){
-      fbPut('/orders/'+encodeId(oid),ORDERS[oid]);
-      var st=ORDERS[oid].status||'new';
-      fbPatch('/statuses/'+encodeId(oid),{status:st,updatedAt:ORDERS[oid].updatedAt||new Date().toISOString()});
-      done++;
-      if(done===total){
-        var usr=localStorage.getItem('WMS_USR')||'PC';
-        var _at=new Date().toISOString();
-        _pcMyUploadAt=_at;
-        fbPut('/lastUpload',{at:_at,by:usr,count:total});
-        if(btn){btn.textContent='✅ Sync แล้ว ('+total+')';btn.disabled=false;setTimeout(function(){btn.textContent='🔥 Sync Firebase';},3000);}
-        ulAlert('🔥 Sync '+total+' ออเดอร์ขึ้น Firebase แล้ว — PDA กำลัง sync...','ok');
-      }
-    },idx*30);
+  var total=oids.length;
+  fbBatchOrders(oids,function(d,t){
+    if(btn)btn.textContent='⏳ '+d+'/'+t;
+  },function(sent){
+    var usr=localStorage.getItem('WMS_USR')||'PC';
+    var _at=new Date().toISOString();
+    _pcMyUploadAt=_at;
+    fbPut('/lastUpload',{at:_at,by:usr,count:total});
+    if(btn){btn.textContent='✅ Sync แล้ว ('+total+')';btn.disabled=false;setTimeout(function(){btn.textContent='🔥 Sync Firebase';},3000);}
+    ulAlert('🔥 Sync '+total+' ออเดอร์ขึ้น Firebase แล้ว — PDA กำลัง sync...','ok');
   });
 }
 
@@ -2398,19 +2388,109 @@ function fbGet(path,cb){
   xhr.ontimeout=function(){cb(new Error('FB GET timeout'));};
   xhr.send();
 }
-function fbPut(path,data){
-  if(!FB_URL)return;
-  var xhr=new XMLHttpRequest();
-  xhr.open('PUT',FB_URL+path+'.json');
-  xhr.setRequestHeader('Content-Type','application/json');
-  xhr.send(JSON.stringify(data));
+/* ========= FEAT-01: OFFLINE RETRY QUEUE =========
+   write ทุกครั้งผ่าน _fbWrite() — ถ้า fail/offline จะเก็บลง queue (localStorage)
+   แล้ว retry อัตโนมัติเมื่อ online หรือทุก 15 วิ                              */
+var _fbQueue=[];
+try{var _q=localStorage.getItem('WMS_FBQ');if(_q)_fbQueue=JSON.parse(_q)||[];}catch(_){_fbQueue=[];}
+function _saveFbQueue(){try{localStorage.setItem('WMS_FBQ',JSON.stringify(_fbQueue));}catch(_){}}
+function _updateQueueBadge(){
+  var el=document.getElementById('fbq-badge');
+  if(!el)return;
+  if(_fbQueue.length>0){el.style.display='inline-block';el.textContent='⏳ ค้างส่ง '+_fbQueue.length;}
+  else{el.style.display='none';}
 }
-function fbPatch(path,data){
+function _fbWrite(method,path,data,_isRetry){
   if(!FB_URL)return;
   var xhr=new XMLHttpRequest();
-  xhr.open('PATCH',FB_URL+path+'.json');
+  xhr.open(method,FB_URL+path+'.json');
   xhr.setRequestHeader('Content-Type','application/json');
-  xhr.send(JSON.stringify(data));
+  xhr.timeout=15000;
+  xhr.onload=function(){
+    if(xhr.status>=200&&xhr.status<300){
+      if(_isRetry)_drainFbQueue(); // เขียนสำเร็จ ลองส่งตัวที่ค้างต่อ
+    }else{ _enqueueFbWrite(method,path,data); }
+  };
+  xhr.onerror=xhr.ontimeout=function(){ _enqueueFbWrite(method,path,data); };
+  try{ xhr.send(JSON.stringify(data)); }
+  catch(e){ _enqueueFbWrite(method,path,data); }
+}
+function _enqueueFbWrite(method,path,data){
+  // กันคิวบวม: ถ้า path เดิม method เดิมมีอยู่แล้ว เขียนทับด้วยค่าล่าสุด
+  for(var i=0;i<_fbQueue.length;i++){
+    if(_fbQueue[i].path===path&&_fbQueue[i].method===method){_fbQueue[i].data=data;_saveFbQueue();_updateQueueBadge();return;}
+  }
+  _fbQueue.push({method:method,path:path,data:data,ts:Date.now()});
+  _saveFbQueue();_updateQueueBadge();
+}
+var _drainingFbQueue=false;
+function _drainFbQueue(){
+  if(_drainingFbQueue||!_fbQueue.length||!FB_URL)return;
+  if(navigator.onLine===false)return;
+  _drainingFbQueue=true;
+  var item=_fbQueue.shift();
+  _saveFbQueue();_updateQueueBadge();
+  var xhr=new XMLHttpRequest();
+  xhr.open(item.method,FB_URL+item.path+'.json');
+  xhr.setRequestHeader('Content-Type','application/json');
+  xhr.timeout=15000;
+  xhr.onload=function(){
+    _drainingFbQueue=false;
+    if(xhr.status>=200&&xhr.status<300){ _updateQueueBadge(); _drainFbQueue(); }
+    else{ _fbQueue.unshift(item);_saveFbQueue();_updateQueueBadge(); } // ใส่กลับ รอรอบหน้า
+  };
+  xhr.onerror=xhr.ontimeout=function(){
+    _drainingFbQueue=false;
+    _fbQueue.unshift(item);_saveFbQueue();_updateQueueBadge();
+  };
+  try{xhr.send(JSON.stringify(item.data));}
+  catch(e){_drainingFbQueue=false;_fbQueue.unshift(item);_saveFbQueue();}
+}
+// retry อัตโนมัติ: เมื่อ online + ทุก 15 วิ
+window.addEventListener('online',function(){ulAlert('🌐 กลับมา online — กำลังส่งข้อมูลที่ค้าง...','warn');_drainFbQueue();});
+setInterval(function(){if(_fbQueue.length)_drainFbQueue();},15000);
+
+function fbPut(path,data){ _fbWrite('PUT',path,data); }
+function fbPatch(path,data){ _fbWrite('PATCH',path,data); }
+
+/* ========= PERF-02: BATCH MULTI-PATH WRITE =========
+   เขียนหลาย order ใน PATCH ครั้งเดียว (multi-path update ของ Firebase)
+   ลดจาก N requests → ceil(N/chunk) requests                                  */
+function fbBatchOrders(oids,onProgress,onDone){
+  var chunk=200; // 200 orders/request
+  var i=0,total=oids.length,sent=0;
+  function next(){
+    if(i>=total){ if(onDone)onDone(sent); return; }
+    var slice=oids.slice(i,i+chunk);
+    i+=chunk;
+    var payload={};
+    slice.forEach(function(oid){
+      var enc=encodeId(oid);
+      payload['orders/'+enc]=ORDERS[oid];
+      payload['statuses/'+enc]={status:ORDERS[oid].status||'new',updatedAt:ORDERS[oid].updatedAt||new Date().toISOString()};
+    });
+    var xhr=new XMLHttpRequest();
+    xhr.open('PATCH',FB_URL+'/.json'); // root multi-path update
+    xhr.setRequestHeader('Content-Type','application/json');
+    xhr.timeout=30000;
+    xhr.onload=function(){
+      if(xhr.status>=200&&xhr.status<300){ sent+=slice.length; }
+      else{ slice.forEach(function(oid){_enqueueFbWrite('PUT','/orders/'+encodeId(oid),ORDERS[oid]);}); }
+      if(onProgress)onProgress(Math.min(i,total),total);
+      setTimeout(next,20);
+    };
+    xhr.onerror=xhr.ontimeout=function(){
+      // fail → ใส่ queue ไว้ retry ทีหลัง
+      slice.forEach(function(oid){
+        _enqueueFbWrite('PUT','/orders/'+encodeId(oid),ORDERS[oid]);
+        _enqueueFbWrite('PATCH','/statuses/'+encodeId(oid),{status:ORDERS[oid].status||'new',updatedAt:ORDERS[oid].updatedAt||new Date().toISOString()});
+      });
+      if(onProgress)onProgress(Math.min(i,total),total);
+      setTimeout(next,20);
+    };
+    xhr.send(JSON.stringify(payload));
+  }
+  next();
 }
 
 // Real-time listener using SSE (Firebase streaming)
@@ -4921,6 +5001,9 @@ setTimeout(function(){
   if(FB_URL){
     startFirebaseStream();
     startUploadSSEPc();   // ฟัง /lastUpload — auto pull เมื่อเครื่องอื่นอัพโหลด
+    _updateQueueBadge();  // แสดง badge ถ้ามีข้อมูลค้างจาก session ก่อน
+    if(_fbQueue.length) setTimeout(_drainFbQueue,2000); // ลองส่งของค้างตอนเปิด
+
     // Sync drafts from Firebase on startup
     setTimeout(function(){syncDraftsFromFB();},2000);
     // Sync drafts ทุก 10 วิ
