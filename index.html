@@ -1614,18 +1614,22 @@ function renderDashboard(){
 }
 
 function renderOrders(){
-  // อัปเดต SUP dropdown options จาก orders จริง
+  // อัปเดต SUP dropdown options — สร้างใหม่เฉพาะเมื่อจำนวนออเดอร์เปลี่ยน (กัน lag ตอนพิมพ์ค้นหา)
   var supEl=document.getElementById('ord-sup');
   if(supEl){
-    var sups=[''];
-    Object.values(ORDERS).forEach(function(o){
-      var s=getOrderSUP(o);
-      if(s&&s!=='—'&&sups.indexOf(s)<0) sups.push(s);
-    });
-    var curSup=supEl.value;
-    supEl.innerHTML=sups.map(function(s){
-      return '<option value="'+s+'"'+(s===curSup?' selected':'')+'>'+(s===''?'ทุกขนส่ง':s)+'</option>';
-    }).join('');
+    var _ocount=Object.keys(ORDERS).length;
+    if(window._supDropCount!==_ocount){
+      window._supDropCount=_ocount;
+      var sups=[''];
+      Object.values(ORDERS).forEach(function(o){
+        var s=getOrderSUP(o);
+        if(s&&s!=='—'&&sups.indexOf(s)<0) sups.push(s);
+      });
+      var curSup=supEl.value;
+      supEl.innerHTML=sups.map(function(s){
+        return '<option value="'+s+'"'+(s===curSup?' selected':'')+'>'+(s===''?'ทุกขนส่ง':s)+'</option>';
+      }).join('');
+    }
   }
   let q=(typeof _ORD_Q!=='undefined'?_ORD_Q:(document.getElementById('ord-q')?.value||'')).toLowerCase().trim();
   let f=document.getElementById('ord-f')?.value||'';
@@ -1657,6 +1661,12 @@ function renderOrders(){
   });
   document.getElementById('nb-new').textContent=Object.values(ORDERS).filter(o=>o.status==='new').length;
   if(!orders.length){document.getElementById('ord-tbody').innerHTML='<tr><td colspan="10" class="empty">ไม่พบออเดอร์</td></tr>';return;}
+
+  // PERF: จำกัดการ render ไม่เกิน 200 ออเดอร์ต่อครั้ง (กันหน้าค้างตอนมีหลายพันออเดอร์)
+  var _ORD_LIMIT=200;
+  var _totalFiltered=orders.length;
+  var _capped=_totalFiltered>_ORD_LIMIT;
+  if(_capped) orders=orders.slice(0,_ORD_LIMIT);
 
   // helper normalize trkStatus — declared once outside the loop
   function _pcTrkSt(val){
@@ -1756,6 +1766,9 @@ function renderOrders(){
       allRows.push(row);
     });
   });
+  if(_capped){
+    allRows.unshift('<tr><td colspan="10" style="background:#FEF3C7;color:#92400E;font-size:12px;font-weight:700;padding:8px;text-align:center">⚡ แสดง '+_ORD_LIMIT+' จาก '+_totalFiltered+' ออเดอร์ — ใช้ช่องค้นหา/ตัวกรองเพื่อหาออเดอร์ที่ต้องการ</td></tr>');
+  }
   document.getElementById('ord-tbody').innerHTML=allRows.join('');
 }
 
@@ -1901,13 +1914,22 @@ function fixBadOrderDates(){
     o.date=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   });
 }
+// debounce — กัน SSE ยิงถี่ๆ แล้ว re-render ซ้อนกัน
+var _refreshTimer=null;
 function refreshAll(){
+  if(_refreshTimer)clearTimeout(_refreshTimer);
+  _refreshTimer=setTimeout(_refreshAllNow,120);
+}
+function _refreshAllNow(){
   fixBadOrderDates();
-  renderDashboard();
-  if(document.getElementById('ord-tbody')) renderOrders();
-  renderCarrierSummary();
-  if(document.getElementById('daily-date')) { if(_rptMode==='day') renderDailyReport(); else renderMonthlyReport(); }
-  renderDraftList();
+  // PERF: render เฉพาะหน้าที่กำลังเปิดอยู่ ไม่ render หน้าที่ซ่อน
+  function _activePage(id){var el=document.getElementById('page-'+id);return el&&el.classList.contains('active');}
+  if(_activePage('dashboard')){ renderDashboard(); renderCarrierSummary(); }
+  if(_activePage('orders')&&document.getElementById('ord-tbody')) renderOrders();
+  if(_activePage('report')){
+    if(document.getElementById('daily-date')){ if(_rptMode==='day') renderDailyReport(); else renderMonthlyReport(); }
+  }
+  if(_activePage('draft')) renderDraftList();
   let nb={pick:0,qc:0,ship:0,done:0,draft:0,cancel:0};
   Object.values(ORDERS).forEach(o=>{
     if(o.status==='pick')nb.pick++;
