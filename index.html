@@ -3671,6 +3671,9 @@ function doExportCSV(){
 
   function parseDateStr(ds){
     ds=String(ds||'').trim(); if(!ds) return null;
+    // ISO YYYY-MM-DD (รูปแบบหลักหลัง normalize)
+    var iso=ds.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if(iso){var iy=parseInt(iso[1]);if(iy>2400)iy-=543;return new Date(iy,parseInt(iso[2])-1,parseInt(iso[3]));}
     var m1=ds.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
     if(m1){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m1[1]];if(mn!==undefined)return new Date(now.getFullYear(),mn,parseInt(m1[2]));}
     var m2=ds.match(/^(\d+)\/(\d+)\/(\d+)/);
@@ -3689,7 +3692,8 @@ function doExportCSV(){
     if(stFilter!=='all'&&o.status!==stFilter) return;
 
     if(range!=='all'){
-      var ref=o.updatedAt?new Date(o.updatedAt):parseDateStr(o.date);
+      // ใช้วันที่ออเดอร์จากไฟล์ (o.date) เป็นหลัก ไม่ใช่เวลาที่ทำงาน
+      var ref=parseDateStr(o.date)||(o.updatedAt?new Date(o.updatedAt):null);
       if(!ref||isNaN(ref.getTime())) return;
       if(range==='today'&&ref.toDateString()!==now.toDateString()) return;
       if(range==='week'){var w=new Date(now);w.setDate(w.getDate()-7);w.setHours(0,0,0,0);if(ref<w)return;}
@@ -3722,7 +3726,9 @@ function doExportCSV(){
       }
       if(!trkTime&&o.updatedAt) trkTime=o.updatedAt;
       var trkTimeStr=trkTime?new Date(trkTime).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
-      var dateStr=o.updatedAt?new Date(o.updatedAt).toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'2-digit'}):(o.date||'');
+      // วันที่ออเดอร์จากไฟล์ → DD/MM/YYYY (ค.ศ.)
+      var _refD=parseDateStr(o.date);
+      var dateStr=_refD?(String(_refD.getDate()).padStart(2,'0')+'/'+String(_refD.getMonth()+1).padStart(2,'0')+'/'+_refD.getFullYear()):(o.date||'');
 
       (trkMap[trk]||[]).forEach(function(item){
         rows.push([
@@ -3752,13 +3758,23 @@ function doExportCSV(){
 
 
 /* ===== CARRIER SUMMARY ===== */
+// normalize ชื่อขนส่งให้ตรงกับ 5 กลุ่มมาตรฐาน (รายงาน/Export)
+function _stdCarrier(s){
+  var v=String(s||'').toLowerCase();
+  if(/best|bulky/.test(v)) return 'Best Express Bulky';
+  if(/lunio/.test(v)) return 'Lunio';
+  if(/kex|kerry/.test(v)) return 'KEX HRZ';
+  if(/business\s*idea|biz\s*idea|bih|bi\s*hrz|bihrz/.test(v)) return 'Business Idea HRZ';
+  if(/รับที่คลัง|pickup|walk\s*in|self/.test(v)) return 'รับที่คลัง';
+  return s; // ไม่ตรงกลุ่มไหน คืนค่าเดิม
+}
 function getOrderSUP(o){
   if(!o) return '—';
   // 1. sup field ที่บันทึกจาก Excel col B (ชื่อเต็ม)
   var s=(o.sup||'').trim();
   if(s&&s!=='-'&&s!=='undefined'&&s!=='null'&&s!=='OTHER'
      &&!/^[A-Z]{2,5}\d+/.test(s)&&!/^[A-Z]{2,5}$/.test(s)){
-    return s;
+    return _stdCarrier(s);
   }
   // 2. sup จาก items — กรอง SKU prefix ออก
   var its=o.items||[];
@@ -3766,7 +3782,7 @@ function getOrderSUP(o){
     var is=(its[ii].sup||'').trim();
     if(is&&is!=='-'&&is!=='OTHER'
        &&!/^[A-Z]{2,5}\d+/.test(is)&&!/^[A-Z]{2,5}$/.test(is)){
-      return is;
+      return _stdCarrier(is);
     }
   }
   // 3. ดูจาก consign ก่อน tracking (consign บอกชื่อเต็มกว่า)
@@ -3774,7 +3790,7 @@ function getOrderSUP(o){
   if(con){
     if(/^best/i.test(con)) return 'Best Express Bulky';
     if(/^flash/i.test(con)) return 'Flash Express';
-    if(/^kerry|^kex/i.test(con)) return 'Kerry Express';
+    if(/^kerry|^kex/i.test(con)) return 'KEX HRZ';
     if(/^nim/i.test(con)) return 'Nim Express';
     if(/^spx/i.test(con)) return 'Shopee Express';
     if(/^lunio/i.test(con)) return 'Lunio';
