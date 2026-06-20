@@ -3725,7 +3725,8 @@ function doExportCSV(){
         else if(o.status==='qc'&&!trkTime){var last=o.timeline[o.timeline.length-1];trkTime=last?last.time:'';}
       }
       if(!trkTime&&o.updatedAt) trkTime=o.updatedAt;
-      var trkTimeStr=trkTime?new Date(trkTime).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+      var _qcDt=trkTime?new Date(trkTime):null;
+      var trkTimeStr=(_qcDt&&!isNaN(_qcDt.getTime()))?_qcDt.toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
       // วันที่ออเดอร์จากไฟล์ → DD/MM/YYYY (ค.ศ.)
       var _refD=parseDateStr(o.date);
       var dateStr=_refD?(String(_refD.getDate()).padStart(2,'0')+'/'+String(_refD.getMonth()+1).padStart(2,'0')+'/'+_refD.getFullYear()):(o.date||'');
