@@ -1700,7 +1700,8 @@ function renderOrders(){
     var _ts=o.trkStatus||{};
     var _verifiedAll=_allTrksForOrder.length>0&&_allTrksForOrder.every(function(t){var s=_pcTrkSt(_ts[t]);return s==='verified'||s==='shipped';});
     var _verifiedSome=_allTrksForOrder.some(function(t){var s=_pcTrkSt(_ts[t]);return s==='verified'||s==='shipped'||s==='exception';});
-    var _computedOSt=_verifiedAll?'completed':(_verifiedSome?'partial':o.status);
+    // tracking ที่ตรวจแล้ว → order เข้าสถานะ QC ทันที (ไม่โชว์ "ตรวจบางส่วน")
+    var _computedOSt=_verifiedSome?'qc':o.status;
     var oStat='<span class="badge '+(_SB_ext[_computedOSt]||'b-new')+'">'+(_SL_ext[_computedOSt]||o.status)+'</span>'
       +(o.postponedFrom?'<br><span style="font-size:9px;padding:1px 5px;background:#FEF3C7;color:#92400E;border-radius:6px;font-weight:700">เลื่อน</span>':'');
 
@@ -1920,8 +1921,21 @@ function refreshAll(){
   if(_refreshTimer)clearTimeout(_refreshTimer);
   _refreshTimer=setTimeout(_refreshAllNow,120);
 }
+// tracking ที่ตรวจแล้ว → bump order status เป็น qc (persist เพื่อให้ filter/stats/QC pipeline ทำงาน)
+function _promoteVerifiedToQC(){
+  var changed=false;
+  Object.values(ORDERS).forEach(function(o){
+    var st=o.status||'';
+    if(st==='done'||st==='cancel'||st==='ship'||st==='pack'||st==='qc')return;
+    var ts=o.trkStatus||{};
+    var anyVerified=Object.keys(ts).some(function(t){var v=ts[t];return v==='qc'||v==='verified'||v==='done'||v==='shipped';});
+    if(anyVerified){o.status='qc';changed=true;}
+  });
+  if(changed)saveLocal();
+}
 function _refreshAllNow(){
   fixBadOrderDates();
+  _promoteVerifiedToQC();
   // PERF: render เฉพาะหน้าที่กำลังเปิดอยู่ ไม่ render หน้าที่ซ่อน
   function _activePage(id){var el=document.getElementById('page-'+id);return el&&el.classList.contains('active');}
   if(_activePage('dashboard')){ renderDashboard(); renderCarrierSummary(); }
