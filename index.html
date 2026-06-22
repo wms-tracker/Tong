@@ -1178,12 +1178,16 @@ function confirmUpload(mode){
   Object.entries(grouped).forEach(([oid,order])=>{
     let isCancelled=pendingData.filter(r=>r.o===oid).some(r=>r.status==='cancel');
     if(ORDERS[oid]){
+      // --- Composite Key check: Order ID + วันจัดส่ง + ขนส่ง ---
       let existDate=ORDERS[oid].date||'';
       let newDate=order.date||'';
-      // --- Composite Key check: oid + date ---
-      // ถ้าวันที่ส่งออกต่างกัน = ออเดอร์เลื่อนส่ง/ส่งใหม่ → reset เป็น new เสมอ
-      let isRescheduled=newDate&&existDate&&newDate!==existDate;
-      // ถ้าวันเดิม: keep status qc/pack/done ไว้ | ถ้าวันใหม่: reset ทุกอย่าง
+      let existSup=_stdCarrier(ORDERS[oid].sup||getOrderSUP(ORDERS[oid])||'');
+      let newSup=_stdCarrier(order.sup||'');
+      // กรณีที่ 2: วัน "หรือ" ขนส่ง ต่างกัน → ถือเป็นออเดอร์ใหม่ (reset เป็น new ให้ pick/QC ใหม่)
+      let dateDiff=newDate&&existDate&&newDate!==existDate;
+      let supDiff=newSup&&existSup&&newSup!==existSup;
+      let isRescheduled=dateDiff||supDiff;
+      // กรณีที่ 1: วัน+ขนส่งตรงกัน → update ของเดิม, keep status qc/pack/done ไว้
       let keep=!isRescheduled&&['qc','pack','done'].includes(ORDERS[oid].status);
       ORDERS[oid].items=order.items;
       ORDERS[oid].consign=order.consign;
@@ -1194,9 +1198,11 @@ function confirmUpload(mode){
       if(isCancelled){
         ORDERS[oid].status='cancel';
       }else if(isRescheduled){
-        // ออเดอร์เลื่อนส่ง: เปิดใหม่เป็น new พร้อมบันทึก timeline
+        // วัน/ขนส่งเปลี่ยน: เปิดใหม่เป็น new + ล้าง trkStatus เดิม (เริ่ม QC ใหม่ทุก tracking)
         ORDERS[oid].status='new';
-        ORDERS[oid].timeline.push({time:now,action:'เลื่อนส่ง → ส่งใหม่ '+newDate,user:'System'});
+        ORDERS[oid].trkStatus={};
+        var _why=dateDiff?('เลื่อนส่ง → ส่งใหม่ '+newDate):('เปลี่ยนขนส่ง → '+newSup);
+        ORDERS[oid].timeline.push({time:now,action:_why,user:'System'});
         rescheduled++;
       }else if(!keep){
         ORDERS[oid].status='new';
