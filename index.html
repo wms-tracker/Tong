@@ -881,6 +881,7 @@ tr:hover td{background:var(--bg3)}
         <div><label class="fl">Tracking</label><div id="m-tracking" class="mono"></div></div>
         <div><label class="fl">วันที่รับ</label><div id="m-date"></div></div>
         <div><label class="fl">สถานะ</label><div id="m-status"></div></div>
+        <div><label class="fl">ผู้อัพโหลด</label><div id="m-uploader" style="font-weight:600"></div></div>
       </div>
       <div id="m-trk-progress" style="display:none"></div>
       <div class="card-t">รายการสินค้า</div>
@@ -928,10 +929,13 @@ function init(){
   if(_fbEl)_fbEl.value=FB_URL;
   let _matcherEl=document.getElementById('matcher-url');
   if(_matcherEl)_matcherEl.value=localStorage.getItem('WMS_MATCHER')||'https://wms-tracker-production.up.railway.app';
-  let _devEl=document.getElementById('s-device');
-  let _usrEl=document.getElementById('s-user');
+  let _devEl=document.getElementById('dev-device-st');
+  let _usrEl=document.getElementById('dev-name-st');
   if(_devEl)_devEl.value=localStorage.getItem('WMS_DEV')||'WMS-PC';
-  if(_usrEl)_usrEl.value=localStorage.getItem('WMS_USR')||'user';
+  if(_usrEl)_usrEl.value=localStorage.getItem('WMS_USR')||'';
+  // auto-save ทันทีที่พิมพ์ (กันค่าหายตอนรีเฟรช)
+  if(_usrEl)_usrEl.addEventListener('input',function(){if(this.value.trim())localStorage.setItem('WMS_USR',this.value.trim());});
+  if(_devEl)_devEl.addEventListener('input',function(){if(this.value.trim())localStorage.setItem('WMS_DEV',this.value.trim());});
   try{let d=localStorage.getItem('WMS_O');if(d)ORDERS=JSON.parse(d);}catch(_){}
   try{let d=localStorage.getItem('WMS_SC');if(d)SC=JSON.parse(d);}catch(_){}
   try{let d=localStorage.getItem('WMS_DR');if(d)DRAFTS=JSON.parse(d);}catch(_){}
@@ -1165,6 +1169,7 @@ function showPreview(data){
 function confirmUpload(mode){
   if(!pendingData.length)return;
   var _nd=new Date();var now=_nd.getFullYear()+'-'+String(_nd.getMonth()+1).padStart(2,'0')+'-'+String(_nd.getDate()).padStart(2,'0');
+  var _uploader=localStorage.getItem('WMS_USR')||'PC';   // ผู้ที่อัพโหลด
   if(mode==='replace')ORDERS={};
   let grouped={};
   pendingData.forEach(r=>{
@@ -1202,17 +1207,18 @@ function confirmUpload(mode){
         ORDERS[oid].status='new';
         ORDERS[oid].trkStatus={};
         var _why=dateDiff?('เลื่อนส่ง → ส่งใหม่ '+newDate):('เปลี่ยนขนส่ง → '+newSup);
-        ORDERS[oid].timeline.push({time:now,action:_why,user:'System'});
+        ORDERS[oid].timeline.push({time:now,action:_why,user:_uploader});
         rescheduled++;
       }else if(!keep){
         ORDERS[oid].status='new';
       }
-      if(!isRescheduled) ORDERS[oid].timeline.push({time:now,action:'อัปเดตข้อมูล',user:'System'});
+      ORDERS[oid].uploadedBy=_uploader;
+      if(!isRescheduled) ORDERS[oid].timeline.push({time:now,action:'อัปเดตข้อมูล',user:_uploader});
       updated++;
     }else{
       ORDERS[oid]={id:oid,consign:order.consign,tracking:order.tracking,trackings:order.trackings||[],
-        items:order.items,status:isCancelled?'cancel':'new',date:order.date||now,sup:order.sup||'',note:'',
-        timeline:[{time:now,action:'รับออเดอร์เข้าระบบ',user:'System'}]};
+        items:order.items,status:isCancelled?'cancel':'new',date:order.date||now,sup:order.sup||'',note:'',uploadedBy:_uploader,
+        timeline:[{time:now,action:'รับออเดอร์เข้าระบบ',user:_uploader}]};
       added++;
     }
   });
@@ -2029,6 +2035,7 @@ function openOrder(oid){
   document.getElementById('m-consign').textContent=o.consign||'—';
   document.getElementById('m-tracking').textContent=o.tracking||'—';
   document.getElementById('m-date').textContent=o.date||'—';
+  var _upEl=document.getElementById('m-uploader');if(_upEl)_upEl.textContent=o.uploadedBy||'—';
   document.getElementById('m-status').innerHTML=`<span class="badge ${SB[o.status]}">${SL[o.status]}</span>`;
   document.getElementById('m-note').value=o.note||'';
   // แสดง trkStatus progress ถ้ามีหลาย tracking
@@ -2091,8 +2098,8 @@ function saveSettings(){
   localStorage.setItem('WMS_URL',API_URL);
   if(FB_URL)localStorage.setItem('WMS_FB',FB_URL);
   if(_matcherUrl)localStorage.setItem('WMS_MATCHER',_matcherUrl);
-  let devEl=document.getElementById('s-device');
-  let usrEl=document.getElementById('s-user');
+  let devEl=document.getElementById('dev-device-st');
+  let usrEl=document.getElementById('dev-name-st');
   if(devEl&&devEl.value.trim())localStorage.setItem('WMS_DEV',devEl.value.trim());
   if(usrEl&&usrEl.value.trim())localStorage.setItem('WMS_USR',usrEl.value.trim());
   if(!API_URL){document.getElementById('conn-txt').textContent='กรุณาใส่ URL';return;}
@@ -3199,11 +3206,11 @@ function applyMatcherToWMS(){
     newOrders[oid]={
       id:oid,consign:m.consign,tracking:m.tracking,trackings:m.trackings,
       items:m.items,status:newStatus,
-      sup:m.sup||'',date:m.date||now,
+      sup:m.sup||'',date:m.date||now,uploadedBy:(localStorage.getItem('WMS_USR')||'PC'),
       note:isPostponed?('เลื่อนจัดส่ง จาก '+(oldOrder.date||'ไม่ทราบวัน')+' → '+( m.date||now)):(oldOrder.note||''),
       postponedFrom:isPostponed?(oldOrder.date||''):'',
       postponedAt:isPostponed?new Date().toISOString():'',
-      timeline:[{time:now,action:isPostponed?'เลื่อนจัดส่ง — นำเข้าจากไฟล์ใหม่':'นำเข้าจาก Tracking Matcher',user:'System'}]
+      timeline:[{time:now,action:(isPostponed?'เลื่อนจัดส่ง — นำเข้าจากไฟล์ใหม่':'นำเข้าจาก Tracking Matcher'),user:(localStorage.getItem('WMS_USR')||'PC')}]
     };
     if(isPostponed){
       updated++;
