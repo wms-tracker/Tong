@@ -3735,10 +3735,14 @@ function doExportCSV(){
   function hasAnyTrkQCex(o){return o.trkStatus&&Object.values(o.trkStatus).some(function(v){return v==='qc';});}
 
   Object.values(ORDERS).forEach(function(o){
-    // รวม: order status qc/ship/done/cancel หรือ มี tracking QC บางส่วน
-    var reportable=['qc','ship','done','cancel'].indexOf(o.status)>=0||hasAnyTrkQCex(o);
-    if(!reportable) return;
-    if(stFilter!=='all'&&o.status!==stFilter) return;
+    if(stFilter!=='all'){
+      // เลือกสถานะเจาะจง → กรองตามสถานะนั้นตรงๆ (รวม new/pick ที่ปกติไม่ export)
+      if(o.status!==stFilter) return;
+    }else{
+      // ทุกสถานะ: เฉพาะออเดอร์ที่เริ่มกระบวนการแล้ว (qc/ship/done/cancel หรือมี tracking QC)
+      var reportable=['qc','ship','done','cancel'].indexOf(o.status)>=0||hasAnyTrkQCex(o);
+      if(!reportable) return;
+    }
 
     if(range!=='all'){
       // ใช้วันที่ออเดอร์จากไฟล์ (o.date) เป็นหลัก ไม่ใช่เวลาที่ทำงาน
@@ -5171,9 +5175,12 @@ setTimeout(function(){
       <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">สถานะ</label>
       <select id="ex-status" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:13px">
         <option value="all">ทุกสถานะ</option>
+        <option value="new">🆕 รับแล้ว</option>
+        <option value="pick">📦 Pick</option>
         <option value="qc">✅ QC ผ่าน</option>
         <option value="ship">🚚 Ship</option>
         <option value="done">✔ Done</option>
+        <option value="postponed">📅 เลื่อนส่ง</option>
         <option value="cancel">🚫 Cancel</option>
       </select>
     </div>
