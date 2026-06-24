@@ -406,6 +406,7 @@ tr:hover td{background:var(--bg3)}
     <button class="btn btn-p" onclick="syncFromSheets()">📋 Sync จาก Sheets</button>
     <button class="btn" style="background:#F57C00;color:#fff;font-weight:700" onclick="syncFromFirebase()">🔥 Sync จาก Firebase</button>
     <button class="btn" style="background:#0EA5E9;color:#fff;font-weight:700;margin-top:8px" onclick="showMatcherDialog()">🔗 ดึง Tracking จาก Matcher</button>
+    <button class="btn" style="background:#16A34A;color:#fff;font-weight:700;margin-top:8px" onclick="importHRZPickup()" title="ดึงออเดอร์รับที่คลังจากชีท HRZ">🏭 ดึงรับที่คลัง (HRZ)</button>
   </div>
   <div class="card">
     <div class="card-t">📄 อัปโหลดไฟล์ CSV / Excel</div>
@@ -1173,7 +1174,7 @@ function confirmUpload(mode){
   if(mode==='replace')ORDERS={};
   let grouped={};
   pendingData.forEach(r=>{
-    if(!grouped[r.o])grouped[r.o]={id:r.o,consign:r.c,tracking:r.tracking,trackings:[],items:[],date:r.date||now,sup:r.sup||'',note:'',timeline:[]};
+    if(!grouped[r.o])grouped[r.o]={id:r.o,consign:r.c,tracking:r.tracking,trackings:[],items:[],date:r.date||now,sup:r.sup||'',note:r.note||'',timeline:[]};
     grouped[r.o].items.push({sku:r.sku,name:r.name,size:r.size,qty:r.qty,tracking:r.tracking||''});
     let t=String(r.tracking||'').trim();
     if(t&&!grouped[r.o].trackings.includes(t))grouped[r.o].trackings.push(t);
@@ -1181,7 +1182,9 @@ function confirmUpload(mode){
   });
   let added=0,updated=0,rescheduled=0;
   Object.entries(grouped).forEach(([oid,order])=>{
-    let isCancelled=pendingData.filter(r=>r.o===oid).some(r=>r.status==='cancel');
+    let _orows=pendingData.filter(r=>r.o===oid);
+    let isCancelled=_orows.some(r=>r.status==='cancel');
+    let isDone=!isCancelled&&_orows.length>0&&_orows.every(r=>r.status==='done');
     if(ORDERS[oid]){
       // --- Composite Key check: Order ID + วันจัดส่ง + ขนส่ง ---
       let existDate=ORDERS[oid].date||'';
@@ -1202,6 +1205,8 @@ function confirmUpload(mode){
       if(order.date)ORDERS[oid].date=order.date;
       if(isCancelled){
         ORDERS[oid].status='cancel';
+      }else if(isDone&&!keep){
+        ORDERS[oid].status='done';
       }else if(isRescheduled){
         // วัน/ขนส่งเปลี่ยน: เปิดใหม่เป็น new + ล้าง trkStatus เดิม (เริ่ม QC ใหม่ทุก tracking)
         ORDERS[oid].status='new';
@@ -1217,7 +1222,7 @@ function confirmUpload(mode){
       updated++;
     }else{
       ORDERS[oid]={id:oid,consign:order.consign,tracking:order.tracking,trackings:order.trackings||[],
-        items:order.items,status:isCancelled?'cancel':'new',date:order.date||now,sup:order.sup||'',note:'',uploadedBy:_uploader,
+        items:order.items,status:isCancelled?'cancel':(isDone?'done':'new'),date:order.date||now,sup:order.sup||'',note:order.note||'',uploadedBy:_uploader,
         timeline:[{time:now,action:'รับออเดอร์เข้าระบบ',user:_uploader}]};
       added++;
     }
@@ -1783,6 +1788,88 @@ function renderOrders(){
     allRows.unshift('<tr><td colspan="10" style="background:#FEF3C7;color:#92400E;font-size:12px;font-weight:700;padding:8px;text-align:center">⚡ แสดง '+_ORD_LIMIT+' จาก '+_totalFiltered+' ออเดอร์ — ใช้ช่องค้นหา/ตัวกรองเพื่อหาออเดอร์ที่ต้องการ</td></tr>');
   }
   document.getElementById('ord-tbody').innerHTML=allRows.join('');
+}
+
+/* ===== IMPORT รับที่คลัง จากชีท HRZ ===== */
+var HRZ_PICKUP_URL='https://docs.google.com/spreadsheets/d/1O6EHWrkq--MDjs87eQmctShfydQxiy7uBUxXcrg5mgU/gviz/tq?tqx=out:csv&sheet=Orders';
+// CSV parser ที่รองรับ field มีเครื่องหมายคำพูด + ขึ้นบรรทัดภายใน field
+function _parseCSVText(text){
+  var rows=[],row=[],cur='',inQ=false;
+  for(var i=0;i<text.length;i++){
+    var c=text[i];
+    if(inQ){
+      if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else inQ=false; }
+      else cur+=c;
+    }else{
+      if(c==='"')inQ=true;
+      else if(c===','){row.push(cur);cur='';}
+      else if(c==='\n'){row.push(cur);rows.push(row);row=[];cur='';}
+      else if(c==='\r'){/* skip */}
+      else cur+=c;
+    }
+  }
+  if(cur!==''||row.length){row.push(cur);rows.push(row);}
+  return rows;
+}
+// แยก SKU จากชื่อสินค้า เช่น "Lunio Gen 4 (LNO0000000215)" → {sku,name}
+function _extractSKU(s){
+  s=String(s||'').trim();
+  var m=s.match(/\(([A-Z]{2,5}\d{5,})\)\s*$/);
+  if(m)return {sku:m[1],name:s.replace(m[0],'').trim()};
+  return {sku:'',name:s};
+}
+function importHRZPickup(){
+  if(!confirm('ดึงออเดอร์ "รับที่คลัง" จากชีท HRZ เข้าระบบ?\n(SKU + ของแถมจะถูกแยกเป็นรายการ)'))return;
+  ulAlert('⏳ กำลังดึงข้อมูลจาก HRZ...','warn');
+  var xhr=new XMLHttpRequest();
+  xhr.open('GET',HRZ_PICKUP_URL);
+  xhr.timeout=30000;
+  xhr.onload=function(){
+    try{
+      var rows=_parseCSVText(xhr.responseText);
+      if(rows.length<2){ulAlert('ชีทว่างเปล่า','err');return;}
+      var hdr=rows[0].map(function(h){return String(h||'').trim();});
+      function col(name){return hdr.indexOf(name);}
+      var cDate=col('Date'),cSup=col('Sup'),cOid=col('เลขOrder'),cBrand=col('แบรนด์'),
+          cSize=col('ขนาด'),cQty=col('จำนวน'),cGift=col('ของแถม'),cName=col('customer_name'),
+          cStat=col('status'),cAddr=col('Address');
+      // หา index ของ "จำนวน" ตัวที่ 2 (จำนวนของแถม)
+      var cGiftQty=-1;for(var gi=cGift+1;gi<hdr.length;gi++){if(hdr[gi]==='จำนวน'){cGiftQty=gi;break;}}
+      var pd=[];
+      for(var r=1;r<rows.length;r++){
+        var row=rows[r];if(!row[cOid])continue;
+        var oid=String(row[cOid]).trim();if(!oid)continue;
+        var rawSt=String(row[cStat]||'').trim().toLowerCase();
+        var st=rawSt==='cancelled'||rawSt==='cancel'?'cancel':(rawSt==='completed'?'done':'');
+        var dt=normalizeDate(String(row[cDate]||'').trim());
+        var cust=String(row[cName]||'').trim();
+        var addr=cAddr>=0?String(row[cAddr]||'').trim():'';
+        // สินค้าหลัก
+        if(row[cBrand]&&String(row[cBrand]).trim()){
+          var main=_extractSKU(row[cBrand]);
+          pd.push({o:oid,sku:main.sku,name:main.name,size:String(row[cSize]||'').trim(),
+            qty:parseInt(row[cQty])||1,c:cust,tracking:'',status:st,date:dt,sup:'รับที่คลัง',note:addr});
+        }
+        // ของแถม (อาจมีหลายชิ้น คั่นด้วยขึ้นบรรทัด)
+        if(row[cGift]&&String(row[cGift]).trim()){
+          var gq=cGiftQty>=0?(parseInt(row[cGiftQty])||1):1;
+          String(row[cGift]).split(/\n+/).forEach(function(g){
+            g=g.trim();if(!g)return;
+            var gx=_extractSKU(g);
+            pd.push({o:oid,sku:gx.sku,name:gx.name,size:'',qty:gq,c:cust,tracking:'',status:st,date:dt,sup:'รับที่คลัง',note:addr});
+          });
+        }
+      }
+      if(!pd.length){ulAlert('ไม่พบออเดอร์ในชีท','err');return;}
+      pendingData=pd;
+      showPreview(pendingData);
+      var nOrders=Object.keys(pd.reduce(function(a,r){a[r.o]=1;return a;},{})).length;
+      ulAlert('✓ ดึงมา '+nOrders+' ออเดอร์ ('+pd.length+' รายการ) — กด "เพิ่ม/อัปเดต" เพื่อนำเข้า','ok');
+    }catch(e){ulAlert('อ่านข้อมูล HRZ ไม่ได้: '+e.message,'err');}
+  };
+  xhr.onerror=function(){ulAlert('เชื่อมต่อ HRZ ไม่ได้ — ตรวจว่าชีท Publish to web แล้ว','err');};
+  xhr.ontimeout=function(){ulAlert('HRZ timeout','err');};
+  xhr.send();
 }
 
 function goQCScanWithTracking(oid,trk){
