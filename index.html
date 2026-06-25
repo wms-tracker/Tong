@@ -1158,11 +1158,11 @@ function parseDeliveryTemplate(rows,h){
     var t=cTruck?String(r[cTruck]||'').trim():'';if(!t)return;
     if(!oTrucks[o])oTrucks[o]={};oTrucks[o][t]=1;
   });
+  // สินค้าจริง = มี SKU หรือ ชื่อมีตัวอักษร (ไม่ใช่ตัวเลข/สัญลักษณ์ล้วน เช่น "114")
+  function _isRealProduct(x){return !!(x.sku||/[A-Za-zก-๙]/.test(x.name||''));}
   var pd=[],skipped=0;
   rows.forEach(function(r){
     var oid=String(r[cOid]||'').trim();if(!oid)return;
-    // ไม่มีสินค้าหลัก (แบรนด์ว่าง) → ข้ามทั้งแถว ไม่นำเข้า
-    if(!cBrand||!String(r[cBrand]||'').trim()){skipped++;return;}
     var dt=normalizeDate(String(r[cDate]||'').trim());
     var sup=cSup?String(r[cSup]||'').trim():'';
     var cust=cName?String(r[cName]||'').trim():'';
@@ -1177,11 +1177,14 @@ function parseDeliveryTemplate(rows,h){
     // Consign = ชื่อรถ | ชื่อลูกค้าเก็บในหมายเหตุ
     var consign=truck;
     var note=[cust?('ลูกค้า '+cust):'',addr,phone?('โทร '+phone):'',tm?('นัด '+tm):'',note0].filter(Boolean).join(' · ');
-    // สินค้าหลัก
+    var nBefore=pd.length;
+    // สินค้าหลัก — เฉพาะที่เป็นสินค้าจริง (ถ้าเป็นเลขล้วนเช่น "114" → ข้าม ไปใช้ของแถมแทน)
     if(cBrand&&String(r[cBrand]||'').trim()){
       var main=_extractSKU(r[cBrand]);
-      pd.push({o:eoid,sku:main.sku,name:main.name,size:cSize?String(r[cSize]||'').trim():'',
-        qty:parseInt(r[cQty])||1,c:consign,tracking:'',status:'',date:dt,sup:sup,note:note});
+      if(_isRealProduct(main)){
+        pd.push({o:eoid,sku:main.sku,name:main.name,size:cSize?String(r[cSize]||'').trim():'',
+          qty:parseInt(r[cQty])||1,c:consign,tracking:'',status:'',date:dt,sup:sup,note:note});
+      }
     }
     // ของแถม + จำนวนต่อบรรทัด
     if(cGift&&String(r[cGift]||'').trim()){
@@ -1190,9 +1193,12 @@ function parseDeliveryTemplate(rows,h){
       var gqs=gqRaw.split(/\n+/).map(function(x){return parseInt(x)||1;});
       gifts.forEach(function(g,idx){
         var gx=_extractSKU(g);
+        if(!_isRealProduct(gx))return; // ข้ามของแถมที่เป็นเลขล้วน/ว่าง
         pd.push({o:eoid,sku:gx.sku,name:gx.name,size:'',qty:gqs[idx]||1,c:consign,tracking:'',status:'',date:dt,sup:sup,note:note});
       });
     }
+    // ถ้าแถวนี้ไม่ได้เพิ่มอะไรเลย (ไม่มีทั้งสินค้าจริงและของแถม) → นับว่าข้าม
+    if(pd.length===nBefore) skipped++;
   });
   if(!pd.length){ulAlert('ไม่พบออเดอร์ในไฟล์','err');return;}
   pendingData=pd;
