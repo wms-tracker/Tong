@@ -1141,9 +1141,55 @@ function normalizeDate(ds){
   }
   return ds;
 }
+// เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
+function parseDeliveryTemplate(rows,h){
+  function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
+  var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
+      cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
+      cGift=pick(['ของแถม']),cName=pick(['ชื่อลูกค้า','customer_name']),
+      cPhone=pick(['Phone 1','เบอร์โทร']),cAddr=pick(['ที่อยู่','Address']),
+      cNote=pick(['หมายเหตุ']),cTime=pick(['เวลานัด']);
+  // คอลัมน์ "จำนวน" ตัวที่ 2 (จำนวนของแถม) — parseSheet ตั้งชื่อ duplicate เป็น 'จำนวน_1'
+  var cGiftQty=pick(['จำนวน_1']);
+  var pd=[];
+  rows.forEach(function(r){
+    var oid=String(r[cOid]||'').trim();if(!oid)return;
+    var dt=normalizeDate(String(r[cDate]||'').trim());
+    var sup=cSup?String(r[cSup]||'').trim():'';
+    var cust=cName?String(r[cName]||'').trim():'';
+    var phone=cPhone?String(r[cPhone]||'').trim():'';
+    var addr=cAddr?String(r[cAddr]||'').trim():'';
+    var note0=cNote?String(r[cNote]||'').trim():'';
+    var tm=cTime?String(r[cTime]||'').trim():'';
+    var note=[addr,phone?('โทร '+phone):'',tm?('นัด '+tm):'',note0].filter(Boolean).join(' · ');
+    // สินค้าหลัก
+    if(cBrand&&String(r[cBrand]||'').trim()){
+      var main=_extractSKU(r[cBrand]);
+      pd.push({o:oid,sku:main.sku,name:main.name,size:cSize?String(r[cSize]||'').trim():'',
+        qty:parseInt(r[cQty])||1,c:cust,tracking:'',status:'',date:dt,sup:sup,note:note});
+    }
+    // ของแถม + จำนวนต่อบรรทัด
+    if(cGift&&String(r[cGift]||'').trim()){
+      var gifts=String(r[cGift]).split(/\n+/).map(function(x){return x.trim();}).filter(Boolean);
+      var gqRaw=cGiftQty?String(r[cGiftQty]||''):'';
+      var gqs=gqRaw.split(/\n+/).map(function(x){return parseInt(x)||1;});
+      gifts.forEach(function(g,idx){
+        var gx=_extractSKU(g);
+        pd.push({o:oid,sku:gx.sku,name:gx.name,size:'',qty:gqs[idx]||1,c:cust,tracking:'',status:'',date:dt,sup:sup,note:note});
+      });
+    }
+  });
+  if(!pd.length){ulAlert('ไม่พบออเดอร์ในไฟล์','err');return;}
+  pendingData=pd;
+  showPreview(pendingData);
+  var nOrders=Object.keys(pd.reduce(function(a,r){a[r.o]=1;return a;},{})).length;
+  ulAlert('✓ อ่านเทมเพลตจัดส่ง '+nOrders+' ออเดอร์ ('+pd.length+' รายการ) — กด "เพิ่ม/อัปเดต" เพื่อนำเข้า','ok');
+}
 function parseRows(rows){
   if(!rows||!rows.length){ulAlert('ไม่มีข้อมูล','err');return;}
   let h=Object.keys(rows[0]);
+  // ตรวจจับเทมเพลตจัดส่ง/HRZ (SKU ฝังในวงเล็บ + ของแถมคั่นบรรทัด)
+  if(h.indexOf('เลขOrder')>=0&&h.indexOf('ของแถม')>=0){ return parseDeliveryTemplate(rows,h); }
   function fc(cands){for(let c of cands){let f=h.find(x=>x.replace(/\s+/g,'').toLowerCase()===c.replace(/\s+/g,'').toLowerCase());if(f)return f;f=h.find(x=>x.toLowerCase().includes(c.toLowerCase())||c.toLowerCase().includes(x.toLowerCase()));if(f)return f;}return null;}
   let cO=fc(['order id','orderid']),cS=fc(['sku']),cN=fc(['แบรนด์','brand','name','ชื่อสินค้า']),cSz=fc(['ขนาด','size']),cQ=fc(['sum of','qty','จำนวน']),cC=fc(['เลข consign','consign']),cT=fc(['tracking']),cSt=fc(['status','สถานะ']);
   // คอลัม B = ขนส่ง (SUP), คอลัม C = วันที่จัดส่ง
@@ -2273,7 +2319,7 @@ async function readXLSX(buf){
 function parseZIP(data){const files={};let i=0;while(i<data.length-4){if(data[i]===0x50&&data[i+1]===0x4B&&data[i+2]===0x03&&data[i+3]===0x04){const comp=data[i+8]|(data[i+9]<<8);const cs=data[i+18]|(data[i+19]<<8)|(data[i+20]<<16)|(data[i+21]<<24);const nl=data[i+26]|(data[i+27]<<8);const el=data[i+28]|(data[i+29]<<8);const name=new TextDecoder().decode(data.slice(i+30,i+30+nl));const start=i+30+nl+el;files[name]={compressed:comp!==0,bytes:data.slice(start,start+cs)};i=start+cs}else i++}return files}
 async function inflate(e){if(!e.compressed)return new TextDecoder().decode(e.bytes);for(const m of['deflate-raw','deflate']){try{const ds=new DecompressionStream(m);const w=ds.writable.getWriter();w.write(e.bytes);w.close();const ch=[];const r=ds.readable.getReader();while(true){const{done,value}=await r.read();if(done)break;ch.push(value)}const tot=ch.reduce((s,c)=>s+c.length,0);const out=new Uint8Array(tot);let off=0;for(const c of ch){out.set(c,off);off+=c.length}return new TextDecoder('utf-8').decode(out)}catch(e){}}throw new Error('แตกไฟล์ไม่ได้')}
 function parseSharedStrings(xml){const strs=[];const siRe=/<si>([\s\S]*?)<\/si>/g;const tRe=/<t[^>]*>([^<]*)<\/t>/g;let m;while((m=siRe.exec(xml))!==null){let text='',tm;tRe.lastIndex=0;while((tm=tRe.exec(m[1]))!==null)text+=tm[1];strs.push(decXml(text))}return strs}
-function parseSheet(xml,ss){const rows=[];const rowRe=/<row\b[^>]*>([\s\S]*?)<\/row>/g;const cellRe=/<c\b([^>]*)>([\s\S]*?)<\/c>/g;const valRe=/<v>([^<]*)<\/v>/;let headers=null,hCols=[];let m;while((m=rowRe.exec(xml))!==null){const cells={};let cm;cellRe.lastIndex=0;while((cm=cellRe.exec(m[1]))!==null){const rf=/r="([A-Z]+)/.exec(cm[1]);if(!rf)continue;const col=rf[1];const tf=/t="([^"]*)"/.exec(cm[1]);const t=tf?tf[1]:'';const vf=valRe.exec(cm[2]);let val=vf?vf[1]:'';if(t==='s')val=ss[parseInt(val)]||'';cells[col]=decXml(val)}if(!headers){hCols=Object.keys(cells).sort();headers=hCols.map(c=>cells[c])}else{const row={};hCols.forEach((c,i)=>{row[headers[i]]=cells[c]||''});if(Object.values(row).some(v=>v))rows.push(row)}}return{headers,rows}}
+function parseSheet(xml,ss){const rows=[];const rowRe=/<row\b[^>]*>([\s\S]*?)<\/row>/g;const cellRe=/<c\b([^>]*)>([\s\S]*?)<\/c>/g;const valRe=/<v>([^<]*)<\/v>/;let headers=null,hCols=[];let m;while((m=rowRe.exec(xml))!==null){const cells={};let cm;cellRe.lastIndex=0;while((cm=cellRe.exec(m[1]))!==null){const rf=/r="([A-Z]+)/.exec(cm[1]);if(!rf)continue;const col=rf[1];const tf=/t="([^"]*)"/.exec(cm[1]);const t=tf?tf[1]:'';const vf=valRe.exec(cm[2]);let val=vf?vf[1]:'';if(t==='s')val=ss[parseInt(val)]||'';cells[col]=decXml(val)}if(!headers){hCols=Object.keys(cells).sort(function(a,b){return a.length-b.length||(a<b?-1:1);});headers=hCols.map(c=>cells[c]);var _sn={};headers=headers.map(function(nm){nm=nm||'';if(_sn[nm]!=null){_sn[nm]++;return nm+'_'+_sn[nm];}_sn[nm]=0;return nm;})}else{const row={};hCols.forEach((c,i)=>{row[headers[i]]=cells[c]||''});if(Object.values(row).some(v=>v))rows.push(row)}}return{headers,rows}}
 function decXml(s){return String(s||'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'")}
 
 /* ====== AUTO-SYNC (PC) ====== */
