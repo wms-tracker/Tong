@@ -1217,12 +1217,22 @@ function parseRows(rows){
   pendingData.forEach(r=>{if(!_trkMap[r.o])_trkMap[r.o]=[];if(r.tracking&&!_trkMap[r.o].includes(r.tracking))_trkMap[r.o].push(r.tracking);});
   showPreview(pendingData);
 }
-function showPreview(data){
+function _prevRowHtml(r){return `<tr><td class="mono">${r.o}</td><td class="mono">${r.sku||'—'}</td><td>${escHtml((r.name||'').substring(0,28))}</td><td>${r.qty}</td><td>${escHtml(r.c||'')}</td><td class="mono">${r.tracking||'—'}</td><td>${r.status||'—'}</td></tr>`;}
+function _prevHead(){return '<tr><th>Order ID</th><th>SKU</th><th>แบรนด์</th><th>Qty</th><th>Consign</th><th>Tracking</th><th>Status</th></tr>';}
+function showPreview(data,showAll){
   let oids=[...new Set(data.map(r=>r.o))];
   document.getElementById('prev-cnt').textContent=data.length;
   document.getElementById('prev-oids').textContent=oids.length;
-  let s=data.slice(0,6);
-  document.getElementById('prev-tbl').innerHTML='<tr><th>Order ID</th><th>SKU</th><th>แบรนด์</th><th>Qty</th><th>Consign</th><th>Tracking</th><th>Status</th></tr>'+s.map(r=>`<tr><td class="mono">${r.o}</td><td class="mono">${r.sku||'—'}</td><td>${(r.name||'').substring(0,18)}</td><td>${r.qty}</td><td>${r.c}</td><td class="mono">${r.tracking||'—'}</td><td>${r.status||'—'}</td></tr>`).join('')+(data.length>6?`<tr><td colspan="7" style="color:var(--text3);font-style:italic">...อีก ${data.length-6}</td></tr>`:'');
+  var tbl=document.getElementById('prev-tbl');
+  if(showAll){
+    tbl.innerHTML=_prevHead()+data.map(_prevRowHtml).join('');
+    // ใส่ scroll ให้ container
+    var tw=tbl.closest('.tw');if(tw){tw.style.maxHeight='420px';tw.style.overflowY='auto';}
+  }else{
+    let s=data.slice(0,6);
+    tbl.innerHTML=_prevHead()+s.map(_prevRowHtml).join('')
+      +(data.length>6?`<tr><td colspan="7" style="text-align:center;padding:8px"><a href="#" onclick="showPreview(pendingData,true);return false;" style="color:var(--primary);font-weight:700;text-decoration:none">👁️ ดูทั้งหมด ${data.length} รายการ</a></td></tr>`:'');
+  }
   let hp=Object.keys(ORDERS).length>0;
   document.getElementById('merge-warn').style.display=hp?'block':'none';
   document.getElementById('btn-merge').style.display=hp?'inline-flex':'none';
