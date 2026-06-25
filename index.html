@@ -3096,6 +3096,17 @@ function fc2(cols,pats){
 /* ===== RUN MATCHER ===== */
 function runMatcher(){
   if(!matcherTrkRows.length&&!matcherOrdRows.length){matcherAlert('กรุณาอัปโหลดไฟล์ก่อน','err');return;}
+  // ตรวจจับเทมเพลตจัดส่ง (เลขOrder + ของแถม) → ส่งต่อให้ parser ที่ถูกต้อง
+  var _allRows=(matcherTrkRows.length?matcherTrkRows:matcherOrdRows);
+  if(_allRows.length){
+    var _hh=Object.keys(_allRows[0]);
+    if(_hh.indexOf('เลขOrder')>=0&&_hh.indexOf('ของแถม')>=0){
+      pendingData=[];
+      parseDeliveryTemplate(_allRows,_hh);
+      goPage('upload');
+      return;
+    }
+  }
   // ถ้า Sheet Tracking ว่าง → ใช้ Sheet ออเดอร์นำเข้าโดยตรง
   if(!matcherTrkRows.length&&matcherOrdRows.length){
     if(!confirm('Sheet Tracking ว่างอยู่\nนำเข้าออเดอร์จาก Sheet ข้อมูลออเดอร์ ('+matcherOrdRows.length+' แถว) โดยไม่มี Tracking?\n\nกด OK เพื่อนำเข้า')) return;
