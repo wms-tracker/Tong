@@ -1151,9 +1151,11 @@ function parseDeliveryTemplate(rows,h){
       cNote=pick(['หมายเหตุ']),cTime=pick(['เวลานัด']);
   // คอลัมน์ "จำนวน" ตัวที่ 2 (จำนวนของแถม) — parseSheet ตั้งชื่อ duplicate เป็น 'จำนวน_1'
   var cGiftQty=pick(['จำนวน_1']);
-  var pd=[];
+  var pd=[],skipped=0;
   rows.forEach(function(r){
     var oid=String(r[cOid]||'').trim();if(!oid)return;
+    // ไม่มีสินค้าหลัก (แบรนด์ว่าง) → ข้ามทั้งแถว ไม่นำเข้า
+    if(!cBrand||!String(r[cBrand]||'').trim()){skipped++;return;}
     var dt=normalizeDate(String(r[cDate]||'').trim());
     var sup=cSup?String(r[cSup]||'').trim():'';
     var cust=cName?String(r[cName]||'').trim():'';
@@ -1183,7 +1185,7 @@ function parseDeliveryTemplate(rows,h){
   pendingData=pd;
   showPreview(pendingData);
   var nOrders=Object.keys(pd.reduce(function(a,r){a[r.o]=1;return a;},{})).length;
-  ulAlert('✓ อ่านเทมเพลตจัดส่ง '+nOrders+' ออเดอร์ ('+pd.length+' รายการ) — กด "เพิ่ม/อัปเดต" เพื่อนำเข้า','ok');
+  ulAlert('✓ อ่านเทมเพลตจัดส่ง '+nOrders+' ออเดอร์ ('+pd.length+' รายการ)'+(skipped?' · ข้าม '+skipped+' แถวไม่มีสินค้าหลัก':'')+' — กด "เพิ่ม/อัปเดต" เพื่อนำเข้า','ok');
 }
 function parseRows(rows){
   if(!rows||!rows.length){ulAlert('ไม่มีข้อมูล','err');return;}
