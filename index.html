@@ -1840,7 +1840,9 @@ function importHRZPickup(){
         var row=rows[r];if(!row[cOid])continue;
         var oid=String(row[cOid]).trim();if(!oid)continue;
         var rawSt=String(row[cStat]||'').trim().toLowerCase();
-        var st=rawSt==='cancelled'||rawSt==='cancel'?'cancel':(rawSt==='completed'?'done':'');
+        // ข้ามออเดอร์ที่ Completed แล้ว (จบงานที่ HRZ — ไม่ต้องนำเข้า WMS)
+        if(rawSt==='completed')continue;
+        var st=rawSt==='cancelled'||rawSt==='cancel'?'cancel':'';
         var dt=normalizeDate(String(row[cDate]||'').trim());
         var cust=String(row[cName]||'').trim();
         var addr=cAddr>=0?String(row[cAddr]||'').trim():'';
