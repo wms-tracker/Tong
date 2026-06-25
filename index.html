@@ -1151,6 +1151,13 @@ function parseDeliveryTemplate(rows,h){
       cNote=pick(['หมายเหตุ']),cTime=pick(['เวลานัด']),cTruck=pick(['ชื่อรถ']);
   // คอลัมน์ "จำนวน" ตัวที่ 2 (จำนวนของแถม) — parseSheet ตั้งชื่อ duplicate เป็น 'จำนวน_1'
   var cGiftQty=pick(['จำนวน_1']);
+  // นับว่าแต่ละ Order ID อยู่กี่คันรถ — ถ้าหลายคัน จะแยกออเดอร์ตามคันรถ
+  var oTrucks={};
+  rows.forEach(function(r){
+    var o=String(r[cOid]||'').trim();if(!o)return;
+    var t=cTruck?String(r[cTruck]||'').trim():'';if(!t)return;
+    if(!oTrucks[o])oTrucks[o]={};oTrucks[o][t]=1;
+  });
   var pd=[],skipped=0;
   rows.forEach(function(r){
     var oid=String(r[cOid]||'').trim();if(!oid)return;
@@ -1164,13 +1171,16 @@ function parseDeliveryTemplate(rows,h){
     var note0=cNote?String(r[cNote]||'').trim():'';
     var tm=cTime?String(r[cTime]||'').trim():'';
     var truck=cTruck?String(r[cTruck]||'').trim():'';
+    // ถ้า Order นี้อยู่หลายคันรถ → แยกออเดอร์โดยต่อท้ายชื่อรถใน Order ID
+    var eoid=oid;
+    if(truck&&oTrucks[oid]&&Object.keys(oTrucks[oid]).length>1) eoid=oid+' ('+truck+')';
     // Consign = ชื่อรถ | ชื่อลูกค้าเก็บในหมายเหตุ
     var consign=truck;
     var note=[cust?('ลูกค้า '+cust):'',addr,phone?('โทร '+phone):'',tm?('นัด '+tm):'',note0].filter(Boolean).join(' · ');
     // สินค้าหลัก
     if(cBrand&&String(r[cBrand]||'').trim()){
       var main=_extractSKU(r[cBrand]);
-      pd.push({o:oid,sku:main.sku,name:main.name,size:cSize?String(r[cSize]||'').trim():'',
+      pd.push({o:eoid,sku:main.sku,name:main.name,size:cSize?String(r[cSize]||'').trim():'',
         qty:parseInt(r[cQty])||1,c:consign,tracking:'',status:'',date:dt,sup:sup,note:note});
     }
     // ของแถม + จำนวนต่อบรรทัด
@@ -1180,7 +1190,7 @@ function parseDeliveryTemplate(rows,h){
       var gqs=gqRaw.split(/\n+/).map(function(x){return parseInt(x)||1;});
       gifts.forEach(function(g,idx){
         var gx=_extractSKU(g);
-        pd.push({o:oid,sku:gx.sku,name:gx.name,size:'',qty:gqs[idx]||1,c:consign,tracking:'',status:'',date:dt,sup:sup,note:note});
+        pd.push({o:eoid,sku:gx.sku,name:gx.name,size:'',qty:gqs[idx]||1,c:consign,tracking:'',status:'',date:dt,sup:sup,note:note});
       });
     }
   });
