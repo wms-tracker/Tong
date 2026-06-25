@@ -1840,9 +1840,9 @@ function importHRZPickup(){
         var row=rows[r];if(!row[cOid])continue;
         var oid=String(row[cOid]).trim();if(!oid)continue;
         var rawSt=String(row[cStat]||'').trim().toLowerCase();
-        // ข้ามออเดอร์ที่ Completed แล้ว (จบงานที่ HRZ — ไม่ต้องนำเข้า WMS)
-        if(rawSt==='completed')continue;
-        var st=rawSt==='cancelled'||rawSt==='cancel'?'cancel':'';
+        // นำเข้าเฉพาะสถานะ Pending เท่านั้น (ข้าม Completed/Cancelled/อื่นๆ)
+        if(rawSt!=='pending')continue;
+        var st='';  // Pending → รับแล้ว (new) ใน WMS
         var dt=normalizeDate(String(row[cDate]||'').trim());
         var cust=String(row[cName]||'').trim();
         var addr=cAddr>=0?String(row[cAddr]||'').trim():'';
