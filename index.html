@@ -421,7 +421,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260626-2</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260626-3</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1143,9 +1143,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260626-2 (gift-fallback active)
+// BUILD v.20260626-3 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260626-2');
+  console.log('parseDeliveryTemplate BUILD v.20260626-3');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -2353,7 +2353,7 @@ async function readXLSX(buf){
 function parseZIP(data){const files={};let i=0;while(i<data.length-4){if(data[i]===0x50&&data[i+1]===0x4B&&data[i+2]===0x03&&data[i+3]===0x04){const comp=data[i+8]|(data[i+9]<<8);const cs=data[i+18]|(data[i+19]<<8)|(data[i+20]<<16)|(data[i+21]<<24);const nl=data[i+26]|(data[i+27]<<8);const el=data[i+28]|(data[i+29]<<8);const name=new TextDecoder().decode(data.slice(i+30,i+30+nl));const start=i+30+nl+el;files[name]={compressed:comp!==0,bytes:data.slice(start,start+cs)};i=start+cs}else i++}return files}
 async function inflate(e){if(!e.compressed)return new TextDecoder().decode(e.bytes);for(const m of['deflate-raw','deflate']){try{const ds=new DecompressionStream(m);const w=ds.writable.getWriter();w.write(e.bytes);w.close();const ch=[];const r=ds.readable.getReader();while(true){const{done,value}=await r.read();if(done)break;ch.push(value)}const tot=ch.reduce((s,c)=>s+c.length,0);const out=new Uint8Array(tot);let off=0;for(const c of ch){out.set(c,off);off+=c.length}return new TextDecoder('utf-8').decode(out)}catch(e){}}throw new Error('แตกไฟล์ไม่ได้')}
 function parseSharedStrings(xml){const strs=[];const siRe=/<si>([\s\S]*?)<\/si>/g;const tRe=/<t[^>]*>([^<]*)<\/t>/g;let m;while((m=siRe.exec(xml))!==null){let text='',tm;tRe.lastIndex=0;while((tm=tRe.exec(m[1]))!==null)text+=tm[1];strs.push(decXml(text))}return strs}
-function parseSheet(xml,ss){const rows=[];const rowRe=/<row\b[^>]*>([\s\S]*?)<\/row>/g;const cellRe=/<c\b([^>]*)>([\s\S]*?)<\/c>/g;const valRe=/<v>([^<]*)<\/v>/;let headers=null,hCols=[];let m;while((m=rowRe.exec(xml))!==null){const cells={};let cm;cellRe.lastIndex=0;while((cm=cellRe.exec(m[1]))!==null){const rf=/r="([A-Z]+)/.exec(cm[1]);if(!rf)continue;const col=rf[1];const tf=/t="([^"]*)"/.exec(cm[1]);const t=tf?tf[1]:'';const vf=valRe.exec(cm[2]);let val=vf?vf[1]:'';if(t==='s')val=ss[parseInt(val)]||'';cells[col]=decXml(val)}if(!headers){hCols=Object.keys(cells).sort(function(a,b){return a.length-b.length||(a<b?-1:1);});headers=hCols.map(c=>cells[c]);var _sn={};headers=headers.map(function(nm){nm=nm||'';if(_sn[nm]!=null){_sn[nm]++;return nm+'_'+_sn[nm];}_sn[nm]=0;return nm;})}else{const row={};hCols.forEach((c,i)=>{row[headers[i]]=cells[c]||''});if(Object.values(row).some(v=>v))rows.push(row)}}return{headers,rows}}
+function parseSheet(xml,ss){const rows=[];const rowRe=/<row\b[^>]*>([\s\S]*?)<\/row>/g;const cellRe=/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g;const valRe=/<v>([^<]*)<\/v>/;let headers=null,hCols=[];let m;while((m=rowRe.exec(xml))!==null){const cells={};let cm;cellRe.lastIndex=0;while((cm=cellRe.exec(m[1]))!==null){const rf=/r="([A-Z]+)/.exec(cm[1]);if(!rf)continue;const col=rf[1];const tf=/t="([^"]*)"/.exec(cm[1]);const t=tf?tf[1]:'';const vf=valRe.exec(cm[2]||'');let val=vf?vf[1]:'';if(t==='s')val=ss[parseInt(val)]||'';cells[col]=decXml(val)}if(!headers){hCols=Object.keys(cells).sort(function(a,b){return a.length-b.length||(a<b?-1:1);});headers=hCols.map(c=>cells[c]);var _sn={};headers=headers.map(function(nm){nm=nm||'';if(_sn[nm]!=null){_sn[nm]++;return nm+'_'+_sn[nm];}_sn[nm]=0;return nm;})}else{const row={};hCols.forEach((c,i)=>{row[headers[i]]=cells[c]||''});if(Object.values(row).some(v=>v))rows.push(row)}}return{headers,rows}}
 function decXml(s){return String(s||'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'")}
 
 /* ====== AUTO-SYNC (PC) ====== */
