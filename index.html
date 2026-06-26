@@ -404,7 +404,8 @@ tr:hover td{background:var(--bg3)}
     <div class="card-t">📊 Sync จาก Google Sheets</div>
     <p style="font-size:12px;color:var(--text2);margin-bottom:12px">ดึงข้อมูล Orders จาก Sheet <b>OrderData</b> โดยตรง (ต้องเชื่อมต่อ API ใน ตั้งค่า)</p>
     <button class="btn btn-p" onclick="syncFromSheets()">📋 Sync จาก Sheets</button>
-    <button class="btn" style="background:#F57C00;color:#fff;font-weight:700" onclick="syncFromFirebase()">🔥 Sync จาก Firebase</button>
+    <button class="btn" style="background:#16A34A;color:#fff;font-weight:700" onclick="loadActiveOrders()">⚡ โหลด Active (เร็ว)</button>
+    <button class="btn" style="background:#F57C00;color:#fff;font-weight:700" onclick="syncFromFirebase()">📚 โหลดทั้งหมด (รวมประวัติ)</button>
     <button class="btn" style="background:#0EA5E9;color:#fff;font-weight:700;margin-top:8px" onclick="showMatcherDialog()">🔗 ดึง Tracking จาก Matcher</button>
     <button class="btn" style="background:#16A34A;color:#fff;font-weight:700;margin-top:8px" onclick="importHRZPickup()" title="ดึงออเดอร์รับที่คลังจากชีท HRZ">🏭 ดึงรับที่คลัง (HRZ)</button>
   </div>
@@ -421,7 +422,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260626-3</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260626-4</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -924,7 +925,7 @@ function init(){
   API_URL=localStorage.getItem('WMS_URL')||'';
   FB_URL=localStorage.getItem('WMS_FB')||'';
   if(FB_URL&&Object.keys(ORDERS).length===0){
-    setTimeout(function(){ulAlert('ไม่พบข้อมูล กำลัง sync Firebase...','warn');syncFromFirebase();},2000);
+    setTimeout(function(){ulAlert('⚡ กำลังโหลด active orders...','warn');loadActiveOrders();},2000);
   }
   document.getElementById('api-url').value=API_URL;
   let _fbEl=document.getElementById('fb-url');
@@ -1143,9 +1144,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260626-3 (gift-fallback active)
+// BUILD v.20260626-4 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260626-3');
+  console.log('parseDeliveryTemplate BUILD v.20260626-4');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -2828,9 +2829,32 @@ function doRefresh(){
   }
 }
 // Pull all orders from Firebase (synced from PDA)
+// โหลดเฉพาะออเดอร์ที่ยัง active (เร็ว — ข้าม done/cancel ของเก่า)
+var _ACTIVE_LOAD={new:1,pick:1,qc:1,pack:1,ship:1,postponed:1,draft:1};
+function loadActiveOrders(){
+  if(!FB_URL){alert('กรุณาใส่ Firebase URL ในตั้งค่าก่อนครับ');return;}
+  showLov('⚡ กรอง active orders...');
+  var xSt=new XMLHttpRequest();
+  xSt.open('GET',FB_URL+'/statuses.json');
+  xSt.timeout=20000;
+  xSt.onload=function(){
+    try{
+      var st=JSON.parse(xSt.responseText)||{};
+      var keys=Object.keys(st).filter(function(k){
+        var s=typeof st[k]==='string'?st[k]:(st[k]&&st[k].status||'new');
+        return _ACTIVE_LOAD[s];
+      });
+      if(!keys.length){hideLov();ulAlert('ไม่มี active orders — กดโหลดทั้งหมดถ้าต้องการประวัติ','warn');return;}
+      showLov('⚡ ดึง '+keys.length+' active orders...');
+      fetchOrdersBatch(keys,0,50,0,keys.length);
+    }catch(e){hideLov();syncFromFirebase();}  // fallback โหลดทั้งหมด
+  };
+  xSt.onerror=xSt.ontimeout=function(){hideLov();syncFromFirebase();};
+  xSt.send();
+}
 function syncFromFirebase(){
   if(!FB_URL){alert('กรุณาใส่ Firebase URL ในตั้งค่าก่อนครับ');return;}
-  showLov('🔥 กำลังเชื่อมต่อ Firebase...');
+  showLov('🔥 กำลังเชื่อมต่อ Firebase (โหลดทั้งหมด รวมประวัติ)...');
   var xhr=new XMLHttpRequest();
   xhr.open('GET',FB_URL+'/orders.json');
   xhr.timeout=90000;
