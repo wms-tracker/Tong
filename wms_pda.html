@@ -683,10 +683,13 @@ function syncOrdersFromFirebase(){
         return;
       }
       setSyncOk('⏳ ดึง '+activeKeys.length+' active orders...');
+      // set ของ active keys (จาก statuses.json) — ใช้ตัดสินใจ cleanup ไม่ใช่ fetch สำเร็จ
+      var activeKeySet={};activeKeys.forEach(function(k){activeKeySet[k]=1;});
       var fbOidSet={};
       pdaBatch(activeKeys,0,40,0,fbOidSet,function(totalDone){
-        // cleanup: ลบ orders ที่ไม่อยู่ใน active set
-        Object.keys(ORDERS).forEach(function(oid){if(!fbOidSet[oid])delete ORDERS[oid];});
+        // cleanup: ลบเฉพาะ order ที่ "ไม่ active ใน Firebase" จริงๆ
+        // (ออเดอร์ที่ active แต่โหลดไม่ทันรอบนี้ จะถูกเก็บไว้ ไม่ลบ → กันรอ QC หลุด)
+        Object.keys(ORDERS).forEach(function(oid){if(!activeKeySet[encId(oid)])delete ORDERS[oid];});
         save();refreshStats();renderDashboard();
         setSyncOk('🔥 '+totalDone+' active orders พร้อมแล้ว');
       });
