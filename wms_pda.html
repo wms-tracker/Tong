@@ -132,6 +132,7 @@ input:focus{outline:none;border-color:var(--primary)}
   <div>
     <div class="topnav-title">🔍 PDA QC Scan</div>
     <div class="sync-bar" id="sync-bar"><span class="dot"></span><span id="sync-txt">กำลังโหลด...</span></div>
+    <span id="fbq-badge" onclick="_drainQ()" style="display:none;cursor:pointer;background:#DC2626;color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;margin-left:6px" title="ข้อมูล QC ค้างส่ง — แตะเพื่อลองส่งใหม่"></span>
   </div>
   <div style="display:flex;gap:8px;align-items:center">
     <span id="dev-badge" style="font-size:11px;padding:2px 8px;border-radius:99px;background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);font-weight:600">PDA</span>
@@ -592,6 +593,8 @@ function init(){
   refreshStats();renderDashboard();
   checkLogin();
   if(FB){
+    _qBadge();  // แสดง badge ถ้ามี QC ค้างส่งจาก session ก่อน
+    if(_fbQ.length) setTimeout(_drainQ,1500);  // ลองส่งของค้างตอนเปิด
     setTimeout(function(){syncOrdersFromFirebase();},800);
     setTimeout(function(){syncDraftsFromFB();},2500);
     setTimeout(function(){syncEditedOrders();},3500);
@@ -642,18 +645,52 @@ function fbGet(path,cb){
   xhr.ontimeout=function(){cb(new Error('timeout'));};
   xhr.send();
 }
-function fbPut(path,data){
-  var xhr=new XMLHttpRequest();
-  xhr.open('PUT',FB+path+'.json');
-  xhr.setRequestHeader('Content-Type','application/json');
-  xhr.send(data===null?'null':JSON.stringify(data));
+/* ===== OFFLINE RETRY QUEUE (PDA) — กัน QC หลุดตอนเน็ตสะดุด ===== */
+var _fbQ=[];
+try{var _q=localStorage.getItem('PDA_FBQ');if(_q)_fbQ=JSON.parse(_q)||[];}catch(_){_fbQ=[];}
+function _saveQ(){try{localStorage.setItem('PDA_FBQ',JSON.stringify(_fbQ));}catch(_){}}
+function _qBadge(){
+  var el=document.getElementById('fbq-badge');
+  if(!el)return;
+  if(_fbQ.length){el.style.display='inline-block';el.textContent='⏳ ค้างส่ง '+_fbQ.length;}
+  else el.style.display='none';
 }
-function fbPatch(path,data){
-  var xhr=new XMLHttpRequest();
-  xhr.open('PATCH',FB+path+'.json');
-  xhr.setRequestHeader('Content-Type','application/json');
-  xhr.send(JSON.stringify(data));
+function _enq(method,path,data){
+  // path เดิม+method เดิม → เขียนทับค่าล่าสุด (กันคิวบวม)
+  for(var i=0;i<_fbQ.length;i++){if(_fbQ[i].path===path&&_fbQ[i].method===method){_fbQ[i].data=data;_saveQ();_qBadge();return;}}
+  _fbQ.push({method:method,path:path,data:data});_saveQ();_qBadge();
 }
+function _fbWrite(method,path,data,isRetry){
+  if(!FB)return;
+  var xhr=new XMLHttpRequest();
+  xhr.open(method,FB+path+'.json');
+  xhr.setRequestHeader('Content-Type','application/json');
+  xhr.timeout=15000;
+  xhr.onload=function(){
+    if(xhr.status>=200&&xhr.status<300){ if(isRetry)_drainQ(); }
+    else _enq(method,path,data);
+  };
+  xhr.onerror=xhr.ontimeout=function(){_enq(method,path,data);};
+  try{xhr.send(data===null?'null':JSON.stringify(data));}catch(e){_enq(method,path,data);}
+}
+var _draining=false;
+function _drainQ(){
+  if(_draining||!_fbQ.length||!FB)return;
+  if(navigator.onLine===false)return;
+  _draining=true;
+  var item=_fbQ.shift();_saveQ();_qBadge();
+  var xhr=new XMLHttpRequest();
+  xhr.open(item.method,FB+item.path+'.json');
+  xhr.setRequestHeader('Content-Type','application/json');
+  xhr.timeout=15000;
+  xhr.onload=function(){_draining=false;if(xhr.status>=200&&xhr.status<300){_qBadge();_drainQ();}else{_fbQ.unshift(item);_saveQ();_qBadge();}};
+  xhr.onerror=xhr.ontimeout=function(){_draining=false;_fbQ.unshift(item);_saveQ();_qBadge();};
+  try{xhr.send(item.data===null?'null':JSON.stringify(item.data));}catch(e){_draining=false;_fbQ.unshift(item);_saveQ();}
+}
+window.addEventListener('online',function(){if(typeof showAl==='function')showAl('🌐 กลับมา online — ส่งข้อมูลที่ค้าง','ok');_drainQ();});
+setInterval(function(){if(_fbQ.length)_drainQ();},12000);
+function fbPut(path,data){ _fbWrite('PUT',path,data); }
+function fbPatch(path,data){ _fbWrite('PATCH',path,data); }
 
 /* ===== SYNC ORDERS (BATCH) ===== */
 var _ACTIVE_ST={new:1,pick:1,qc:1,pack:1,ship:1,draft:1,postponed:1};
