@@ -422,7 +422,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260627-1</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260627-2</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1144,9 +1144,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260627-1 (gift-fallback active)
+// BUILD v.20260627-2 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260627-1');
+  console.log('parseDeliveryTemplate BUILD v.20260627-2');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -4678,18 +4678,17 @@ function renderMonthlyReport(){
 
   var _now2=new Date();
   function _refDate2(o){
-    if(o.updatedAt){
-      var upd=new Date(o.updatedAt);
-      if(!isNaN(upd.getTime())) return upd;
-    }
+    // ใช้วันที่ออเดอร์จากไฟล์ (o.date) เป็นหลัก ไม่ใช่เวลาทำงาน
     var ds=String(o.date||'').trim();
-    if(!ds||ds==='—') return null;
-    if(/^\d{4}-/.test(ds)){var iso=new Date(ds);if(!isNaN(iso.getTime()))return iso;}
-    var ref=null;
-    var m1=ds.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
-    if(m1){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m1[1]];if(mn!==undefined)ref=new Date(_now2.getFullYear(),mn,parseInt(m1[2]));}
-    if(!ref){var m2=ds.match(/^(\d+)\/(\d+)\/(\d+)/);if(m2){var yr3=parseInt(m2[3]);if(yr3>2400)yr3-=543;ref=new Date(yr3,parseInt(m2[2])-1,parseInt(m2[1]));}}
-    return ref;
+    if(ds&&ds!=='—'){
+      if(/^\d{4}-\d{2}-\d{2}/.test(ds)){var iso=new Date(ds+'T00:00:00');if(!isNaN(iso.getTime()))return iso;}
+      var m1=ds.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
+      if(m1){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m1[1]];if(mn!==undefined)return new Date(_now2.getFullYear(),mn,parseInt(m1[2]));}
+      var m2=ds.match(/^(\d+)\/(\d+)\/(\d+)/);
+      if(m2){var yr3=parseInt(m2[3]);if(yr3>2400)yr3-=543;return new Date(yr3,parseInt(m2[2])-1,parseInt(m2[1]));}
+    }
+    if(o.updatedAt){var upd=new Date(o.updatedAt);if(!isNaN(upd.getTime()))return upd;}
+    return null;
   }
   var orders=Object.values(ORDERS).filter(function(o){
     var ref=_refDate2(o);
@@ -4776,12 +4775,24 @@ function exportMonthlyCSV(){
   var yr=document.getElementById('monthly-year')?document.getElementById('monthly-year').value:'';
   var mo=document.getElementById('monthly-month')?document.getElementById('monthly-month').value:'';
   var SL2={new:'รับแล้ว',pick:'Pick',qc:'QC ผ่าน',ship:'Ship',done:'ส่งแล้ว',cancel:'Cancel',postponed:'เลื่อน'};
+  function _mDate(o){
+    var ds=String(o.date||'').trim();
+    if(ds&&ds!=='—'){
+      if(/^\d{4}-\d{2}-\d{2}/.test(ds)){var iso=new Date(ds+'T00:00:00');if(!isNaN(iso.getTime()))return iso;}
+      var m2=ds.match(/^(\d+)\/(\d+)\/(\d+)/);
+      if(m2){var y3=parseInt(m2[3]);if(y3>2400)y3-=543;return new Date(y3,parseInt(m2[2])-1,parseInt(m2[1]));}
+      var m1=ds.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
+      if(m1){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m1[1]];if(mn!==undefined)return new Date((new Date()).getFullYear(),mn,parseInt(m1[2]));}
+    }
+    if(o.updatedAt){var u=new Date(o.updatedAt);if(!isNaN(u.getTime()))return u;}
+    return null;
+  }
   var orders=Object.values(ORDERS).filter(function(o){
-    if(!o.updatedAt) return false;
-    var d=new Date(o.updatedAt);
+    var d=_mDate(o);
+    if(!d||isNaN(d.getTime())) return false;
     return d.getFullYear()===parseInt(yr)&&(d.getMonth()+1)===parseInt(mo);
   });
-  if(!orders.length){alert('ไม่มีข้อมูล');return;}
+  if(!orders.length){alert('ไม่มีข้อมูล — ลองกด "📚 โหลดทั้งหมด" ที่หน้าอัปโหลดก่อน');return;}
   _exportOrdersCSV(orders,'monthly_'+yr+'-'+mo,SL2);
 }
 
