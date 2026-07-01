@@ -422,7 +422,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260627-2</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260627-3</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1144,9 +1144,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260627-2 (gift-fallback active)
+// BUILD v.20260627-3 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260627-2');
+  console.log('parseDeliveryTemplate BUILD v.20260627-3');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -1221,7 +1221,21 @@ function parseRows(rows){
   let cSup=fc(['ขนส่ง','sup','carrier','supplier'])||h[1];
   let cD=fc(['จัดส่ง','วันที่จัดส่ง','วันที่','ship date','shipdate','date','created','order date','delivery date'])||h[2]||h[1];
   if(!cO){ulAlert('ไม่พบคอลัมน์ Order ID','err');return;}
-  pendingData=rows.filter(r=>r[cO]).map(r=>({o:String(r[cO]).trim(),sku:cS?String(r[cS]).trim():'',name:cN?String(r[cN]).trim():'',size:cSz?String(r[cSz]).trim():'',qty:parseInt(r[cQ])||1,c:cC?String(r[cC]).trim():'',tracking:cT?String(r[cT]).trim():'',status:cSt?String(r[cSt]).trim().toLowerCase():'',date:cD?normalizeDate(String(r[cD]||'').trim()):'',sup:cSup?String(r[cSup]||'').trim():''}));
+  // นับว่าแต่ละ Order ID มีกี่ขนส่ง — ถ้าหลายขนส่ง จะแยกออเดอร์ตามขนส่ง
+  var _oCarriers={};
+  rows.filter(r=>r[cO]).forEach(function(r){
+    var o=String(r[cO]).trim();var c=_stdCarrier(cSup?String(r[cSup]||'').trim():'');
+    if(!o||!c)return;if(!_oCarriers[o])_oCarriers[o]={};_oCarriers[o][c]=1;
+  });
+  pendingData=rows.filter(r=>r[cO]).map(function(r){
+    var oid=String(r[cO]).trim();
+    var sup=cSup?String(r[cSup]||'').trim():'';
+    var carrier=_stdCarrier(sup);
+    // Order นี้มีหลายขนส่ง → ต่อท้ายชื่อขนส่งใน Order ID เพื่อแยกออเดอร์
+    var eoid=oid;
+    if(carrier&&_oCarriers[oid]&&Object.keys(_oCarriers[oid]).length>1) eoid=oid+' ('+carrier+')';
+    return {o:eoid,sku:cS?String(r[cS]).trim():'',name:cN?String(r[cN]).trim():'',size:cSz?String(r[cSz]).trim():'',qty:parseInt(r[cQ])||1,c:cC?String(r[cC]).trim():'',tracking:cT?String(r[cT]).trim():'',status:cSt?String(r[cSt]).trim().toLowerCase():'',date:cD?normalizeDate(String(r[cD]||'').trim()):'',sup:sup};
+  });
   // Build trackings array per order for display
   let _trkMap={};
   pendingData.forEach(r=>{if(!_trkMap[r.o])_trkMap[r.o]=[];if(r.tracking&&!_trkMap[r.o].includes(r.tracking))_trkMap[r.o].push(r.tracking);});
