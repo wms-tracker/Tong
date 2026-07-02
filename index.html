@@ -422,7 +422,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260627-5</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260627-6</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1144,9 +1144,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260627-5 (gift-fallback active)
+// BUILD v.20260627-6 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260627-5');
+  console.log('parseDeliveryTemplate BUILD v.20260627-6');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -4993,14 +4993,17 @@ function completeDraftManual(oid){
 
 /* ===== CHARTS (Canvas API) ===== */
 function _getOrderDate(o){
-  if(o.updatedAt){var d=new Date(o.updatedAt);if(!isNaN(d))return d;}
+  // ใช้วันที่ออเดอร์จากไฟล์ (o.date) เป็นหลัก + แปลง พ.ศ.→ค.ศ.
   var ds=String(o.date||'').trim();
-  if(!ds||ds==='—')return null;
-  if(/^\d{4}-/.test(ds)){var d2=new Date(ds);if(!isNaN(d2))return d2;}
-  var m1=ds.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
-  if(m1){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m1[1]];if(mn!==undefined)return new Date(new Date().getFullYear(),mn,parseInt(m1[2]));}
-  var m2=ds.match(/^(\d+)\/(\d+)\/(\d+)/);
-  if(m2){var yr=parseInt(m2[3]);if(yr>2400)yr-=543;return new Date(yr,parseInt(m2[2])-1,parseInt(m2[1]));}
+  if(ds&&ds!=='—'){
+    var iso=ds.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if(iso){var iy=parseInt(iso[1]);if(iy>2400)iy-=543;var d2=new Date(iy,parseInt(iso[2])-1,parseInt(iso[3]));if(!isNaN(d2))return d2;}
+    var m1=ds.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
+    if(m1){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m1[1]];if(mn!==undefined)return new Date(new Date().getFullYear(),mn,parseInt(m1[2]));}
+    var m2=ds.match(/^(\d+)\/(\d+)\/(\d+)/);
+    if(m2){var yr=parseInt(m2[3]);if(yr>2400)yr-=543;return new Date(yr,parseInt(m2[2])-1,parseInt(m2[1]));}
+  }
+  if(o.updatedAt){var d=new Date(o.updatedAt);if(!isNaN(d))return d;}
   return null;
 }
 function _drawBar(canvasId,labels,values,color){
@@ -5191,6 +5194,8 @@ function drawPieChart(){
   var sup={};
   Object.values(ORDERS).forEach(function(o){
     var s=getOrderSUP(o)||'อื่นๆ';
+    // ข้ามชื่อรถ/คนขับ (ไม่ใช่ขนส่ง) เช่น "คัน53 .สหรัฐ"
+    if(/^คัน/.test(s)) return;
     // ย่อชื่อขนส่ง
     var key=s.replace(/\s+HRZ.*/i,'').replace(/\s+\d.*/,'').trim()||'อื่นๆ';
     sup[key]=(sup[key]||0)+1;
