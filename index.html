@@ -422,7 +422,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260627-3</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260627-4</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1144,9 +1144,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260627-3 (gift-fallback active)
+// BUILD v.20260627-4 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260627-3');
+  console.log('parseDeliveryTemplate BUILD v.20260627-4');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -1275,61 +1275,79 @@ function confirmUpload(mode){
     if(t&&!grouped[r.o].trackings.includes(t))grouped[r.o].trackings.push(t);
     if(t&&!grouped[r.o].tracking)grouped[r.o].tracking=t;
   });
-  let added=0,updated=0,rescheduled=0;
+  let added=0,updated=0,rescheduled=0,newRound=0;
+  var keepKeys={};   // key ที่ต้องคงไว้ (ทั้งของเดิมและของใหม่)
   Object.entries(grouped).forEach(([oid,order])=>{
     let _orows=pendingData.filter(r=>r.o===oid);
     let isCancelled=_orows.some(r=>r.status==='cancel');
     let isDone=!isCancelled&&_orows.length>0&&_orows.every(r=>r.status==='done');
-    if(ORDERS[oid]){
+
+    // ★ ถ้าเลขเดิม "ยกเลิก/เลื่อน" อยู่ + วัน/ขนส่งใหม่ต่างกัน →
+    //    คงของเดิมไว้ (ยกเลิก/เลื่อนเหมือนเดิม) แล้วสร้างออเดอร์ใหม่แยก (รับแล้ว)
+    var tgtKey=oid;
+    if(ORDERS[oid]&&(ORDERS[oid].status==='cancel'||ORDERS[oid].status==='postponed')){
+      var _exD=ORDERS[oid].date||'', _nD=order.date||'';
+      var _exS=_stdCarrier(ORDERS[oid].sup||getOrderSUP(ORDERS[oid])||''), _nS=_stdCarrier(order.sup||'');
+      if((_nD&&_exD&&_nD!==_exD)||(_nS&&_exS&&_nS!==_exS)){
+        tgtKey=oid+' · '+(order.date||now);   // ออเดอร์รอบใหม่ (วัน/ขนส่งใหม่)
+        keepKeys[oid]=1;                        // เก็บของเดิม (ยกเลิก/เลื่อน) ไว้ ไม่แตะ
+        newRound++;
+      }
+    }
+    keepKeys[tgtKey]=1;
+    order.id=tgtKey;
+
+    if(ORDERS[tgtKey]){
       // --- Composite Key check: Order ID + วันจัดส่ง + ขนส่ง ---
-      let existDate=ORDERS[oid].date||'';
+      let existDate=ORDERS[tgtKey].date||'';
       let newDate=order.date||'';
-      let existSup=_stdCarrier(ORDERS[oid].sup||getOrderSUP(ORDERS[oid])||'');
+      let existSup=_stdCarrier(ORDERS[tgtKey].sup||getOrderSUP(ORDERS[tgtKey])||'');
       let newSup=_stdCarrier(order.sup||'');
-      // กรณีที่ 2: วัน "หรือ" ขนส่ง ต่างกัน → ถือเป็นออเดอร์ใหม่ (reset เป็น new ให้ pick/QC ใหม่)
       let dateDiff=newDate&&existDate&&newDate!==existDate;
       let supDiff=newSup&&existSup&&newSup!==existSup;
       let isRescheduled=dateDiff||supDiff;
-      // กรณีที่ 1: วัน+ขนส่งตรงกัน → update ของเดิม, keep status qc/pack/done ไว้
-      let keep=!isRescheduled&&['qc','pack','done'].includes(ORDERS[oid].status);
-      ORDERS[oid].items=order.items;
-      ORDERS[oid].consign=order.consign;
-      ORDERS[oid].tracking=order.tracking;
-      ORDERS[oid].trackings=order.trackings||[];
-      if(order.sup)ORDERS[oid].sup=order.sup;
-      if(order.date)ORDERS[oid].date=order.date;
+      let keep=!isRescheduled&&['qc','pack','done'].includes(ORDERS[tgtKey].status);
+      ORDERS[tgtKey].items=order.items;
+      ORDERS[tgtKey].consign=order.consign;
+      ORDERS[tgtKey].tracking=order.tracking;
+      ORDERS[tgtKey].trackings=order.trackings||[];
+      if(order.sup)ORDERS[tgtKey].sup=order.sup;
+      if(order.date)ORDERS[tgtKey].date=order.date;
       if(isCancelled){
-        ORDERS[oid].status='cancel';
+        ORDERS[tgtKey].status='cancel';
       }else if(isDone&&!keep){
-        ORDERS[oid].status='done';
+        ORDERS[tgtKey].status='done';
       }else if(isRescheduled){
-        // วัน/ขนส่งเปลี่ยน: เปิดใหม่เป็น new + ล้าง trkStatus เดิม (เริ่ม QC ใหม่ทุก tracking)
-        ORDERS[oid].status='new';
-        ORDERS[oid].trkStatus={};
+        ORDERS[tgtKey].status='new';
+        ORDERS[tgtKey].trkStatus={};
         var _why=dateDiff?('เลื่อนส่ง → ส่งใหม่ '+newDate):('เปลี่ยนขนส่ง → '+newSup);
-        ORDERS[oid].timeline.push({time:now,action:_why,user:_uploader});
+        ORDERS[tgtKey].timeline.push({time:now,action:_why,user:_uploader});
         rescheduled++;
       }else if(!keep){
-        ORDERS[oid].status='new';
+        ORDERS[tgtKey].status='new';
       }
-      ORDERS[oid].uploadedBy=_uploader;
-      if(!isRescheduled) ORDERS[oid].timeline.push({time:now,action:'อัปเดตข้อมูล',user:_uploader});
+      ORDERS[tgtKey].uploadedBy=_uploader;
+      if(!isRescheduled) ORDERS[tgtKey].timeline.push({time:now,action:'อัปเดตข้อมูล',user:_uploader});
       updated++;
     }else{
-      ORDERS[oid]={id:oid,consign:order.consign,tracking:order.tracking,trackings:order.trackings||[],
+      ORDERS[tgtKey]={id:tgtKey,consign:order.consign,tracking:order.tracking,trackings:order.trackings||[],
         items:order.items,status:isCancelled?'cancel':(isDone?'done':'new'),date:order.date||now,sup:order.sup||'',note:order.note||'',uploadedBy:_uploader,
         timeline:[{time:now,action:'รับออเดอร์เข้าระบบ',user:_uploader}]};
       added++;
     }
   });
-  // ลบ order ที่ไม่มีใน Sheets ใหม่ (Pack = 0 อัตโนมัติ)
+  // ลบ order ที่ไม่มีในไฟล์ใหม่ — แต่คงประวัติ (ยกเลิก/เลื่อน/ส่งแล้ว) ไว้เสมอ
   Object.keys(ORDERS).forEach(function(oid){
-    if(!grouped[oid]) delete ORDERS[oid];
+    if(keepKeys[oid]) return;
+    var st=ORDERS[oid].status;
+    if(st==='cancel'||st==='postponed'||st==='done') return; // เก็บประวัติ
+    delete ORDERS[oid];
   });
   saveLocal();
   // Push ขึ้น Firebase แบบ batch (PERF-02)
   if(FB_URL){
-    var _gOids=Object.keys(grouped);
+    // push ทุก key ที่สร้าง/อัปเดต (รวมออเดอร์ที่แยกวันใหม่ + คงของเดิม)
+    var _gOids=Object.keys(keepKeys).filter(function(k){return ORDERS[k];});
     var _fbTotal=_gOids.length;
     fbBatchOrders(_gOids,function(d,t){
       ulAlert('🔥 กำลัง push '+d+'/'+t+' orders ขึ้น Firebase...','warn');
@@ -1344,7 +1362,7 @@ function confirmUpload(mode){
   }
   document.getElementById('prev-card').style.display='none';
   pendingData=[];
-  ulAlert(`✓ เพิ่ม ${added} ใหม่, อัปเดต ${updated}`+(rescheduled?`, เลื่อนส่งใหม่ ${rescheduled} orders`:'')+(FB_URL?' · sync Firebase แล้ว':''),'ok');
+  ulAlert(`✓ เพิ่ม ${added} ใหม่, อัปเดต ${updated}`+(newRound?`, ส่งรอบใหม่ (คงของเดิม) ${newRound}`:'')+(rescheduled?`, เลื่อนส่งใหม่ ${rescheduled}`:'')+(FB_URL?' · sync Firebase แล้ว':''),'ok');
   refreshAll();
   setTimeout(()=>goPage('orders'),1200);
 }
