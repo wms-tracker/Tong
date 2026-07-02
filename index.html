@@ -422,7 +422,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260627-4</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260627-5</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1144,9 +1144,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260627-4 (gift-fallback active)
+// BUILD v.20260627-5 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260627-4');
+  console.log('parseDeliveryTemplate BUILD v.20260627-5');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -3950,6 +3950,15 @@ function doExportCSV(){
   var range=document.getElementById('ex-range').value;
   var stFilter=document.getElementById('ex-status').value;
   var supFilter=document.getElementById('ex-sup')?document.getElementById('ex-sup').value:'all';
+  // เลือกเฉพาะเลขออเดอร์ (ถ้าใส่)
+  var _oidRaw=document.getElementById('ex-oids')?document.getElementById('ex-oids').value:'';
+  var oidList=_oidRaw.split(/[\s,]+/).map(function(s){return s.trim().toLowerCase();}).filter(Boolean);
+  var oidFilterOn=oidList.length>0;
+  function oidMatch(o){
+    var id=String(o.id||'').toLowerCase();
+    var base=id.split(' · ')[0].trim();
+    return oidList.some(function(q){return id===q||base===q||id.indexOf(q)===0;});
+  }
   var dateFrom=document.getElementById('ex-date-from')?document.getElementById('ex-date-from').value:'';
   var dateTo=document.getElementById('ex-date-to')?document.getElementById('ex-date-to').value:'';
   var now=new Date();
@@ -3972,6 +3981,9 @@ function doExportCSV(){
   function hasAnyTrkQCex(o){return o.trkStatus&&Object.values(o.trkStatus).some(function(v){return v==='qc';});}
 
   Object.values(ORDERS).forEach(function(o){
+    // ★ ถ้าระบุเลขออเดอร์เจาะจง → เอาเฉพาะที่ตรง (ข้ามตัวกรองสถานะ/ขนส่ง/วัน)
+    if(oidFilterOn){ if(!oidMatch(o)) return; }
+    else{
     if(stFilter!=='all'){
       // เลือกสถานะเจาะจง → กรองตามสถานะนั้นตรงๆ (รวม new/pick ที่ปกติไม่ export)
       if(o.status!==stFilter) return;
@@ -3995,6 +4007,7 @@ function doExportCSV(){
         if(dateTo&&ref>new Date(dateTo+'T23:59:59')) return;
       }
     }
+    } // จบ else (กรณีไม่ได้ระบุเลขออเดอร์)
     var sup=getOrderSUP(o)||'';
     // จัดกลุ่ม items ตาม tracking
     var trkMap={};
@@ -5444,6 +5457,11 @@ setTimeout(function(){
         <option value="Business Idea HRZ">📦 Business Idea HRZ</option>
         <option value="รับที่คลัง">🏭 รับที่คลัง</option>
       </select>
+    </div>
+    <div style="margin-bottom:10px">
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">เลือกเฉพาะเลขออเดอร์ (ไม่ใส่ = ทั้งหมด)</label>
+      <textarea id="ex-oids" rows="3" placeholder="วางเลขออเดอร์ คั่นด้วยเว้นวรรค/ขึ้นบรรทัด/จุลภาค&#10;เช่น AA-91177 CR-90598 JB-122906" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:13px;box-sizing:border-box;font-family:monospace"></textarea>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">จับคู่แบบยืดหยุ่น — พิมพ์ AA-91177 จะได้ทั้ง "AA-91177" และ "AA-91177 · 2026-06-28"</div>
     </div>
     <div style="display:flex;gap:8px;margin-top:16px">
       <button onclick="doExportCSV()" style="flex:1;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px">⬇ ดาวน์โหลด CSV</button>
