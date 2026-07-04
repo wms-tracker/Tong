@@ -423,7 +423,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-6</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-7</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -830,7 +830,7 @@ tr:hover td{background:var(--bg3)}
       <label style="font-size:12px;color:var(--text2)">คอลัมน์ SKU: <input id="stock-col-sku" value="A" style="width:48px;padding:5px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
     </div>
     <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">คลังที่จะแสดง (คอลัมน์:ชื่อคลัง คั่นด้วยจุลภาค)</label>
-    <input id="stock-wh-cols" value="C:TPY1, E:TPY3, F:TPY5, G:QA, H:NEW WH, O:Live Stock" style="width:100%;padding:7px;border:1.5px solid var(--border2);border-radius:8px;font-size:12px;box-sizing:border-box;margin-bottom:8px;font-family:monospace">
+    <input id="stock-wh-cols" value="G:QA, H:NEW WH" style="width:100%;padding:7px;border:1.5px solid var(--border2);border-radius:8px;font-size:12px;box-sizing:border-box;margin-bottom:8px;font-family:monospace">
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-p btn-sm" onclick="pullStock()">🔄 ดึงสต็อก</button>
       <span id="stock-info" style="font-size:12px;color:var(--text2);align-self:center"></span>
@@ -1172,9 +1172,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260703-6 (gift-fallback active)
+// BUILD v.20260703-7 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260703-6');
+  console.log('parseDeliveryTemplate BUILD v.20260703-7');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
