@@ -423,7 +423,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-7</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-8</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1172,9 +1172,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260703-7 (gift-fallback active)
+// BUILD v.20260703-8 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260703-7');
+  console.log('parseDeliveryTemplate BUILD v.20260703-8');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -2023,6 +2023,14 @@ var STOCK={};        // {sku: {name, wh:{คลัง:จำนวน}}}
 var STOCK_WH=[];     // [{name}] ลำดับคอลัมน์คลังที่แสดง
 try{var _s=localStorage.getItem('WMS_STOCK');if(_s)STOCK=JSON.parse(_s)||{};}catch(_){}
 try{var _sw=localStorage.getItem('WMS_STOCK_WH');if(_sw)STOCK_WH=JSON.parse(_sw)||[];}catch(_){}
+// migration: เอาคลังเก่า (TPY/Live Stock/ฯลฯ) ออก เหลือแค่ QA + NEW WH
+(function(){
+  var keep=STOCK_WH.filter(function(w){return /^(QA|NEW WH)$/i.test(String(w.name||'').trim());});
+  if(keep.length!==STOCK_WH.length){
+    STOCK_WH=keep;
+    try{localStorage.setItem('WMS_STOCK_WH',JSON.stringify(STOCK_WH));localStorage.setItem('WMS_STOCK_WHCFG','G:QA, H:NEW WH');}catch(_){}
+  }
+})();
 function _saveStock(){try{localStorage.setItem('WMS_STOCK',JSON.stringify(STOCK));localStorage.setItem('WMS_STOCK_WH',JSON.stringify(STOCK_WH));}catch(_){}}
 // แปลงตัวอักษรคอลัมน์ (A,B,...,O) หรือเลข → index (0-based)
 function _colToIdx(v){
