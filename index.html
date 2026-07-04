@@ -423,7 +423,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-9</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-10</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1172,9 +1172,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260703-9 (gift-fallback active)
+// BUILD v.20260703-10 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260703-9');
+  console.log('parseDeliveryTemplate BUILD v.20260703-10');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -2056,6 +2056,19 @@ function _parseWhCols(s){
     return idx>=0?{idx:idx,name:name}:null;
   }).filter(Boolean);
 }
+// ค้นหา SKU: ปกติ (substring) + แบบย่อ "3 ตัวหน้า + เลขท้าย" เช่น ahm001 → AHM0000000001
+function _skuSearchMatch(sku,name,q){
+  sku=String(sku||'').toLowerCase();name=String(name||'').toLowerCase();q=String(q||'').toLowerCase().trim();
+  if(!q)return true;
+  if(sku.indexOf(q)>=0||name.indexOf(q)>=0)return true;
+  var m=q.match(/^([a-z]+)\s*(\d+)$/);        // ตัวอักษร + ตัวเลข เช่น ahm001
+  if(m){
+    var pre=m[1],suf=m[2];
+    var sm=sku.match(/^([a-z]+)(\d+)/);         // แยก SKU เป็น อักษร + เลข
+    if(sm&&sm[1].indexOf(pre)===0&&sm[2].length>=suf.length&&sm[2].slice(-suf.length)===suf)return true;
+  }
+  return false;
+}
 function pullStock(){
   var el=document.getElementById('stock-url');
   var rawUrl=el?el.value.trim():localStorage.getItem('WMS_STOCK_URL')||'';
@@ -2110,7 +2123,7 @@ function renderStock(){
   var colspan=2+STOCK_WH.length;
   var list=Object.keys(STOCK).map(function(sku){return {sku:sku,name:STOCK[sku].name||'',wh:STOCK[sku].wh||{}};})
     .filter(function(x){
-      if(q&&x.sku.toLowerCase().indexOf(q)<0&&(x.name||'').toLowerCase().indexOf(q)<0)return false;
+      if(q&&!_skuSearchMatch(x.sku,x.name,q))return false;
       if(inStockOnly){var tot=0;STOCK_WH.forEach(function(w){tot+=(x.wh[w.name]||0);});if(tot<=0)return false;}
       return true;
     }).sort(function(a,b){return a.sku<b.sku?-1:1;});
