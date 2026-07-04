@@ -423,7 +423,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-3</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-4</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1167,9 +1167,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260703-3 (gift-fallback active)
+// BUILD v.20260703-4 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260703-3');
+  console.log('parseDeliveryTemplate BUILD v.20260703-4');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -2034,8 +2034,9 @@ function pullStock(){
       var hdr=rows[0].map(function(h){return String(h||'').trim();});
       function col(cands){for(var i=0;i<cands.length;i++){for(var j=0;j<hdr.length;j++){var h=hdr[j].toLowerCase();if(h===cands[i]||h.indexOf(cands[i])>=0)return j;}}return -1;}
       var cSku=col(['sku','รหัส']);
-      var cQty=col(['จำนวน','สต็อก','stock','qty','คงเหลือ','onhand','on hand']);
-      var cName=col(['ชื่อ','แบรนด์','name','สินค้า']);
+      // จับ "Live Stock" เป็นหลัก (สต็อกพร้อมขายจริง) แล้วค่อย total/stock/จำนวน
+      var cQty=col(['live stock','livestock','คงเหลือจริง','total','stock','จำนวน','สต็อก','qty','คงเหลือ','onhand']);
+      var cName=col(['ชื่อ','แบรนด์','name','สินค้า','description']);
       if(cSku<0||cQty<0){document.getElementById('stock-info').textContent='ไม่พบคอลัมน์ SKU หรือ จำนวน — พบ: '+hdr.join(', ');return;}
       STOCK={};STOCK_META={};var n=0;
       for(var r=1;r<rows.length;r++){
