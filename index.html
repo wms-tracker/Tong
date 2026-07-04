@@ -423,7 +423,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-8</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-9</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -830,7 +830,7 @@ tr:hover td{background:var(--bg3)}
       <label style="font-size:12px;color:var(--text2)">คอลัมน์ SKU: <input id="stock-col-sku" value="A" style="width:48px;padding:5px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
     </div>
     <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">คลังที่จะแสดง (คอลัมน์:ชื่อคลัง คั่นด้วยจุลภาค)</label>
-    <input id="stock-wh-cols" value="G:QA, H:NEW WH" style="width:100%;padding:7px;border:1.5px solid var(--border2);border-radius:8px;font-size:12px;box-sizing:border-box;margin-bottom:8px;font-family:monospace">
+    <input id="stock-wh-cols" value="G:QA, H:NEW WH, I:Total, K:Pick, O:Live Stock" style="width:100%;padding:7px;border:1.5px solid var(--border2);border-radius:8px;font-size:12px;box-sizing:border-box;margin-bottom:8px;font-family:monospace">
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-p btn-sm" onclick="pullStock()">🔄 ดึงสต็อก</button>
       <span id="stock-info" style="font-size:12px;color:var(--text2);align-self:center"></span>
@@ -1172,9 +1172,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260703-8 (gift-fallback active)
+// BUILD v.20260703-9 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260703-8');
+  console.log('parseDeliveryTemplate BUILD v.20260703-9');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -2023,13 +2023,14 @@ var STOCK={};        // {sku: {name, wh:{คลัง:จำนวน}}}
 var STOCK_WH=[];     // [{name}] ลำดับคอลัมน์คลังที่แสดง
 try{var _s=localStorage.getItem('WMS_STOCK');if(_s)STOCK=JSON.parse(_s)||{};}catch(_){}
 try{var _sw=localStorage.getItem('WMS_STOCK_WH');if(_sw)STOCK_WH=JSON.parse(_sw)||[];}catch(_){}
-// migration: เอาคลังเก่า (TPY/Live Stock/ฯลฯ) ออก เหลือแค่ QA + NEW WH
+// migration v3: ตั้งคอลัมน์เป็น QA/NEW WH/Total/Pick/Live Stock (รันครั้งเดียวต่อเวอร์ชัน)
+var STOCK_ALLOWED=/^(QA|NEW WH|Total|Pick|Live Stock)$/i;
 (function(){
-  var keep=STOCK_WH.filter(function(w){return /^(QA|NEW WH)$/i.test(String(w.name||'').trim());});
-  if(keep.length!==STOCK_WH.length){
-    STOCK_WH=keep;
-    try{localStorage.setItem('WMS_STOCK_WH',JSON.stringify(STOCK_WH));localStorage.setItem('WMS_STOCK_WHCFG','G:QA, H:NEW WH');}catch(_){}
+  if(localStorage.getItem('WMS_STOCK_CFGVER')!=='v3'){
+    try{localStorage.setItem('WMS_STOCK_WHCFG','G:QA, H:NEW WH, I:Total, K:Pick, O:Live Stock');localStorage.setItem('WMS_STOCK_CFGVER','v3');}catch(_){}
   }
+  var keep=STOCK_WH.filter(function(w){return STOCK_ALLOWED.test(String(w.name||'').trim());});
+  if(keep.length!==STOCK_WH.length){STOCK_WH=keep;try{localStorage.setItem('WMS_STOCK_WH',JSON.stringify(STOCK_WH));}catch(_){}}
 })();
 function _saveStock(){try{localStorage.setItem('WMS_STOCK',JSON.stringify(STOCK));localStorage.setItem('WMS_STOCK_WH',JSON.stringify(STOCK_WH));}catch(_){}}
 // แปลงตัวอักษรคอลัมน์ (A,B,...,O) หรือเลข → index (0-based)
@@ -2104,7 +2105,8 @@ function renderStock(){
   var q=(document.getElementById('stock-q')?document.getElementById('stock-q').value:'').toLowerCase().trim();
   var inStockOnly=document.getElementById('stock-instock-only')&&document.getElementById('stock-instock-only').checked;
   // หัวตาราง
-  if(th)th.innerHTML='<tr><th>SKU</th><th>ชื่อสินค้า</th>'+STOCK_WH.map(function(w){return '<th style="text-align:right">'+escHtml(w.name)+'</th>';}).join('')+'</tr>';
+  var _thSty='position:sticky;top:0;z-index:3;background:var(--bg2,#f8fafc)';
+  if(th)th.innerHTML='<tr><th style="'+_thSty+'">SKU</th><th style="'+_thSty+'">ชื่อสินค้า</th>'+STOCK_WH.map(function(w){return '<th style="text-align:right;'+_thSty+'">'+escHtml(w.name)+'</th>';}).join('')+'</tr>';
   var colspan=2+STOCK_WH.length;
   var list=Object.keys(STOCK).map(function(sku){return {sku:sku,name:STOCK[sku].name||'',wh:STOCK[sku].wh||{}};})
     .filter(function(x){
