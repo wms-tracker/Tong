@@ -280,6 +280,7 @@ tr:hover td{background:var(--bg3)}
       <div class="sb2-panel" id="sbp-report">
         <div class="sb2-title">รายงาน</div>
         <div class="ni" id="ni-report" onclick="goPage('report')"><span class="ic">📈</span>รีพอร์ต</div>
+        <div class="ni" id="ni-stock" onclick="goPage('stock')"><span class="ic">📦</span>สต็อกสินค้า</div>
       </div>
       <!-- ระบบ -->
       <div class="sb2-panel" id="sbp-system">
@@ -422,7 +423,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-1</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-3</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -819,6 +820,27 @@ tr:hover td{background:var(--bg3)}
   </div>
 </div>
 
+<!-- STOCK -->
+<div id="page-stock" class="page">
+  <div class="card" style="padding:14px;margin-bottom:12px">
+    <div class="card-t">📦 ดึงสต็อกจาก Google Sheet</div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:8px">วางลิงก์ Google Sheet (Publish to web → CSV) ที่มีคอลัมน์ <b>SKU</b> และ <b>จำนวน/สต็อก</b></p>
+    <input id="stock-url" type="url" placeholder="https://docs.google.com/.../pub?output=csv" style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:8px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-p btn-sm" onclick="pullStock()">🔄 ดึงสต็อก</button>
+      <span id="stock-info" style="font-size:12px;color:var(--text2);align-self:center"></span>
+    </div>
+  </div>
+  <div class="card" style="padding:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div class="card-t" style="margin:0">📊 สต็อก vs ความต้องการ (ออเดอร์ที่ค้างส่ง)</div>
+      <input id="stock-q" oninput="renderStock()" placeholder="🔍 ค้นหา SKU/ชื่อ" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text)">
+    </div>
+    <label style="font-size:12px;color:var(--text2)"><input type="checkbox" id="stock-short-only" onchange="renderStock()"> แสดงเฉพาะที่ไม่พอ</label>
+    <div class="tw" style="margin-top:8px;max-height:60vh;overflow:auto"><table><thead><tr><th>SKU</th><th>ชื่อสินค้า</th><th style="text-align:right">สต็อก</th><th style="text-align:right">ต้องใช้</th><th style="text-align:right">คงเหลือ</th><th>สถานะ</th></tr></thead><tbody id="stock-tbody"></tbody></table></div>
+  </div>
+</div>
+
 <!-- HISTORY -->
 <div id="page-history" class="page">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -1061,8 +1083,8 @@ function checkLogin(){
 }
 
 /* ======= NAV ======= */
-const PM={dashboard:'Dashboard|ภาพรวมระบบ',upload:'Upload / Sync|อัปโหลดหรือดึงข้อมูลจาก Sheets',orders:'Orders|รายการทั้งหมด',history:'History|ประวัติออเดอร์รายเดือน',qcscan:'ตรวจ QC + Scan|สแกนตรวจสอบสินค้า',pick:'Pick|ออเดอร์พร้อม Pack',ship:'ส่งของ|พร้อมส่ง',draft:'Draft|งานค้าง',report:'รีพอร์ต|สรุปและ Export',matcher:'Tracking Matcher|จับคู่ Tracking กับออเดอร์',settings:'ตั้งค่า|การเชื่อมต่อ'};
-var _pageCat={dashboard:'main',history:'main',orders:'orders',draft:'orders',qcscan:'warehouse',pick:'warehouse',ship:'warehouse',report:'report',matcher:'system',upload:'system',settings:'system'};
+const PM={dashboard:'Dashboard|ภาพรวมระบบ',upload:'Upload / Sync|อัปโหลดหรือดึงข้อมูลจาก Sheets',orders:'Orders|รายการทั้งหมด',history:'History|ประวัติออเดอร์รายเดือน',qcscan:'ตรวจ QC + Scan|สแกนตรวจสอบสินค้า',pick:'Pick|ออเดอร์พร้อม Pack',ship:'ส่งของ|พร้อมส่ง',draft:'Draft|งานค้าง',report:'รีพอร์ต|สรุปและ Export',stock:'สต็อกสินค้า|เทียบสต็อกกับออเดอร์',matcher:'Tracking Matcher|จับคู่ Tracking กับออเดอร์',settings:'ตั้งค่า|การเชื่อมต่อ'};
+var _pageCat={dashboard:'main',history:'main',orders:'orders',draft:'orders',qcscan:'warehouse',pick:'warehouse',ship:'warehouse',report:'report',stock:'report',matcher:'system',upload:'system',settings:'system'};
 function setSbCat(cat){
   document.querySelectorAll('.sb2-ci').forEach(x=>x.classList.remove('act'));
   document.querySelectorAll('.sb2-panel').forEach(x=>x.classList.remove('act'));
@@ -1092,6 +1114,7 @@ function goPage(p){
 
   if(p==='dashboard')renderDashboard();
   if(p==='report'){renderReport();}
+  if(p==='stock'){renderStock();}
   // update mobile nav highlight
   ['dashboard','qcscan','pack','orders','report'].forEach(id=>{
     let el=document.getElementById('mn-'+id);
@@ -1144,9 +1167,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260703-1 (gift-fallback active)
+// BUILD v.20260703-3 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260703-1');
+  console.log('parseDeliveryTemplate BUILD v.20260703-3');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -1988,6 +2011,101 @@ function importHRZPickup(){
   xhr.onerror=function(){ulAlert('เชื่อมต่อ HRZ ไม่ได้ — ตรวจว่าชีท Publish to web แล้ว','err');};
   xhr.ontimeout=function(){ulAlert('HRZ timeout','err');};
   xhr.send();
+}
+
+/* ===== STOCK (ดึงจาก Google Sheet + เทียบพอ/ไม่พอ) ===== */
+var STOCK={};        // {sku: qty}
+var STOCK_META={};   // {sku: name} (ชื่อจากชีทถ้ามี)
+try{var _s=localStorage.getItem('WMS_STOCK');if(_s)STOCK=JSON.parse(_s)||{};}catch(_){}
+try{var _sm=localStorage.getItem('WMS_STOCK_META');if(_sm)STOCK_META=JSON.parse(_sm)||{};}catch(_){}
+function _saveStock(){try{localStorage.setItem('WMS_STOCK',JSON.stringify(STOCK));localStorage.setItem('WMS_STOCK_META',JSON.stringify(STOCK_META));}catch(_){}}
+function pullStock(){
+  var el=document.getElementById('stock-url');
+  var url=el?el.value.trim():localStorage.getItem('WMS_STOCK_URL')||'';
+  if(!url){ document.getElementById('stock-info').textContent='กรุณาวางลิงก์ Google Sheet (CSV)'; return; }
+  localStorage.setItem('WMS_STOCK_URL',url);
+  document.getElementById('stock-info').textContent='⏳ กำลังดึงสต็อก...';
+  var xhr=new XMLHttpRequest();
+  xhr.open('GET',url);xhr.timeout=30000;
+  xhr.onload=function(){
+    try{
+      var rows=_parseCSVText(xhr.responseText);
+      if(rows.length<2){document.getElementById('stock-info').textContent='ชีทว่างเปล่า';return;}
+      var hdr=rows[0].map(function(h){return String(h||'').trim();});
+      function col(cands){for(var i=0;i<cands.length;i++){for(var j=0;j<hdr.length;j++){var h=hdr[j].toLowerCase();if(h===cands[i]||h.indexOf(cands[i])>=0)return j;}}return -1;}
+      var cSku=col(['sku','รหัส']);
+      var cQty=col(['จำนวน','สต็อก','stock','qty','คงเหลือ','onhand','on hand']);
+      var cName=col(['ชื่อ','แบรนด์','name','สินค้า']);
+      if(cSku<0||cQty<0){document.getElementById('stock-info').textContent='ไม่พบคอลัมน์ SKU หรือ จำนวน — พบ: '+hdr.join(', ');return;}
+      STOCK={};STOCK_META={};var n=0;
+      for(var r=1;r<rows.length;r++){
+        var sku=String(rows[r][cSku]||'').trim();if(!sku)continue;
+        var q=parseInt(String(rows[r][cQty]||'').replace(/[^\d-]/g,''))||0;
+        STOCK[sku]=(STOCK[sku]||0)+q; n++;
+        if(cName>=0&&rows[r][cName])STOCK_META[sku]=String(rows[r][cName]).trim();
+      }
+      _saveStock();
+      document.getElementById('stock-info').textContent='✅ ดึงแล้ว '+Object.keys(STOCK).length+' SKU';
+      renderStock();
+    }catch(e){document.getElementById('stock-info').textContent='อ่านข้อมูลไม่ได้: '+e.message;}
+  };
+  xhr.onerror=function(){document.getElementById('stock-info').textContent='เชื่อมต่อไม่ได้ — ตรวจว่า Publish to web (CSV) แล้ว';};
+  xhr.ontimeout=function(){document.getElementById('stock-info').textContent='timeout';};
+  xhr.send();
+}
+// รวมความต้องการต่อ SKU จากออเดอร์ที่ยังค้างส่ง (new/pick/qc/pack)
+function _stockDemand(){
+  var need={},names={};
+  var active={new:1,pick:1,qc:1,pack:1,postponed:1};
+  Object.values(ORDERS).forEach(function(o){
+    if(!active[o.status])return;
+    (o.items||[]).forEach(function(it){
+      var sku=String(it.sku||'').trim();if(!sku)return;
+      need[sku]=(need[sku]||0)+(parseInt(it.qty)||1);
+      if(it.name&&!names[sku])names[sku]=it.name;
+    });
+  });
+  return {need:need,names:names};
+}
+function renderStock(){
+  var tb=document.getElementById('stock-tbody');if(!tb)return;
+  var urlEl=document.getElementById('stock-url');
+  if(urlEl&&!urlEl.value)urlEl.value=localStorage.getItem('WMS_STOCK_URL')||'';
+  var q=(document.getElementById('stock-q')?document.getElementById('stock-q').value:'').toLowerCase().trim();
+  var shortOnly=document.getElementById('stock-short-only')&&document.getElementById('stock-short-only').checked;
+  var d=_stockDemand();
+  // รวม SKU ทั้งจากสต็อกและจากความต้องการ
+  var skus={};Object.keys(STOCK).forEach(function(s){skus[s]=1;});Object.keys(d.need).forEach(function(s){skus[s]=1;});
+  var list=Object.keys(skus).map(function(sku){
+    var stk=STOCK[sku]!==undefined?STOCK[sku]:null;
+    var need=d.need[sku]||0;
+    var name=STOCK_META[sku]||d.names[sku]||'';
+    var remain=(stk===null?null:stk-need);
+    return {sku:sku,name:name,stk:stk,need:need,remain:remain};
+  }).filter(function(x){
+    if(q&&(x.sku.toLowerCase().indexOf(q)<0&&(x.name||'').toLowerCase().indexOf(q)<0))return false;
+    if(shortOnly&&!(x.remain!==null&&x.remain<0))return false;
+    return true;
+  }).sort(function(a,b){
+    // ไม่พอขึ้นก่อน แล้วเรียงตามต้องใช้มาก→น้อย
+    var as=(a.remain!==null&&a.remain<0)?0:1, bs=(b.remain!==null&&b.remain<0)?0:1;
+    return as-bs||b.need-a.need;
+  });
+  if(!list.length){tb.innerHTML='<tr><td colspan="6" class="empty" style="padding:24px">ยังไม่มีข้อมูลสต็อก — วางลิงก์แล้วกด "ดึงสต็อก"</td></tr>';return;}
+  tb.innerHTML=list.map(function(x){
+    var st,color;
+    if(x.stk===null){st='— ไม่มีข้อมูลสต็อก';color='var(--text3)';}
+    else if(x.remain<0){st='❌ ไม่พอ (ขาด '+Math.abs(x.remain)+')';color='#DC2626';}
+    else if(x.remain===0){st='⚠️ พอดี';color='#D97706';}
+    else{st='✅ พอ';color='#16A34A';}
+    return '<tr'+(x.remain!==null&&x.remain<0?' style="background:rgba(220,38,38,.06)"':'')+'>'
+      +'<td class="mono" style="font-size:12px">'+escHtml(x.sku)+'</td>'
+      +'<td style="font-size:12px">'+escHtml((x.name||'').substring(0,40))+'</td>'
+      +'<td style="text-align:right;font-weight:700">'+(x.stk===null?'—':x.stk)+'</td>'
+      +'<td style="text-align:right">'+x.need+'</td>'
+      +'<td style="text-align:right;font-weight:700;color:'+color+'">'+(x.remain===null?'—':x.remain)+'</td>'
+      +'<td style="font-size:12px;color:'+color+';font-weight:600">'+st+'</td></tr>';
+  }).join('');
 }
 
 function goQCScanWithTracking(oid,trk){
