@@ -423,7 +423,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-11</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-12</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1137,7 +1137,7 @@ function goPage(p){
 
   if(p==='dashboard')renderDashboard();
   if(p==='report'){renderReport();}
-  if(p==='stock'){renderStock();}
+  if(p==='stock'){ if(FB_URL)loadStockFromFB(true); renderStock(); }
   // update mobile nav highlight
   ['dashboard','qcscan','pack','orders','report'].forEach(id=>{
     let el=document.getElementById('mn-'+id);
@@ -1190,9 +1190,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260703-11 (gift-fallback active)
+// BUILD v.20260703-12 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260703-11');
+  console.log('parseDeliveryTemplate BUILD v.20260703-12');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -2051,6 +2051,24 @@ var STOCK_ALLOWED=/^(QA|NEW WH|Total|Pick|Live Stock)$/i;
   if(keep.length!==STOCK_WH.length){STOCK_WH=keep;try{localStorage.setItem('WMS_STOCK_WH',JSON.stringify(STOCK_WH));}catch(_){}}
 })();
 function _saveStock(){try{localStorage.setItem('WMS_STOCK',JSON.stringify(STOCK));localStorage.setItem('WMS_STOCK_WH',JSON.stringify(STOCK_WH));}catch(_){}}
+// push สต็อกขึ้น Firebase ให้ทุกเครื่องเห็น
+function pushStockToFB(){
+  if(!FB_URL)return;
+  fbPut('/stockData',{stock:STOCK,wh:STOCK_WH,at:new Date().toISOString(),by:(localStorage.getItem('WMS_USR')||'PC')});
+}
+// ดึงสต็อกจาก Firebase (สำหรับเครื่องที่ไม่ได้ดึงจากชีทเอง)
+var _stockLoaded=false;
+function loadStockFromFB(force){
+  if(!FB_URL)return;
+  if(_stockLoaded&&!force)return;
+  fbGet('/stockData',function(err,d){
+    if(err||!d||!d.stock)return;
+    STOCK=d.stock||{};STOCK_WH=(d.wh&&d.wh.length)?d.wh:STOCK_WH;
+    _stockLoaded=true;_saveStock();
+    if(document.getElementById('page-stock')&&document.getElementById('page-stock').classList.contains('active'))renderStock();
+    var inf=document.getElementById('stock-info');if(inf)inf.textContent='✅ สต็อกจากส่วนกลาง '+Object.keys(STOCK).length+' SKU (อัปเดต '+(d.by||'')+')';
+  });
+}
 // แปลงตัวอักษรคอลัมน์ (A,B,...,O) หรือเลข → index (0-based)
 function _colToIdx(v){
   v=String(v||'').trim().toUpperCase();
@@ -2118,7 +2136,8 @@ function pullStock(){
         STOCK[sku]={name:nm,wh:wh};
       }
       _saveStock();
-      document.getElementById('stock-info').textContent='✅ ดึงแล้ว '+Object.keys(STOCK).length+' SKU';
+      pushStockToFB();   // sync ให้เครื่องอื่นเห็นด้วย
+      document.getElementById('stock-info').textContent='✅ ดึงแล้ว '+Object.keys(STOCK).length+' SKU · sync แล้ว';
       renderStock();
     }catch(e){document.getElementById('stock-info').textContent='อ่านข้อมูลไม่ได้: '+e.message;}
   };
