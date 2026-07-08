@@ -423,7 +423,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-10</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-11</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -969,8 +969,26 @@ function init(){
   try{let d=localStorage.getItem('WMS_O');if(d)ORDERS=JSON.parse(d);}catch(_){}
   try{let d=localStorage.getItem('WMS_SC');if(d)SC=JSON.parse(d);}catch(_){}
   try{let d=localStorage.getItem('WMS_DR');if(d)DRAFTS=JSON.parse(d);}catch(_){}
+  _pruneOldOrders();   // PERF: เก็บประวัติเก่าให้เบา เริ่มเร็ว
   updateConn();refreshAll();
   checkLogin();
+}
+
+// prune ออเดอร์ประวัติเก่า (done/cancel เกิน 7 วัน) ออกจาก memory เพื่อให้เปิดเร็ว
+function _pruneOldOrders(){
+  var keys=Object.keys(ORDERS);
+  if(keys.length<=600)return;                        // น้อยอยู่แล้ว ไม่ต้อง prune
+  var active={new:1,pick:1,qc:1,pack:1,ship:1,postponed:1,draft:1};
+  var cutoff=Date.now()-7*86400000;
+  var removed=0;
+  keys.forEach(function(oid){
+    var o=ORDERS[oid];if(!o)return;
+    if(active[o.status])return;                       // ยัง active → เก็บเสมอ
+    var t=o.updatedAt?new Date(o.updatedAt).getTime():0;
+    if(t>=cutoff)return;                              // เพิ่งทำใน 7 วัน → เก็บ
+    delete ORDERS[oid];removed++;
+  });
+  if(removed){try{localStorage.setItem('WMS_O',JSON.stringify(ORDERS));}catch(_){} console.log('prune: ลบประวัติเก่า '+removed+' ออเดอร์ (เหลือ '+Object.keys(ORDERS).length+')');}
 }
 
 function saveLocal(){
@@ -1172,9 +1190,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260703-10 (gift-fallback active)
+// BUILD v.20260703-11 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260703-10');
+  console.log('parseDeliveryTemplate BUILD v.20260703-11');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
