@@ -281,6 +281,7 @@ tr:hover td{background:var(--bg3)}
         <div class="sb2-title">รายงาน</div>
         <div class="ni" id="ni-report" onclick="goPage('report')"><span class="ic">📈</span>รีพอร์ต</div>
         <div class="ni" id="ni-stock" onclick="goPage('stock')"><span class="ic">📦</span>สต็อกสินค้า</div>
+        <div class="ni" id="ni-truck" onclick="goPage('truck')"><span class="ic">🚚</span>ใบโหลดของ (ต่อคัน)</div>
       </div>
       <!-- ระบบ -->
       <div class="sb2-panel" id="sbp-system">
@@ -424,7 +425,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-14</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-15</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -855,6 +856,17 @@ tr:hover td{background:var(--bg3)}
   </div>
 </div>
 
+<!-- TRUCK LOAD -->
+<div id="page-truck" class="page">
+  <div class="card" style="padding:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div class="card-t" style="margin:0">🚚 ใบโหลดของ — สรุปต่อคันรถ</div>
+      <div style="display:flex;gap:8px;align-items:center"><input type="date" id="truck-date" onchange="renderTruckLoad()" style="padding:6px 8px;font-size:13px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text)"><button class="btn btn-o btn-sm" onclick="printTruckLoad()">🖨 พิมพ์</button></div>
+    </div>
+    <div id="truck-body"></div>
+  </div>
+</div>
+
 <!-- HISTORY -->
 <div id="page-history" class="page">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -1115,8 +1127,8 @@ function checkLogin(){
 }
 
 /* ======= NAV ======= */
-const PM={dashboard:'Dashboard|ภาพรวมระบบ',upload:'Upload / Sync|อัปโหลดหรือดึงข้อมูลจาก Sheets',orders:'Orders|รายการทั้งหมด',history:'History|ประวัติออเดอร์รายเดือน',qcscan:'ตรวจ QC + Scan|สแกนตรวจสอบสินค้า',pick:'Pick|ออเดอร์พร้อม Pack',ship:'ส่งของ|พร้อมส่ง',draft:'Draft|งานค้าง',report:'รีพอร์ต|สรุปและ Export',stock:'สต็อกสินค้า|เทียบสต็อกกับออเดอร์',matcher:'Tracking Matcher|จับคู่ Tracking กับออเดอร์',settings:'ตั้งค่า|การเชื่อมต่อ'};
-var _pageCat={dashboard:'main',history:'main',orders:'orders',draft:'orders',qcscan:'warehouse',pick:'warehouse',ship:'warehouse',report:'report',stock:'report',matcher:'system',upload:'system',settings:'system'};
+const PM={dashboard:'Dashboard|ภาพรวมระบบ',upload:'Upload / Sync|อัปโหลดหรือดึงข้อมูลจาก Sheets',orders:'Orders|รายการทั้งหมด',history:'History|ประวัติออเดอร์รายเดือน',qcscan:'ตรวจ QC + Scan|สแกนตรวจสอบสินค้า',pick:'Pick|ออเดอร์พร้อม Pack',ship:'ส่งของ|พร้อมส่ง',draft:'Draft|งานค้าง',report:'รีพอร์ต|สรุปและ Export',stock:'สต็อกสินค้า|เทียบสต็อกกับออเดอร์',truck:'ใบโหลดของ|สรุปต่อคันรถ',matcher:'Tracking Matcher|จับคู่ Tracking กับออเดอร์',settings:'ตั้งค่า|การเชื่อมต่อ'};
+var _pageCat={dashboard:'main',history:'main',orders:'orders',draft:'orders',qcscan:'warehouse',pick:'warehouse',ship:'warehouse',report:'report',stock:'report',truck:'report',matcher:'system',upload:'system',settings:'system'};
 function setSbCat(cat){
   document.querySelectorAll('.sb2-ci').forEach(x=>x.classList.remove('act'));
   document.querySelectorAll('.sb2-panel').forEach(x=>x.classList.remove('act'));
@@ -1147,6 +1159,7 @@ function goPage(p){
   if(p==='dashboard')renderDashboard();
   if(p==='report'){renderReport();}
   if(p==='stock'){ if(FB_URL)loadStockFromFB(true); renderStock(); }
+  if(p==='truck'){ renderTruckLoad(); }
   // update mobile nav highlight
   ['dashboard','qcscan','pack','orders','report'].forEach(id=>{
     let el=document.getElementById('mn-'+id);
@@ -1199,9 +1212,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260703-14 (gift-fallback active)
+// BUILD v.20260703-15 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260703-14');
+  console.log('parseDeliveryTemplate BUILD v.20260703-15');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -2169,6 +2182,43 @@ function pullStock(){
   xhr.onerror=function(){document.getElementById('stock-info').textContent='เชื่อมต่อไม่ได้ — แชร์ชีทเป็น "ทุกคนที่มีลิงก์" ก่อน';};
   xhr.ontimeout=function(){document.getElementById('stock-info').textContent='timeout';};
   xhr.send();
+}
+/* ===== ใบโหลดของ — สรุปต่อคันรถ ===== */
+function renderTruckLoad(){
+  var body=document.getElementById('truck-body');if(!body)return;
+  var dEl=document.getElementById('truck-date');
+  var selDate=dEl&&dEl.value?dEl.value:'';
+  function _ymd(o){var d=_getOrderDate(o);return d?(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')):'';}
+  // จับกลุ่มตามคันรถ (consign ที่เป็นชื่อคัน) เฉพาะออเดอร์ที่ยังไม่ส่ง
+  var trucks={};
+  Object.values(ORDERS).forEach(function(o){
+    if(o.status==='cancel'||o.status==='done'||o.status==='ship')return;
+    var tk=String(o.consign||'').trim();
+    if(!/คัน/.test(tk))return;                          // เอาเฉพาะที่เป็นคันรถ
+    if(selDate&&_ymd(o)!==selDate)return;
+    if(!trucks[tk])trucks[tk]=[];trucks[tk].push(o);
+  });
+  var names=Object.keys(trucks).sort();
+  if(!names.length){body.innerHTML='<div class="empty" style="padding:24px">ไม่มีออเดอร์คันรถ'+(selDate?(' วันที่ '+selDate):'')+'</div>';return;}
+  body.innerHTML=names.map(function(tk){
+    var ords=trucks[tk];
+    // รวมสินค้าต่อ SKU ของคันนี้
+    var skuMap={};var totItems=0;
+    ords.forEach(function(o){(o.items||[]).forEach(function(it){var k=(it.sku||'')+'||'+(it.name||'');if(!skuMap[k])skuMap[k]={sku:it.sku,name:it.name,qty:0};var q=parseInt(it.qty)||1;skuMap[k].qty+=q;totItems+=q;});});
+    var items=Object.values(skuMap).sort(function(a,b){return b.qty-a.qty;});
+    return '<div style="border:1.5px solid var(--border2);border-radius:10px;margin-bottom:12px;overflow:hidden">'
+      +'<div style="background:var(--bg3);padding:8px 12px;font-weight:800;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px"><span>🚚 '+escHtml(tk)+'</span><span style="font-size:12px;color:var(--text2);font-weight:600">'+ords.length+' ออเดอร์ · '+totItems+' ชิ้น</span></div>'
+      +'<div style="padding:8px 12px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">ออเดอร์: '+ords.map(function(o){return escHtml(o.id.split(' (')[0]);}).join(', ')+'</div>'
+      +'<div class="tw"><table style="font-size:12px"><thead><tr><th>SKU</th><th>สินค้า</th><th style="text-align:right">รวม</th></tr></thead><tbody>'
+      +items.map(function(x){return '<tr><td class="mono">'+escHtml(x.sku||'—')+'</td><td>'+escHtml((x.name||'').substring(0,44))+'</td><td style="text-align:right;font-weight:700">'+x.qty+'</td></tr>';}).join('')
+      +'</tbody></table></div></div>';
+  }).join('');
+}
+function printTruckLoad(){
+  var body=document.getElementById('truck-body');if(!body||!body.innerHTML.trim()){alert('ไม่มีข้อมูลให้พิมพ์');return;}
+  var w=window.open('','_blank');
+  w.document.write('<html><head><title>ใบโหลดของ</title><meta charset="utf-8"><style>body{font-family:Tahoma,sans-serif;font-size:13px;padding:16px}table{width:100%;border-collapse:collapse;margin-top:4px}th,td{border:1px solid #ccc;padding:4px 8px;text-align:left}th{background:#f1f5f9}h2{margin:0 0 8px}.tw{margin-bottom:16px}</style></head><body><h2>🚚 ใบโหลดของ</h2>'+body.innerHTML+'<scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt></body></html>');
+  w.document.close();
 }
 function renderStock(){
   var tb=document.getElementById('stock-tbody');if(!tb)return;
