@@ -312,6 +312,7 @@ tr:hover td{background:var(--bg3)}
     <div style="font-size:13px;color:var(--text2)" id="last-sync-txt">ยังไม่ได้ sync</div>
     <button onclick="doManualRefresh(this)" style="padding:6px 14px;font-size:12px;font-weight:700;background:var(--bg2);border:1.5px solid var(--border2);border-radius:var(--rx);cursor:pointer;color:var(--text2)">↻ Refresh</button>
   </div>
+  <div id="d-todayvs" style="margin-bottom:10px"></div>
   <div class="stat-grid">
     <div class="sc" style="border-top:3px solid var(--primary)"><div class="sc-val" id="d-total">0</div><div class="sc-lbl">ทั้งหมด</div></div>
     <div class="sc" style="border-top:3px solid #3B82F6"><div class="sc-val" style="color:var(--primary)" id="d-new">0</div><div class="sc-lbl">🆕 รับแล้ว</div></div>
@@ -423,7 +424,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-13</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-14</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1198,9 +1199,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260703-13 (gift-fallback active)
+// BUILD v.20260703-14 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260703-13');
+  console.log('parseDeliveryTemplate BUILD v.20260703-14');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -1781,6 +1782,22 @@ function deleteDraft(oid){if(!confirm('ลบ Draft?'))return;delete DRAFTS[oid]
 /* ======= RENDER TABLES ======= */
 function renderDashboard(){
   let orders=Object.values(ORDERS);
+  // สรุปวันนี้ vs เมื่อวาน (ตามวันที่ออเดอร์)
+  (function(){
+    var el=document.getElementById('d-todayvs');if(!el)return;
+    var now=new Date();var t0=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
+    var y0=t0-86400000;
+    function ymd(o){var d=_getOrderDate(o);return d?new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime():0;}
+    var today=0,yest=0,tQc=0,tDone=0;
+    orders.forEach(function(o){var d=ymd(o);if(d===t0){today++;if(['qc','pack','ship','done'].indexOf(o.status)>=0)tQc++;if(o.status==='done'||o.status==='ship')tDone++;}else if(d===y0)yest++;});
+    var diff=today-yest;var arrow=diff>0?'▲':(diff<0?'▼':'—');var dc=diff>0?'#16A34A':(diff<0?'#DC2626':'var(--text3)');
+    el.innerHTML='<div class="card" style="padding:12px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
+      +'<div><div style="font-size:11px;color:var(--text2)">📅 ออเดอร์วันนี้</div><div style="font-size:26px;font-weight:800">'+today+' <span style="font-size:13px;font-weight:700;color:'+dc+'">'+arrow+' '+(diff>0?'+':'')+diff+'</span></div></div>'
+      +'<div style="border-left:1px solid var(--border);padding-left:16px"><div style="font-size:11px;color:var(--text2)">เมื่อวาน</div><div style="font-size:20px;font-weight:700;color:var(--text2)">'+yest+'</div></div>'
+      +'<div style="border-left:1px solid var(--border);padding-left:16px"><div style="font-size:11px;color:var(--text2)">✅ QC แล้ววันนี้</div><div style="font-size:20px;font-weight:700;color:#0D9488">'+tQc+'</div></div>'
+      +'<div style="border-left:1px solid var(--border);padding-left:16px"><div style="font-size:11px;color:var(--text2)">🚚 ส่งแล้ววันนี้</div><div style="font-size:20px;font-weight:700;color:#16A34A">'+tDone+'</div></div>'
+      +'</div>';
+  })();
   let cnt={new:0,qc:0,pack:0,ship:0,done:0,cancel:0,total:orders.length};
   orders.forEach(o=>cnt[o.status]=(cnt[o.status]||0)+1);
   ['total','new','qc','pack','done'].forEach(k=>{document.getElementById('d-'+k).textContent=cnt[k]||0;});
