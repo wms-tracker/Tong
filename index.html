@@ -426,7 +426,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-16</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-17</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1225,9 +1225,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260703-16 (gift-fallback active)
+// BUILD v.20260703-17 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260703-16');
+  console.log('parseDeliveryTemplate BUILD v.20260703-17');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -5520,10 +5520,12 @@ function initBarMonthSel(){
   sel.innerHTML=keys.map(function(k){return '<option value="'+k+'"'+(k===cur?' selected':'')+'>'+k+'</option>';}).join('');
   if(!sel.value&&keys.length)sel.value=keys[keys.length-1];
 }
-function drawBarChart(){
+var _reportYM='';
+function drawBarChart(fromSel){
   var sel=document.getElementById('bar-month-sel');
   var ym=sel?sel.value:'';
   if(!ym){var now=new Date();ym=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');}
+  _reportYM=ym;
   var yr=parseInt(ym.split('-')[0]),mo=parseInt(ym.split('-')[1]);
   var days=new Date(yr,mo,0).getDate();
   var counts=Array(days).fill(0);
@@ -5533,6 +5535,11 @@ function drawBarChart(){
   });
   var labels=Array.from({length:days},function(_,i){return String(i+1);});
   _drawBar('chart-bar',labels,counts,'#2563EB');
+  // เชื่อมทั้งหน้ารายงาน: sync ตัวเลือกเดือน + KPIs + pie ตามเดือนที่เลือก
+  var my=document.getElementById('monthly-year'),mm=document.getElementById('monthly-month');
+  if(my&&mm){ if(my.value!=String(yr))my.value=String(yr); if(parseInt(mm.value)!==mo)mm.value=String(mo);
+    if(typeof renderMonthlyReport==='function')renderMonthlyReport(); }
+  if(typeof drawPieChart==='function')drawPieChart();
 }
 function drawLineChart(){
   var now=new Date();
@@ -5552,6 +5559,8 @@ function drawLineChart(){
 function drawPieChart(){
   var sup={};
   Object.values(ORDERS).forEach(function(o){
+    // กรองตามเดือนที่เลือก (ถ้ามี)
+    if(_reportYM){var d=_getOrderDate(o);if(!d||(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))!==_reportYM)return;}
     var s=getOrderSUP(o)||'อื่นๆ';
     // ข้ามชื่อรถ/คนขับ (ไม่ใช่ขนส่ง) เช่น "คัน53 .สหรัฐ"
     if(/^คัน/.test(s)) return;
