@@ -426,7 +426,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-17</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-18</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1225,9 +1225,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260703-17 (gift-fallback active)
+// BUILD v.20260703-18 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260703-17');
+  console.log('parseDeliveryTemplate BUILD v.20260703-18');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -2237,17 +2237,24 @@ function renderTruckLoad(){
   var dEl=document.getElementById('truck-date');
   var selDate=dEl&&dEl.value?dEl.value:'';
   function _ymd(o){var d=_getOrderDate(o);return d?(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')):'';}
-  // จับกลุ่มตามคันรถ (consign ที่เป็นชื่อคัน) เฉพาะออเดอร์ที่ยังไม่ส่ง
+  // หาชื่อคันจาก consign หรือจาก Order ID ที่ต่อท้าย (คันXX)
+  function _truckOf(o){
+    var c=String(o.consign||'').trim();
+    if(/คัน/.test(c))return c;
+    var m=String(o.id||'').match(/\(([^)]*คัน[^)]*)\)/);
+    if(m)return m[1].trim();
+    return '';
+  }
   var trucks={};
   Object.values(ORDERS).forEach(function(o){
-    if(o.status==='cancel'||o.status==='done'||o.status==='ship')return;
-    var tk=String(o.consign||'').trim();
-    if(!/คัน/.test(tk))return;                          // เอาเฉพาะที่เป็นคันรถ
+    if(o.status==='cancel')return;                       // แสดงทุกสถานะยกเว้นยกเลิก
+    var tk=_truckOf(o);
+    if(!tk)return;                                        // เอาเฉพาะที่เป็นคันรถ
     if(selDate&&_ymd(o)!==selDate)return;
     if(!trucks[tk])trucks[tk]=[];trucks[tk].push(o);
   });
   var names=Object.keys(trucks).sort();
-  if(!names.length){body.innerHTML='<div class="empty" style="padding:24px">ไม่มีออเดอร์คันรถ'+(selDate?(' วันที่ '+selDate):'')+'</div>';return;}
+  if(!names.length){body.innerHTML='<div class="empty" style="padding:24px">ไม่มีออเดอร์คันรถ'+(selDate?(' วันที่ '+selDate):'')+'<br><span style="font-size:12px">(ออเดอร์คันรถมาจากไฟล์เทมเพลตจัดส่งที่มีคอลัมน์ "ชื่อรถ" — ลองเว้นวันที่ว่างเพื่อดูทั้งหมด)</span></div>';return;}
   body.innerHTML=names.map(function(tk){
     var ords=trucks[tk];
     // รวมสินค้าต่อ SKU ของคันนี้
