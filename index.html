@@ -282,6 +282,7 @@ tr:hover td{background:var(--bg3)}
         <div class="ni" id="ni-report" onclick="goPage('report')"><span class="ic">📈</span>รีพอร์ต</div>
         <div class="ni" id="ni-stock" onclick="goPage('stock')"><span class="ic">📦</span>สต็อกสินค้า</div>
         <div class="ni" id="ni-truck" onclick="goPage('truck')"><span class="ic">🚚</span>ใบโหลดของ (ต่อคัน)</div>
+        <div class="ni" id="ni-audit" onclick="goPage('audit')"><span class="ic">📜</span>ประวัติการทำงาน</div>
       </div>
       <!-- ระบบ -->
       <div class="sb2-panel" id="sbp-system">
@@ -425,7 +426,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-15</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-16</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -867,6 +868,17 @@ tr:hover td{background:var(--bg3)}
   </div>
 </div>
 
+<!-- AUDIT -->
+<div id="page-audit" class="page">
+  <div class="card" style="padding:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div class="card-t" style="margin:0">📜 ประวัติการทำงาน (ใครทำอะไร)</div>
+      <div style="display:flex;gap:8px"><input id="audit-q" oninput="renderAudit()" placeholder="🔍 ค้นหา ออเดอร์/คน" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text)"><button class="btn btn-o btn-sm" onclick="renderAudit(true)">↻</button></div>
+    </div>
+    <div class="tw" style="max-height:65vh;overflow:auto"><table><thead id="audit-thead"></thead><tbody id="audit-tbody"></tbody></table></div>
+  </div>
+</div>
+
 <!-- HISTORY -->
 <div id="page-history" class="page">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -1127,8 +1139,8 @@ function checkLogin(){
 }
 
 /* ======= NAV ======= */
-const PM={dashboard:'Dashboard|ภาพรวมระบบ',upload:'Upload / Sync|อัปโหลดหรือดึงข้อมูลจาก Sheets',orders:'Orders|รายการทั้งหมด',history:'History|ประวัติออเดอร์รายเดือน',qcscan:'ตรวจ QC + Scan|สแกนตรวจสอบสินค้า',pick:'Pick|ออเดอร์พร้อม Pack',ship:'ส่งของ|พร้อมส่ง',draft:'Draft|งานค้าง',report:'รีพอร์ต|สรุปและ Export',stock:'สต็อกสินค้า|เทียบสต็อกกับออเดอร์',truck:'ใบโหลดของ|สรุปต่อคันรถ',matcher:'Tracking Matcher|จับคู่ Tracking กับออเดอร์',settings:'ตั้งค่า|การเชื่อมต่อ'};
-var _pageCat={dashboard:'main',history:'main',orders:'orders',draft:'orders',qcscan:'warehouse',pick:'warehouse',ship:'warehouse',report:'report',stock:'report',truck:'report',matcher:'system',upload:'system',settings:'system'};
+const PM={dashboard:'Dashboard|ภาพรวมระบบ',upload:'Upload / Sync|อัปโหลดหรือดึงข้อมูลจาก Sheets',orders:'Orders|รายการทั้งหมด',history:'History|ประวัติออเดอร์รายเดือน',qcscan:'ตรวจ QC + Scan|สแกนตรวจสอบสินค้า',pick:'Pick|ออเดอร์พร้อม Pack',ship:'ส่งของ|พร้อมส่ง',draft:'Draft|งานค้าง',report:'รีพอร์ต|สรุปและ Export',stock:'สต็อกสินค้า|เทียบสต็อกกับออเดอร์',truck:'ใบโหลดของ|สรุปต่อคันรถ',audit:'ประวัติการทำงาน|ใครทำอะไรเมื่อไหร่',matcher:'Tracking Matcher|จับคู่ Tracking กับออเดอร์',settings:'ตั้งค่า|การเชื่อมต่อ'};
+var _pageCat={dashboard:'main',history:'main',orders:'orders',draft:'orders',qcscan:'warehouse',pick:'warehouse',ship:'warehouse',report:'report',stock:'report',truck:'report',audit:'report',matcher:'system',upload:'system',settings:'system'};
 function setSbCat(cat){
   document.querySelectorAll('.sb2-ci').forEach(x=>x.classList.remove('act'));
   document.querySelectorAll('.sb2-panel').forEach(x=>x.classList.remove('act'));
@@ -1160,6 +1172,7 @@ function goPage(p){
   if(p==='report'){renderReport();}
   if(p==='stock'){ if(FB_URL)loadStockFromFB(true); renderStock(); }
   if(p==='truck'){ renderTruckLoad(); }
+  if(p==='audit'){ renderAudit(); }
   // update mobile nav highlight
   ['dashboard','qcscan','pack','orders','report'].forEach(id=>{
     let el=document.getElementById('mn-'+id);
@@ -1212,9 +1225,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260703-15 (gift-fallback active)
+// BUILD v.20260703-16 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260703-15');
+  console.log('parseDeliveryTemplate BUILD v.20260703-16');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -1433,6 +1446,7 @@ function confirmUpload(mode){
   }
   document.getElementById('prev-card').style.display='none';
   pendingData=[];
+  logAudit('อัปโหลด','',`เพิ่ม ${added}, อัปเดต ${updated}`+(newRound?`, รอบใหม่ ${newRound}`:''));
   ulAlert(`✓ เพิ่ม ${added} ใหม่, อัปเดต ${updated}`+(newRound?`, ส่งรอบใหม่ (คงของเดิม) ${newRound}`:'')+(rescheduled?`, เลื่อนส่งใหม่ ${rescheduled}`:'')+(FB_URL?' · sync Firebase แล้ว':''),'ok');
   refreshAll();
   setTimeout(()=>goPage('orders'),1200);
@@ -1467,8 +1481,17 @@ async function syncFromSheets(){
 }
 
 /* ======= STATUS ======= */
+/* ===== AUDIT LOG ===== */
+function logAudit(action,oid,detail){
+  if(!FB_URL)return;
+  var ts=Date.now();
+  fbPut('/auditlog/'+ts,{ts:ts,action:action,oid:oid||'',detail:detail||'',
+    user:(localStorage.getItem('WMS_USR')||'PC'),device:(localStorage.getItem('WMS_DEV')||'WMS-PC'),
+    at:new Date().toISOString()});
+}
 function setStatus(oid,status){
   if(!ORDERS[oid])return;
+  var _prevSt=ORDERS[oid].status;
   ORDERS[oid].status=status;
   ORDERS[oid].updatedAt=new Date().toISOString();
   ORDERS[oid].user=localStorage.getItem('WMS_USR')||'PC';
@@ -1484,6 +1507,7 @@ function setStatus(oid,status){
     ORDERS[oid].timeline.push({time:now,status:status,action:SL[status]||status,user:_tUsr,device:_tDev});
   }
   saveLocal();refreshAll();
+  logAudit('เปลี่ยนสถานะ',oid,(SL[_prevSt]||_prevSt||'')+' → '+(SL[status]||status));
   // Push to Sheets
   if(API_URL){
     jFetch(API_URL+'?action=setStatus&orderId='+encodeURIComponent(oid)+'&status='+encodeURIComponent(status)+'&device='+(localStorage.getItem('WMS_DEV')||'WMS-PC'));
@@ -2181,6 +2205,30 @@ function pullStock(){
   };
   xhr.onerror=function(){document.getElementById('stock-info').textContent='เชื่อมต่อไม่ได้ — แชร์ชีทเป็น "ทุกคนที่มีลิงก์" ก่อน';};
   xhr.ontimeout=function(){document.getElementById('stock-info').textContent='timeout';};
+  xhr.send();
+}
+/* ===== AUDIT LOG VIEW ===== */
+var _auditCache=[];
+function renderAudit(force){
+  var tb=document.getElementById("audit-tbody");if(!tb)return;
+  var th=document.getElementById("audit-thead");
+  if(th)th.innerHTML="<tr><th>เวลา</th><th>คน</th><th>เครื่อง</th><th>การกระทำ</th><th>ออเดอร์</th><th>รายละเอียด</th></tr>";
+  function draw(){
+    var q=(document.getElementById("audit-q")?document.getElementById("audit-q").value:"").toLowerCase().trim();
+    var list=_auditCache.filter(function(e){ if(!q)return true; return (e.oid||"").toLowerCase().indexOf(q)>=0||(e.user||"").toLowerCase().indexOf(q)>=0||(e.action||"").toLowerCase().indexOf(q)>=0; }).sort(function(a,b){return (b.ts||0)-(a.ts||0);}).slice(0,300);
+    if(!list.length){tb.innerHTML="<tr><td colspan=\"6\" class=\"empty\" style=\"padding:20px\">ยังไม่มีประวัติ</td></tr>";return;}
+    tb.innerHTML=list.map(function(e){
+      var t=e.at?new Date(e.at).toLocaleString("th-TH",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"";
+      return "<tr><td style=\"font-size:11px;white-space:nowrap\">"+t+"</td><td style=\"font-size:12px;font-weight:600\">"+escHtml(e.user||"")+"</td><td style=\"font-size:11px;color:var(--text2)\">"+escHtml(e.device||"")+"</td><td style=\"font-size:12px\">"+escHtml(e.action||"")+"</td><td class=\"mono\" style=\"font-size:11px\">"+escHtml(e.oid||"")+"</td><td style=\"font-size:11px;color:var(--text2)\">"+escHtml(e.detail||"")+"</td></tr>";
+    }).join("");
+  }
+  if(_auditCache.length&&!force){draw();return;}
+  if(!FB_URL){tb.innerHTML="<tr><td colspan=\"6\" class=\"empty\" style=\"padding:20px\">ต้องตั้งค่า Firebase</td></tr>";return;}
+  tb.innerHTML="<tr><td colspan=\"6\" style=\"padding:16px;text-align:center;color:var(--text2)\">⏳ กำลังโหลด...</td></tr>";
+  var xhr=new XMLHttpRequest();
+  xhr.open("GET",FB_URL+"/auditlog.json");xhr.timeout=15000;
+  xhr.onload=function(){try{var d=JSON.parse(xhr.responseText)||{};_auditCache=Object.values(d);draw();}catch(e){tb.innerHTML="<tr><td colspan=\"6\" class=\"empty\">โหลดไม่ได้</td></tr>";}};
+  xhr.onerror=xhr.ontimeout=function(){tb.innerHTML="<tr><td colspan=\"6\" class=\"empty\">เชื่อมต่อไม่ได้</td></tr>";};
   xhr.send();
 }
 /* ===== ใบโหลดของ — สรุปต่อคันรถ ===== */
