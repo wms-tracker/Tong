@@ -426,7 +426,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-18</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-19</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1225,9 +1225,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260703-18 (gift-fallback active)
+// BUILD v.20260703-19 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260703-18');
+  console.log('parseDeliveryTemplate BUILD v.20260703-19');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -4518,9 +4518,11 @@ function renderCarrierSummary(){
   if(!orders.length){el.innerHTML='<div class="empty">ไม่มีข้อมูลในช่วงที่เลือก</div>';return;}
 
   // สร้าง map: carrier → {total, new, pick, qc, ship, done, cancel}
+  var _MAINC=['Best Express Bulky','Lunio','KEX HRZ','Business Idea HRZ','รับที่คลัง'];
   var map={};
   orders.forEach(function(o){
-    var sup=getOrderSUP(o);
+    var sup=_stdCarrier(getOrderSUP(o)||'');
+    if(_MAINC.indexOf(sup)<0) sup='อื่นๆ';               // ไม่ใช่ขนส่งหลัก → รวมเป็นอื่นๆ
     if(!map[sup]) map[sup]={sup:sup,total:0,new:0,pick:0,qc:0,ship:0,done:0,cancel:0};
     map[sup].total++;
     map[sup][o.status]=(map[sup][o.status]||0)+1;
@@ -5564,15 +5566,15 @@ function drawLineChart(){
   _drawLine('chart-line',months.map(function(m){return m.label;}),counts,'#0D9488');
 }
 function drawPieChart(){
+  // แสดงเฉพาะขนส่งหลัก 5 กลุ่ม — ชื่อคน/คันรถ/ขนส่งย่อย ตัดออก
+  var MAIN=['Best Express Bulky','Lunio','KEX HRZ','Business Idea HRZ','รับที่คลัง'];
   var sup={};
   Object.values(ORDERS).forEach(function(o){
     // กรองตามเดือนที่เลือก (ถ้ามี)
     if(_reportYM){var d=_getOrderDate(o);if(!d||(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))!==_reportYM)return;}
-    var s=getOrderSUP(o)||'อื่นๆ';
-    // ข้ามชื่อรถ/คนขับ (ไม่ใช่ขนส่ง) เช่น "คัน53 .สหรัฐ"
-    if(/^คัน/.test(s)) return;
-    // ย่อชื่อขนส่ง
-    var key=s.replace(/\s+HRZ.*/i,'').replace(/\s+\d.*/,'').trim()||'อื่นๆ';
+    var s=_stdCarrier(getOrderSUP(o)||'');
+    if(MAIN.indexOf(s)<0) return;                        // ไม่ใช่ขนส่งหลัก → ไม่นับ
+    var key=s;
     sup[key]=(sup[key]||0)+1;
   });
   var entries=Object.entries(sup).sort(function(a,b){return b[1]-a[1];});
