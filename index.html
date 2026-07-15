@@ -426,7 +426,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-19</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-20</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1225,9 +1225,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260703-19 (gift-fallback active)
+// BUILD v.20260703-20 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260703-19');
+  console.log('parseDeliveryTemplate BUILD v.20260703-20');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -1861,11 +1861,15 @@ function renderOrders(){
     var _ocount=Object.keys(ORDERS).length;
     if(window._supDropCount!==_ocount){
       window._supDropCount=_ocount;
-      var sups=[''];
+      // แสดงเฉพาะขนส่งหลัก 5 กลุ่ม (+ อื่นๆ ถ้ามี) — ตัดชื่อคัน/คนขับออก
+      var MAINC=['Best Express Bulky','Lunio','KEX HRZ','Business Idea HRZ','รับที่คลัง'];
+      var present={},hasOther=false;
       Object.values(ORDERS).forEach(function(o){
-        var s=getOrderSUP(o);
-        if(s&&s!=='—'&&sups.indexOf(s)<0) sups.push(s);
+        var s=_stdCarrier(getOrderSUP(o)||'');
+        if(MAINC.indexOf(s)>=0)present[s]=1;else if(s&&s!=='—')hasOther=true;
       });
+      var sups=[''].concat(MAINC.filter(function(c){return present[c];}));
+      if(hasOther)sups.push('อื่นๆ');
       var curSup=supEl.value;
       supEl.innerHTML=sups.map(function(s){
         return '<option value="'+s+'"'+(s===curSup?' selected':'')+'>'+(s===''?'ทุกขนส่ง':s)+'</option>';
@@ -1878,7 +1882,7 @@ function renderOrders(){
   let orders=Object.values(ORDERS).filter(o=>{
     if(f==='postponed'){if(!o.postponedFrom)return false;}
     else if(f&&o.status!==f)return false;
-    if(supF&&getOrderSUP(o)!==supF)return false;
+    if(supF){var _oc=_stdCarrier(getOrderSUP(o)||'');var _mainList=['Best Express Bulky','Lunio','KEX HRZ','Business Idea HRZ','รับที่คลัง'];var _oGrp=_mainList.indexOf(_oc)>=0?_oc:'อื่นๆ';if(_oGrp!==supF)return false;}
     if(!q)return true;
     if(o.id.toLowerCase().includes(q)) return true;
     if((o.consign||'').toLowerCase().includes(q)) return true;
