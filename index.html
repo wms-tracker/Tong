@@ -426,7 +426,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-20</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-21</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -464,6 +464,12 @@ tr:hover td{background:var(--bg3)}
       <select id="ord-sup" style="width:160px">
         <option value="">ทุกขนส่ง</option>
       </select>
+      <div style="display:flex;gap:4px;align-items:center;font-size:12px;color:var(--text2)">
+        📅<input type="date" id="ord-date-from" onchange="filterOrders()" title="วันที่เริ่ม" style="padding:5px 6px;font-size:12px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text)">
+        <span>–</span>
+        <input type="date" id="ord-date-to" onchange="filterOrders()" title="วันที่สิ้นสุด" style="padding:5px 6px;font-size:12px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text)">
+        <button onclick="document.getElementById('ord-date-from').value='';document.getElementById('ord-date-to').value='';filterOrders()" title="ล้างวันที่" style="padding:4px 8px;font-size:11px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text2)">✕</button>
+      </div>
       <button class="btn btn-o btn-sm" onclick="confirmExportCSV()">⬇ Export CSV</button>
       <button class="btn btn-sm" id="fb-sync-btn" onclick="forceSyncFirebase()" style="background:#F97316;color:#fff;border:none;font-weight:700" title="Push ออเดอร์ทั้งหมดขึ้น Firebase">🔥 Sync Firebase</button>
       <span id="fbq-badge" onclick="_drainFbQueue()" style="display:none;cursor:pointer;background:#DC2626;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px" title="ข้อมูลค้างส่ง (offline) — คลิกเพื่อลองส่งใหม่"></span>
@@ -1225,9 +1231,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260703-20 (gift-fallback active)
+// BUILD v.20260703-21 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260703-20');
+  console.log('parseDeliveryTemplate BUILD v.20260703-21');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -1879,9 +1885,21 @@ function renderOrders(){
   let q=(typeof _ORD_Q!=='undefined'?_ORD_Q:(document.getElementById('ord-q')?.value||'')).toLowerCase().trim();
   let f=document.getElementById('ord-f')?.value||'';
   let supF=document.getElementById('ord-sup')?document.getElementById('ord-sup').value:'';
+  // ตัวกรองช่วงวันที่ (ตามวันที่ออเดอร์)
+  var _dFrom=document.getElementById('ord-date-from')?document.getElementById('ord-date-from').value:'';
+  var _dTo=document.getElementById('ord-date-to')?document.getElementById('ord-date-to').value:'';
+  function _inDateRange(o){
+    if(!_dFrom&&!_dTo)return true;
+    var d=_getOrderDate(o);if(!d)return false;
+    var ymd=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    if(_dFrom&&ymd<_dFrom)return false;
+    if(_dTo&&ymd>_dTo)return false;
+    return true;
+  }
   let orders=Object.values(ORDERS).filter(o=>{
     if(f==='postponed'){if(!o.postponedFrom)return false;}
     else if(f&&o.status!==f)return false;
+    if(!_inDateRange(o))return false;
     if(supF){var _oc=_stdCarrier(getOrderSUP(o)||'');var _mainList=['Best Express Bulky','Lunio','KEX HRZ','Business Idea HRZ','รับที่คลัง'];var _oGrp=_mainList.indexOf(_oc)>=0?_oc:'อื่นๆ';if(_oGrp!==supF)return false;}
     if(!q)return true;
     if(o.id.toLowerCase().includes(q)) return true;
