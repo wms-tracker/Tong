@@ -426,7 +426,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260720-3</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260720-4</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1231,9 +1231,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260720-3 (gift-fallback active)
+// BUILD v.20260720-4 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260720-3');
+  console.log('parseDeliveryTemplate BUILD v.20260720-4');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -1439,6 +1439,23 @@ function confirmUpload(mode){
         timeline:[{time:now,action:'รับออเดอร์เข้าระบบ',user:_uploader}]};
       added++;
     }
+  });
+  // ★ ถ้าเลขเดียวกัน (base) มีหลายวันในไฟล์เดียว → วันเก่ากว่า = "ส่งแล้ว", วันล่าสุด = "รับแล้ว"
+  var _byBase={};
+  Object.keys(keepKeys).forEach(function(k){
+    if(!ORDERS[k])return;
+    var base=String(k).split(' · ')[0].split(' (')[0].trim();
+    if(!_byBase[base])_byBase[base]=[];_byBase[base].push(k);
+  });
+  Object.keys(_byBase).forEach(function(base){
+    var keys=_byBase[base];if(keys.length<2)return;
+    function _dn(k){var d=_getOrderDate(ORDERS[k]);return d?d.getTime():0;}
+    var maxD=Math.max.apply(null,keys.map(_dn));
+    keys.forEach(function(k){
+      if(ORDERS[k].status!=='new'&&ORDERS[k].status!=='postponed')return;  // แตะเฉพาะที่ยังไม่จบ
+      if(_dn(k)<maxD){ ORDERS[k].status='done'; ORDERS[k].timeline=ORDERS[k].timeline||[]; ORDERS[k].timeline.push({time:now,action:'ส่งแล้ว (มีรอบใหม่กว่าในไฟล์)',user:_uploader}); }
+      else if(ORDERS[k].status==='postponed'){ ORDERS[k].status='new'; }  // วันล่าสุด → รับแล้ว
+    });
   });
   // ลบ order ที่ไม่มีในไฟล์ใหม่ — แต่คงประวัติ (ยกเลิก/เลื่อน/ส่งแล้ว) ไว้เสมอ
   Object.keys(ORDERS).forEach(function(oid){
