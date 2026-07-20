@@ -426,7 +426,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-22</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-23</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1231,9 +1231,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260703-22 (gift-fallback active)
+// BUILD v.20260703-23 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260703-22');
+  console.log('parseDeliveryTemplate BUILD v.20260703-23');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -3717,91 +3717,27 @@ function renderMatcherTable(rows){
 
 function applyMatcherToWMS(){
   if(!matcherResults.length){matcherAlert('ยังไม่มีผลการจับคู่','err');return;}
-  var map={};
+  // ★ ใช้ pipeline เดียวกับอัพโหลดปกติ (confirmUpload) → ได้ composite-key ครบ:
+  //   - เลื่อนส่งเปลี่ยนวัน: เก็บของเดิม + สร้างออเดอร์ใหม่ "รับแล้ว"
+  //   - 2 ขนส่ง: แยกออเดอร์ตามขนส่ง
+  // นับขนส่งต่อ order เพื่อแยก (เหมือน parseRows)
+  var oCarriers={};
   matcherResults.forEach(function(r){
-    if(!map[r.oid])map[r.oid]={trackings:[],consign:'',tracking:'',items:[],sup:'',date:''};
-    if(r.tracking&&map[r.oid].trackings.indexOf(r.tracking)<0)map[r.oid].trackings.push(r.tracking);
-    if(r.consign&&!map[r.oid].consign)map[r.oid].consign=r.consign;
-    if(r.tracking&&!map[r.oid].tracking)map[r.oid].tracking=r.tracking;
-    if(r.sup&&!map[r.oid].sup)map[r.oid].sup=r.sup;
-    if(r.date&&!map[r.oid].date)map[r.oid].date=r.date;
-    // เก็บ sup จาก row ไว้ที่ order level
-    if(r.sup&&!map[r.oid].sup) map[r.oid].sup=r.sup;
-    var existItem=map[r.oid].items.find(function(it){
-      return it.sku===r.sku && it.tracking===(r.tracking||'') && it.size===(r.size||'');
-    });
-    if(existItem){
-      existItem.qty+=r.qty;
-    } else {
-      map[r.oid].items.push({sku:r.sku,name:r.brand,size:r.size,qty:r.qty,tracking:r.tracking,consign:r.consign,sup:r.sup||(r.carrier&&r.carrier.short)||''});
-    }
+    var o=String(r.oid||'').trim();var c=_stdCarrier(r.sup||(r.carrier&&r.carrier.name)||'');
+    if(!o||!c)return;if(!oCarriers[o])oCarriers[o]={};oCarriers[o][c]=1;
   });
-  var added=0,updated=0;
-  var _nd2=new Date();var now=_nd2.getFullYear()+'-'+String(_nd2.getMonth()+1).padStart(2,'0')+'-'+String(_nd2.getDate()).padStart(2,'0');
-  var batchId='batch_'+Date.now(); // ID ของ batch นี้
-  // Merge ข้อมูลจาก Matcher เข้า ORDERS (ไม่ลบ order เก่าที่มีสถานะ)
-  var newOrders={};
-  // เก็บ orders เก่าที่ยังทำงานอยู่ (pick/qc/ship/done)
-  Object.keys(ORDERS).forEach(function(oid){
-    var st=ORDERS[oid].status;
-    if(['pick','qc','ship','done'].indexOf(st)>=0){
-      newOrders[oid]=ORDERS[oid]; // คงไว้
-    }
+  pendingData=matcherResults.map(function(r){
+    var oid=String(r.oid||'').trim();
+    var sup=r.sup||(r.carrier&&r.carrier.name)||'';
+    var carrier=_stdCarrier(sup);
+    var eoid=oid;
+    if(carrier&&oCarriers[oid]&&Object.keys(oCarriers[oid]).length>1)eoid=oid+' ('+carrier+')';
+    return {o:eoid,sku:r.sku||'',name:r.brand||'',size:r.size||'',qty:parseInt(r.qty)||1,
+      c:r.consign||'',tracking:r.tracking||'',status:'',date:r.date||'',sup:sup};
   });
-  // เพิ่ม/อัปเดต orders จาก Matcher
-  Object.keys(map).forEach(function(oid){
-    var m=map[oid];
-    var existSt=ORDERS[oid]?ORDERS[oid].status:'';
-    var keepSt=['pick','qc','ship','done'].indexOf(existSt)>=0;
-    var isPostponed=false;
-    var newStatus='new';
-    if(keepSt){
-      // อยู่ระหว่างดำเนินการ → คงสถานะ
-      newStatus=existSt;
-    } else if(existSt==='postponed'){
-      // เคยกด "เลื่อนจัดส่ง" → โผล่ในไฟล์ใหม่ → reset เป็น new
-      newStatus='new';
-      isPostponed=true;
-    }
-    var oldOrder=ORDERS[oid]||{};
-    newOrders[oid]={
-      id:oid,consign:m.consign,tracking:m.tracking,trackings:m.trackings,
-      items:m.items,status:newStatus,
-      sup:m.sup||'',date:m.date||now,uploadedBy:(localStorage.getItem('WMS_USR')||'PC'),
-      note:isPostponed?('เลื่อนจัดส่ง จาก '+(oldOrder.date||'ไม่ทราบวัน')+' → '+( m.date||now)):(oldOrder.note||''),
-      postponedFrom:isPostponed?(oldOrder.date||''):'',
-      postponedAt:isPostponed?new Date().toISOString():'',
-      timeline:[{time:now,action:(isPostponed?'เลื่อนจัดส่ง — นำเข้าจากไฟล์ใหม่':'นำเข้าจาก Tracking Matcher'),user:(localStorage.getItem('WMS_USR')||'PC')}]
-    };
-    if(isPostponed){
-      updated++;
-      console.log('📅 เลื่อนจัดส่ง: '+oid+' ('+( oldOrder.date||'?')+' → '+( m.date||now)+')');
-    } else if(ORDERS[oid]) updated++; else added++;
-  });
-  ORDERS=newOrders;
-  saveLocal();refreshAll();
-  // Push to Firebase — PDA จะดึงได้ทันที
-  if(FB_URL){
-    var fbCount=0;
-    Object.keys(newOrders).forEach(function(oid,idx){
-      setTimeout(function(){
-        fbPut('/orders/'+encodeId(oid),newOrders[oid]);
-        fbCount++;
-        if(fbCount===Object.keys(newOrders).length){
-          console.log('Firebase: pushed '+fbCount+' orders');
-        }
-      },idx*30); // stagger 30ms each
-    });
-  }
-  // Push batch metadata
-  if(FB_URL) fbPut('/currentBatch',{id:batchId,date:now,count:Object.keys(newOrders).length,uploadedBy:localStorage.getItem('WMS_USR')||'PC'});
-  var fbNote=FB_URL?' (sync ขึ้น Firebase แล้ว — PDA ดึงได้เลย)':'';
-  var postponedCount=Object.values(newOrders).filter(function(o){return o.postponedFrom;}).length;
-  var msg='✅ นำเข้า WMS สำเร็จ!\nออเดอร์ใหม่: '+added+'\nอัปเดต: '+updated;
-  if(postponedCount>0) msg+='\n📅 เลื่อนจัดส่ง: '+postponedCount+' orders';
-  msg+='\nรวม: '+Object.keys(newOrders).length+' orders'+fbNote;
-  alert(msg);
-  goPage('orders');
+  logAudit('นำเข้า Matcher','',matcherResults.length+' รายการ');
+  confirmUpload('merge');   // ← ได้ composite-key + carrier-split + preserve เก่า + sync ครบ
+  clearMatcher&&clearMatcher();
 }
 
 function exportMatcherCSV(){
