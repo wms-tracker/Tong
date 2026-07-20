@@ -426,7 +426,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-21</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260703-22</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -613,7 +613,7 @@ tr:hover td{background:var(--bg3)}
   <div class="card">
     <div class="card-t">🔗 Tracking Matcher</div>
     <div style="margin-bottom:10px">
-      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">อัปโหลดไฟล์ Excel (.xlsx)</label>
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">อัปโหลดไฟล์ Excel (.xlsx) — ใช้ชีท Tracking ชีทเดียว (แยก SKU+จำนวนจากคอลัมน์แบรนด์)</label>
       <input type="file" id="xlsx-file" accept=".xlsx,.xls" onchange="loadXlsxFile(this.files[0])" style="font-size:13px">
       <span id="xlsx-name" style="font-size:12px;color:var(--text2);margin-left:8px"></span>
     </div>
@@ -1231,9 +1231,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260703-21 (gift-fallback active)
+// BUILD v.20260703-22 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260703-21');
+  console.log('parseDeliveryTemplate BUILD v.20260703-22');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -3645,34 +3645,16 @@ function runMatcher(){
   }
 
   // ===== สร้าง rows ตาม logic =====
-  // ถ้า order มี tracking ใน trkMap → ใช้ข้อมูลจาก sheet Tracking เป็นหลัก
-  // ถ้า order ไม่มี tracking → ใช้ข้อมูลจาก sheet ข้อมูลออเดอร์
+  // ★ ใช้ชีท Tracking ชีทเดียว — แยก SKU + จำนวน จากคอลัมน์แบรนด์ (ไม่ใช้ชีทข้อมูลออเดอร์)
   var rows=[];
-  var allOids=new Set(Object.keys(trkMap).concat(Object.keys(ordMap)));
-  allOids.forEach(function(oid){
-    var hasTrk=trkMap[oid]&&trkMap[oid].some(function(r){return r.tracking;});
-    if(hasTrk){
-      // ใช้ sheet Tracking เป็นหลัก
-      trkMap[oid].forEach(function(r){
-        var carrier=detectCarrier(r.tracking);
-        var isGift=(r.brand||'').startsWith('แถม');
-        rows.push({oid:oid,sku:r.sku,brand:r.brand,size:r.size||'',
-          qty:r.qty,consign:r.consign,tracking:r.tracking,
-          sup:r.sup,date:r.date,carrier:carrier,isGift:isGift});
-      });
-    } else {
-      // ไม่มี tracking → ใช้ sheet ข้อมูลออเดอร์
-      var ordItems=ordMap[oid]||[];
-      // ดึง consign จาก trkMap ถ้ามี
-      var consign=(trkMap[oid]&&trkMap[oid][0]&&trkMap[oid][0].consign)||'';
-      ordItems.forEach(function(r){
-        var carrier=detectCarrier('');
-        var isGift=(r.brand||'').startsWith('แถม');
-        rows.push({oid:oid,sku:r.sku,brand:r.brand,size:r.size,
-          qty:r.qty,consign:consign,tracking:'',
-          sup:r.sup,date:r.date,carrier:carrier,isGift:isGift});
-      });
-    }
+  Object.keys(trkMap).forEach(function(oid){
+    trkMap[oid].forEach(function(r){
+      var carrier=detectCarrier(r.tracking);
+      var isGift=(r.brand||'').indexOf('แถม')>=0;
+      rows.push({oid:oid,sku:r.sku,brand:r.brand,size:r.size||'',
+        qty:r.qty,consign:r.consign,tracking:r.tracking,
+        sup:r.sup,date:r.date,carrier:carrier,isGift:isGift});
+    });
   });
 
   matcherResults=rows;
