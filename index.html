@@ -426,7 +426,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260720-1</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260720-2</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1231,9 +1231,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260720-1 (gift-fallback active)
+// BUILD v.20260720-2 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260720-1');
+  console.log('parseDeliveryTemplate BUILD v.20260720-2');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -1382,8 +1382,9 @@ function confirmUpload(mode){
       var _diff=((_nD&&_exD&&_nD!==_exD)||(_nS&&_exS&&_nS!==_exS));
       if(_diff){
         var _oldSt=ORDERS[oid].status;
-        // ของเดิมที่ยังไม่จบ (ไม่ใช่ ยกเลิก/ส่งแล้ว) → เปลี่ยนเป็น "เลื่อนส่ง"
-        if(_oldSt!=='cancel'&&_oldSt!=='done'&&_oldSt!=='postponed'){
+        // ของเดิมที่ "ส่งแล้ว/ยกเลิก" ไปแล้ว → คงสถานะเดิม (split ที่ส่งจริง)
+        // ของเดิมที่ "ยังค้าง" (รับแล้ว/pick/qc/pack) → เปลี่ยนเป็น "เลื่อนส่ง"
+        if(['cancel','done','ship','postponed'].indexOf(_oldSt)<0){
           ORDERS[oid].status='postponed';
           ORDERS[oid].postponedFrom=ORDERS[oid].date||'';
           ORDERS[oid].postponedAt=new Date().toISOString();
