@@ -426,7 +426,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260720-4</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260720-5</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1231,9 +1231,9 @@ function normalizeDate(ds){
   return ds;
 }
 // เทมเพลตจัดส่ง: SKU ฝังในวงเล็บ + ของแถมหลายชิ้น (จำนวนแยกต่อบรรทัด)
-// BUILD v.20260720-4 (gift-fallback active)
+// BUILD v.20260720-5 (gift-fallback active)
 function parseDeliveryTemplate(rows,h){
-  console.log('parseDeliveryTemplate BUILD v.20260720-4');
+  console.log('parseDeliveryTemplate BUILD v.20260720-5');
   function pick(names){for(var i=0;i<names.length;i++){if(h.indexOf(names[i])>=0)return names[i];}return null;}
   var cOid=pick(['เลขOrder']),cDate=pick(['Date']),cSup=pick(['Sup','ขนส่ง']),
       cBrand=pick(['แบรนด์']),cSize=pick(['ขนาด']),cQty=pick(['จำนวน']),
@@ -1324,7 +1324,14 @@ function parseRows(rows){
     // Order นี้มีหลายขนส่ง → ต่อท้ายชื่อขนส่งใน Order ID เพื่อแยกออเดอร์
     var eoid=oid;
     if(carrier&&_oCarriers[oid]&&Object.keys(_oCarriers[oid]).length>1) eoid=oid+' ('+carrier+')';
-    return {o:eoid,sku:cS?String(r[cS]).trim():'',name:cN?String(r[cN]).trim():'',size:cSz?String(r[cSz]).trim():'',qty:parseInt(r[cQ])||1,c:cC?String(r[cC]).trim():'',tracking:cT?String(r[cT]).trim():'',status:cSt?String(r[cSt]).trim().toLowerCase():'',date:cD?normalizeDate(String(r[cD]||'').trim()):'',sup:sup};
+    // แยก SKU จากวงเล็บในชื่อสินค้า ถ้าไม่มีคอลัมน์ SKU แยก เช่น "Zcoopy Bay Bliss (ZCP0000000089)"
+    var _sk=cS?String(r[cS]||'').trim():'';
+    var _nm=cN?String(r[cN]||'').trim():'';
+    if(!_sk&&_nm){
+      var _m=_nm.match(/\(([A-Z]{2,5}\d{5,})\)/);
+      if(_m){_sk=_m[1];_nm=_nm.replace(_m[0],'').replace(/\s{2,}/g,' ').trim();}
+    }
+    return {o:eoid,sku:_sk,name:_nm,size:cSz?String(r[cSz]).trim():'',qty:parseInt(r[cQ])||1,c:cC?String(r[cC]).trim():'',tracking:cT?String(r[cT]).trim():'',status:cSt?String(r[cSt]).trim().toLowerCase():'',date:cD?normalizeDate(String(r[cD]||'').trim()):'',sup:sup};
   });
   // Build trackings array per order for display
   let _trkMap={};
