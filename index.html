@@ -426,7 +426,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260720-6</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-1</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1424,6 +1424,7 @@ function confirmUpload(mode){
       let supDiff=newSup&&existSup&&newSup!==existSup;
       let isRescheduled=dateDiff||supDiff;
       let keep=!isRescheduled&&['qc','pack','done'].includes(ORDERS[tgtKey].status);
+      let _prevSt=ORDERS[tgtKey].status;
       ORDERS[tgtKey].items=order.items;
       ORDERS[tgtKey].consign=order.consign;
       ORDERS[tgtKey].tracking=order.tracking;
@@ -1444,6 +1445,12 @@ function confirmUpload(mode){
         ORDERS[tgtKey].status='new';
       }
       ORDERS[tgtKey].uploadedBy=_uploader;
+      // ★ กลับมา active จาก cancel → ล้าง /cancels ใน Firebase ไม่งั้น PDA จะบังคับ cancel ซ้ำ (ยิง QC ไม่ได้)
+      if(_prevSt==='cancel'&&ORDERS[tgtKey].status!=='cancel'){
+        ORDERS[tgtKey].trkStatus={};
+        try{ fbPut('/cancels/'+encodeId(tgtKey),null); }catch(e){}
+        ORDERS[tgtKey].timeline.push({time:now,action:'ปลดล็อก Cancel → กลับมารับแล้ว',user:_uploader});
+      }
       if(!isRescheduled) ORDERS[tgtKey].timeline.push({time:now,action:'อัปเดตข้อมูล',user:_uploader});
       updated++;
     }else{
@@ -1564,6 +1571,8 @@ function setStatus(oid,status){
   }
   // Push to Firebase (real-time)
   if(FB_URL) fbPushStatus(oid,status);
+  // ★ ปลดล็อกจาก cancel → ล้าง /cancels ไม่งั้น PDA จะบังคับ cancel ซ้ำ
+  if(_prevSt==='cancel'&&status!=='cancel'&&FB_URL){ try{ fbPut('/cancels/'+encodeId(oid),null); }catch(e){} }
 }
 
 /* ======= QC SCAN ======= */
