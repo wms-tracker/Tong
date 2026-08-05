@@ -426,7 +426,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-2</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-3</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -5046,8 +5046,8 @@ function renderDailyReport(){
   function _bucket(o){
     if(o.status==='draft') return 'draft';
     if(o.status==='cancel') return 'cancelled';
-    if(o.status==='done'||o.status==='ship') return 'complete';
-    return 'process'; // new, pick, qc, postponed ฯลฯ
+    if(o.status==='done'||o.status==='ship'||o.status==='qc') return 'complete';
+    return 'process'; // new, pick, postponed ฯลฯ
   }
   var mtx={}; // label -> {order,complete,draft,cancelled,process}
   COURIER_GROUPS.forEach(function(g){mtx[g.label]={order:0,complete:0,draft:0,cancelled:0,process:0};});
@@ -5062,7 +5062,7 @@ function renderDailyReport(){
   Object.keys(mtx).forEach(function(k){['order','complete','draft','cancelled','process'].forEach(function(c){tot[c]+=mtx[k][c];});});
   var mLabels=COURIER_GROUPS.map(function(g){return g.label;}); if(hasOther)mLabels.push('อื่นๆ');
   var _thc='padding:7px 10px;font-size:12px;font-weight:800;text-align:center;color:#fff;white-space:nowrap';
-  var _tdc='padding:6px 10px;font-size:13px;text-align:center;border-bottom:1px solid var(--border)';
+  var _tdc='padding:6px 10px;font-size:13px;text-align:center;border-bottom:1px solid var(--border);color:var(--text)';
   var mtxHtml='<div style="padding:12px 14px 4px">'
     +'<table style="width:100%;border-collapse:collapse;border:1px solid var(--border);border-radius:8px;overflow:hidden">'
     +'<thead>'
@@ -5074,32 +5074,32 @@ function renderDailyReport(){
   mLabels.forEach(function(lbl,i){
     var r=mtx[lbl]; var bg=i%2===0?'var(--bg)':'var(--bg3)';
     mtxHtml+='<tr style="background:'+bg+'">'
-      +'<td style="padding:6px 10px;font-size:13px;font-weight:700;color:var(--primary);border-bottom:1px solid var(--border)">'+lbl+'</td>'
+      +'<td style="padding:6px 10px;font-size:13px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border)">'+lbl+'</td>'
       +'<td style="'+_tdc+';font-weight:800">'+r.order+'</td>'
-      +'<td style="'+_tdc+';color:#22C55E;font-weight:700">'+r.complete+'</td>'
-      +'<td style="'+_tdc+';color:var(--text2)">'+r.draft+'</td>'
-      +'<td style="'+_tdc+';color:#EF4444;font-weight:700">'+r.cancelled+'</td>'
-      +'<td style="'+_tdc+';color:#F59E0B;font-weight:700">'+r.process+'</td>'
+      +'<td style="'+_tdc+';font-weight:700">'+r.complete+'</td>'
+      +'<td style="'+_tdc+'">'+r.draft+'</td>'
+      +'<td style="'+_tdc+';font-weight:700">'+r.cancelled+'</td>'
+      +'<td style="'+_tdc+';font-weight:700">'+r.process+'</td>'
       +'</tr>';
   });
   // Total row
   mtxHtml+='<tr style="background:var(--bg3);border-top:2px solid var(--border)">'
-    +'<td style="padding:7px 10px;font-size:13px;font-weight:800">Total</td>'
+    +'<td style="padding:7px 10px;font-size:13px;font-weight:800;color:var(--text)">Total</td>'
     +'<td style="'+_tdc+';font-weight:800">'+tot.order+'</td>'
-    +'<td style="'+_tdc+';font-weight:800;color:#22C55E">'+tot.complete+'</td>'
+    +'<td style="'+_tdc+';font-weight:800">'+tot.complete+'</td>'
     +'<td style="'+_tdc+';font-weight:800">'+tot.draft+'</td>'
-    +'<td style="'+_tdc+';font-weight:800;color:#EF4444">'+tot.cancelled+'</td>'
-    +'<td style="'+_tdc+';font-weight:800;color:#F59E0B">'+tot.process+'</td>'
+    +'<td style="'+_tdc+';font-weight:800">'+tot.cancelled+'</td>'
+    +'<td style="'+_tdc+';font-weight:800">'+tot.process+'</td>'
     +'</tr>';
   // % row
   function _pct(n){return tot.order>0?(n/tot.order*100).toFixed(2):'0.00';}
   mtxHtml+='<tr style="background:var(--bg)">'
-    +'<td style="padding:7px 10px;font-size:11px;font-weight:700;color:var(--text2)">Total %</td>'
+    +'<td style="padding:7px 10px;font-size:11px;font-weight:700;color:var(--text)">Total %</td>'
     +'<td style="'+_tdc+';color:var(--text3)">—</td>'
-    +'<td style="'+_tdc+';font-size:12px;color:var(--text2)">'+_pct(tot.complete)+'</td>'
-    +'<td style="'+_tdc+';font-size:12px;color:var(--text2)">'+_pct(tot.draft)+'</td>'
-    +'<td style="'+_tdc+';font-size:12px;color:var(--text2)">'+_pct(tot.cancelled)+'</td>'
-    +'<td style="'+_tdc+';font-size:12px;color:var(--text2)">'+_pct(tot.process)+'</td>'
+    +'<td style="'+_tdc+';font-size:12px">'+_pct(tot.complete)+'</td>'
+    +'<td style="'+_tdc+';font-size:12px">'+_pct(tot.draft)+'</td>'
+    +'<td style="'+_tdc+';font-size:12px">'+_pct(tot.cancelled)+'</td>'
+    +'<td style="'+_tdc+';font-size:12px">'+_pct(tot.process)+'</td>'
     +'</tr>';
   mtxHtml+='</tbody></table></div>';
 
