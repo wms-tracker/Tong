@@ -426,7 +426,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-3</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-4</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -5061,12 +5061,12 @@ function renderDailyReport(){
   var tot={order:0,complete:0,draft:0,cancelled:0,process:0};
   Object.keys(mtx).forEach(function(k){['order','complete','draft','cancelled','process'].forEach(function(c){tot[c]+=mtx[k][c];});});
   var mLabels=COURIER_GROUPS.map(function(g){return g.label;}); if(hasOther)mLabels.push('อื่นๆ');
-  var _thc='padding:7px 10px;font-size:12px;font-weight:800;text-align:center;color:#fff;white-space:nowrap';
+  var _thc='padding:7px 10px;font-size:12px;font-weight:800;text-align:center;color:#000;white-space:nowrap';
   var _tdc='padding:6px 10px;font-size:13px;text-align:center;border-bottom:1px solid var(--border);color:var(--text)';
   var mtxHtml='<div style="padding:12px 14px 4px">'
     +'<table style="width:100%;border-collapse:collapse;border:1px solid var(--border);border-radius:8px;overflow:hidden">'
     +'<thead>'
-    +'<tr><th colspan="6" style="background:#0EA5E9;color:#fff;padding:8px;font-size:14px;font-weight:800;letter-spacing:.3px">Order Status — '+selDate+'</th></tr>'
+    +'<tr><th colspan="6" style="background:#0EA5E9;color:#000;padding:8px;font-size:14px;font-weight:800;letter-spacing:.3px">Order Status — '+selDate+'</th></tr>'
     +'<tr style="background:#16A34A">'
     +'<th style="'+_thc+';text-align:left">Sup</th>'
     +'<th style="'+_thc+'">Order</th><th style="'+_thc+'">Complete</th><th style="'+_thc+'">Draft</th><th style="'+_thc+'">Cancelled</th><th style="'+_thc+'">Process</th>'
