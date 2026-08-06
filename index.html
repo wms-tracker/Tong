@@ -426,7 +426,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-5</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-6</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -2053,8 +2053,8 @@ function renderOrders(){
       var trkColor=trkStNorm==='verified'||trkStNorm==='shipped'?'#15803D':trkStNorm==='exception'?'#DC2626':trkStNorm==='in_progress'?'#1D4ED8':'var(--text)';
       var trkDisp='<span class="mono" style="font-size:11px;font-weight:700;color:'+trkColor+'">'+escHtml(trk==='—'?'':trk)+'</span>';
       var oid_s=escHtml(o.id); var trk_s=escHtml(trk);
-      // แสดงเลขออเดอร์แบบตัด suffix " · วันที่/ขนส่ง" ออก (วันที่มีในคอลัมน์ด้านหลังแล้ว)
-      var oid_disp=escHtml(String(o.id).split(' · ')[0]);
+      // แสดงเลขออเดอร์แบบตัด suffix " · วันที่" และ " (ขนส่ง)" ออก (มีในคอลัมน์อื่นแล้ว)
+      var oid_disp=escHtml(String(o.id).split(' · ')[0].replace(/\s*\([^)]*\)\s*$/,'').trim());
 
       // ข้อมูล items ของ tracking นี้
       var itemSummary=trkItems.map(function(it){
