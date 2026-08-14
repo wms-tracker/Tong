@@ -18,6 +18,40 @@
   --r:12px;--rs:8px;--rx:6px;
   --sh:0 1px 3px rgba(0,0,0,.06);--shm:0 4px 12px rgba(0,0,0,.08);
 }
+/* ===== DARK MODE (auto ตามระบบ + สลับเองด้วยปุ่ม) ===== */
+:root[data-theme="dark"]{
+  --bg:#0B1120;--bg2:#1E293B;--bg3:#293548;--bg4:#3A4A61;
+  --text:#E2E8F0;--text2:#94A3B8;--text3:#64748B;
+  --border:#334155;--border2:#475569;
+  --pd:#3B82F6;--pl:#1E3A5F;
+  --gb:#0B2E20;--gbr:#166534;
+  --ob:#3A2A08;--obr:#854D0E;
+  --rb:#3A1414;--rbr:#7F1D1D;
+  --pb:#2A1A4A;--pbr:#5B21B6;
+  --tb:#0A2E2A;--tbr:#115E59;
+  --sh:0 1px 3px rgba(0,0,0,.4);--shm:0 4px 14px rgba(0,0,0,.5);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0B1120;--bg2:#1E293B;--bg3:#293548;--bg4:#3A4A61;
+  --text:#E2E8F0;--text2:#94A3B8;--text3:#64748B;
+  --border:#334155;--border2:#475569;
+  --pd:#3B82F6;--pl:#1E3A5F;
+  --gb:#0B2E20;--gbr:#166534;
+  --ob:#3A2A08;--obr:#854D0E;
+  --rb:#3A1414;--rbr:#7F1D1D;
+  --pb:#2A1A4A;--pbr:#5B21B6;
+  --tb:#0A2E2A;--tbr:#115E59;
+  --sh:0 1px 3px rgba(0,0,0,.4);--shm:0 4px 14px rgba(0,0,0,.5);
+}}
+/* badge/ปุ่มที่ hardcode สีอ่อน → ปรับให้เข้ากับพื้นมืด */
+:root[data-theme="dark"] .b-pick,:root:not([data-theme="light"]) .b-pick{background:#0C2A3E;color:#7DD3FC;border-color:#075985}
+:root[data-theme="dark"] .b-ship,:root:not([data-theme="light"]) .b-ship{background:#2A1A4A;color:#C4B5FD;border-color:#5B21B6}
+:root[data-theme="dark"] .b-verified,:root[data-theme="dark"] .b-completed,:root:not([data-theme="light"]) .b-verified,:root:not([data-theme="light"]) .b-completed{background:#0B2E20;color:#4ADE80;border-color:#166534}
+:root[data-theme="dark"] .b-exception,:root:not([data-theme="light"]) .b-exception{background:#3A1414;color:#FCA5A5;border-color:#7F1D1D}
+:root[data-theme="dark"] .b-inprog,:root:not([data-theme="light"]) .b-inprog{background:#13294B;color:#93C5FD;border-color:#1E40AF}
+:root[data-theme="dark"] .b-partial,:root:not([data-theme="light"]) .b-partial{background:#3A2A08;color:#FCD34D;border-color:#854D0E}
+:root[data-theme="dark"] .b-postponed,:root:not([data-theme="light"]) .b-postponed{background:#3A2A08;color:#FCD34D;border-color:#854D0E}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) body{background:var(--bg)}}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 /* A11Y: focus ring สำหรับคีย์บอร์ด (ไม่ขึ้นตอนคลิกเมาส์) */
 :focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:4px}
@@ -201,6 +235,8 @@ tr:hover td{background:var(--bg3)}
 </style>
 </head>
 <body>
+<script>/* ใช้ธีมที่บันทึกไว้ทันที กันจอกระพริบ (ไม่บันทึก = auto ตามระบบ) */
+(function(){try{var t=localStorage.getItem('WMS_THEME');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <!-- LOGIN -->
 <div id="login-screen" style="position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);display:flex;align-items:center;justify-content:center;padding:20px">
   <div style="background:#fff;border-radius:16px;padding:28px;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,.35)">
@@ -308,6 +344,7 @@ tr:hover td{background:var(--bg3)}
   <div class="brow">
     <span id="conn-ind" style="font-size:12px;padding:3px 10px;border-radius:99px;background:var(--bg3);color:var(--text2)">⚪ ออฟไลน์</span>
     <span id="cur-user-badge" style="font-size:12px;padding:3px 10px;border-radius:99px;background:var(--pl);color:var(--primary);font-weight:700">👤 —</span>
+    <button class="btn btn-o btn-sm" id="theme-btn" onclick="toggleTheme()" title="สลับโหมดสว่าง/มืด" aria-label="สลับโหมดสว่าง/มืด">🌙</button>
     <button class="btn btn-sm" id="refresh-btn" onclick="doRefresh()" style="background:#0EA5E9;color:#fff;border:none;font-weight:700" title="รีเฟรชข้อมูลจาก Firebase">🔄</button>
     <button class="btn btn-o btn-sm" onclick="logoutUser()">ออกจากระบบ</button>
     <button class="btn btn-p btn-sm" onclick="goPage('upload')">+ Upload</button>
@@ -433,7 +470,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-8</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-9</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1885,6 +1922,20 @@ function deleteDraft(oid){if(!confirm('ลบ Draft?'))return;delete DRAFTS[oid]
 /* ======= RENDER TABLES ======= */
 // แสดงเลขออเดอร์แบบสั้น — ตัด suffix " · วันที่" และ " (ขนส่ง)" ออก (ข้อมูลมีในคอลัมน์อื่นแล้ว)
 function _dispOid(id){return String(id||'').split(' · ')[0].replace(/\s*\([^)]*\)\s*$/,'').trim();}
+
+/* ===== THEME TOGGLE ===== */
+function _isDarkNow(){
+  var t=document.documentElement.getAttribute('data-theme');
+  if(t==='dark')return true; if(t==='light')return false;
+  return window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches;
+}
+function _syncThemeBtn(){var b=document.getElementById('theme-btn');if(b)b.textContent=_isDarkNow()?'☀️':'🌙';}
+function toggleTheme(){
+  var next=_isDarkNow()?'light':'dark';
+  document.documentElement.setAttribute('data-theme',next);
+  try{localStorage.setItem('WMS_THEME',next);}catch(e){}
+  _syncThemeBtn();
+}
 
 function renderDashboard(){
   let orders=Object.values(ORDERS);
@@ -5779,6 +5830,8 @@ function renderReport(){
 }
 
 init();
+_syncThemeBtn();
+if(window.matchMedia){try{window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',_syncThemeBtn);}catch(e){}}
 // เริ่ม auto-sync หลัง init
 setTimeout(function(){
   if(API_URL)startAutoSync();
