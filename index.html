@@ -51,11 +51,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .page{display:none}.page.active{display:block}
 /* STAT */
 .stat-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px}
-.sc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;box-shadow:var(--sh)}
-.sc-val{font-size:26px;font-weight:700;line-height:1}.sc-lbl{font-size:11px;color:var(--text2);margin-top:3px;font-weight:600}
+.sc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;box-shadow:var(--sh);transition:box-shadow .15s,transform .15s}
+.sc:hover{box-shadow:var(--shm);transform:translateY(-1px)}
+.sc-val{font-size:26px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.5px}.sc-lbl{font-size:11px;color:var(--text2);margin-top:3px;font-weight:600}
 /* FLOW */
 .flow{display:flex;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:18px}
-.fs{flex:1;padding:10px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;border-right:1px solid var(--border)}
+.fs{flex:1;padding:10px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;border-right:1px solid var(--border);transition:filter .15s}
+.fs:hover{filter:brightness(.96)}
 .fs:last-child{border-right:none}
 .fs .fc{font-size:18px;font-weight:700;display:block;line-height:1;margin-bottom:2px}
 .fs-new{background:var(--pl);color:var(--primary)}.fs-qc{background:var(--ob);color:var(--orange)}
@@ -431,7 +433,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-7</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-8</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1881,6 +1883,9 @@ function resumeDraft(oid){
 function deleteDraft(oid){if(!confirm('ลบ Draft?'))return;delete DRAFTS[oid];saveLocal();renderDrafts();}
 
 /* ======= RENDER TABLES ======= */
+// แสดงเลขออเดอร์แบบสั้น — ตัด suffix " · วันที่" และ " (ขนส่ง)" ออก (ข้อมูลมีในคอลัมน์อื่นแล้ว)
+function _dispOid(id){return String(id||'').split(' · ')[0].replace(/\s*\([^)]*\)\s*$/,'').trim();}
+
 function renderDashboard(){
   let orders=Object.values(ORDERS);
   // สรุปวันนี้ vs เมื่อวาน (ตามวันที่ออเดอร์)
@@ -1906,14 +1911,14 @@ function renderDashboard(){
   let urgent=orders.filter(o=>o.status==='new'||o.status==='qc');
   document.getElementById('d-urgent').innerHTML=urgent.length?urgent.slice(0,5).map(o=>`
     <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
-      <div><div style="font-weight:700;font-size:13px">${o.id}</div><div style="font-size:11px;color:var(--text2)">${o.consign||'—'}</div></div>
+      <div><div style="font-weight:700;font-size:13px">${_dispOid(o.id)}</div><div style="font-size:11px;color:var(--text2)">${o.consign||'—'}</div></div>
       <div class="brow"><span class="badge ${SB[o.status]}">${SL[o.status]}</span><button class="btn btn-xs btn-p" onclick="openOrder('${o.id}')">→</button></div>
     </div>`).join(''):'<div class="empty">✅ ไม่มีงานค้าง</div>';
   let recent=orders.filter(o=>o.timeline?.length).sort((a,b)=>b.timeline.length-a.timeline.length).slice(0,5);
   document.getElementById('d-recent').innerHTML=recent.length?recent.map(o=>{
     let last=o.timeline[o.timeline.length-1];
     return`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)">
-      <div><div style="font-weight:600;font-size:13px">${o.id}</div><div style="font-size:11px;color:var(--text2)">${last.action} · ${last.time}</div></div>
+      <div><div style="font-weight:600;font-size:13px">${_dispOid(o.id)}</div><div style="font-size:11px;color:var(--text2)">${last.action} · ${last.time}</div></div>
       <span class="badge ${SB[o.status]}">${SL[o.status]}</span></div>`;
   }).join(''):'<div class="empty">📭 ยังไม่มีข้อมูล</div>';
 }
@@ -4946,10 +4951,13 @@ function exportActiveReport(){
 
 // ===== KPI TILE HELPER =====
 function kpiTile(label,value,sub,color,icon){
-  return '<div style="padding:14px 16px;text-align:center;border-right:1px solid var(--border);background:var(--bg)">'+
-    '<div style="font-size:11px;color:var(--text2);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">'+icon+' '+label+'</div>'+
-    '<div style="font-size:26px;font-weight:800;color:'+(color||'var(--text)')+';line-height:1">'+value+'</div>'+
-    (sub?'<div style="font-size:11px;color:var(--text3);margin-top:3px">'+sub+'</div>':'')+
+  var c=color||'#2563EB';
+  var soft=/^#[0-9A-Fa-f]{6}$/.test(c)?c+'1A':'var(--bg3)'; // สีพื้นชิปแบบโปร่ง 10%
+  return '<div style="padding:16px 14px 14px;text-align:center;border-right:1px solid var(--border);background:var(--bg)">'+
+    '<div style="width:34px;height:34px;margin:0 auto 9px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;background:'+soft+'">'+icon+'</div>'+
+    '<div style="font-size:28px;font-weight:800;color:var(--text);line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.5px">'+value+'</div>'+
+    '<div style="font-size:11px;color:var(--text2);margin-top:6px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">'+label+'</div>'+
+    (sub?'<div style="font-size:10px;color:var(--text3);margin-top:2px">'+sub+'</div>':'')+
     '</div>';
 }
 
