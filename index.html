@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>WMS V.2 — Warehouse Management</title>
 <style>
 :root{
@@ -19,6 +19,11 @@
   --sh:0 1px 3px rgba(0,0,0,.06);--shm:0 4px 12px rgba(0,0,0,.08);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+/* A11Y: focus ring สำหรับคีย์บอร์ด (ไม่ขึ้นตอนคลิกเมาส์) */
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:4px}
+button:focus-visible,.btn:focus-visible,.ni:focus-visible,.sb2-ci:focus-visible,.fs:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+/* A11Y: เคารพผู้ใช้ที่ปิดแอนิเมชัน */
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
 .layout{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
 .sidebar{background:#0F172A;color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow:hidden;width:240px;flex-shrink:0}
@@ -426,7 +431,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-6</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-7</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
