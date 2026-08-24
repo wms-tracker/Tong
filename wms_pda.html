@@ -171,7 +171,7 @@ input:focus{outline:none;border-color:var(--primary)}
     <div style="display:flex;flex-direction:column;gap:8px">
       <button class="btn btn-fb" onclick="syncOrdersFromFirebase()">🔥 ดึงออเดอร์จาก Firebase</button>
       <button class="btn" style="background:#DC2626;color:#fff;font-weight:700" onclick="clearSyncOrders()">🗑 ล้างและ Sync ใหม่ทั้งหมด</button>
-      <div style="text-align:center"><span style="background:#16A34A;color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:6px">PDA BUILD 20260731-3</span></div>
+      <div style="text-align:center"><span style="background:#16A34A;color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:6px">PDA BUILD 20260731-4</span></div>
       <div id="sync-debug" style="font-size:11px;color:var(--text2);padding:6px;background:var(--bg3);border-radius:6px;word-break:break-all"></div>
     </div>
   </div>
@@ -642,6 +642,7 @@ function init(){
     setTimeout(function(){startStatusSSE();},4000);   // real-time status จาก PC
     setTimeout(function(){startCancelSSE();},4500);   // real-time cancel จาก PC
     setTimeout(function(){startUploadSSE();},5500);   // auto re-sync เมื่อ PC อัพโหลดใหม่
+    setTimeout(function(){loadBoxTypesPDA();},2000);  // โหลดประเภทกล่องจาก Firebase
     setTimeout(function(){syncFBStatuses();},5000);   // initial status+trkStatus pull
   }
   if(API) setTimeout(startAutoSync,2000);
@@ -670,8 +671,21 @@ function goPage(p){
   }
 }
 /* ===== 📦 BOX SCAN (PDA) ===== */
-var _BOX_SIZES=['กล่อง S','กล่อง M','กล่อง L','กล่อง XL','กล่อง 2XL','ซองไปรษณีย์','พาเลท','อื่นๆ'];
-var _boxOid='',_boxSize=_BOX_SIZES[1],_lastPassOid='';
+var _BOX_DEFAULTS=['กล่อง S','กล่อง M','กล่อง L','กล่อง XL','กล่อง 2XL','ซองไปรษณีย์','พาเลท','อื่นๆ'];
+var BOX_TYPES=(function(){try{var s=JSON.parse(ls('PDA_BOXTYPES')||'null');return (Array.isArray(s)&&s.length)?s:_BOX_DEFAULTS.slice();}catch(e){return _BOX_DEFAULTS.slice();}})();
+function loadBoxTypesPDA(){
+  if(!FB)return;
+  fbGet('/boxTypes',function(err,data){
+    if(err||!data)return;
+    var arr=Array.isArray(data)?data:Object.keys(data).map(function(k){return data[k];});
+    arr=arr.filter(function(x){return x&&typeof x==='string';});
+    if(arr.length){BOX_TYPES=arr;try{ls('PDA_BOXTYPES',JSON.stringify(arr));}catch(e){}
+      if(BOX_TYPES.indexOf(_boxSize)<0)_boxSize=BOX_TYPES[0];
+      var chips=document.getElementById('box-size-chips');if(chips&&chips.children.length)renderBoxSizeChips();
+    }
+  });
+}
+var _boxOid='',_boxSize=BOX_TYPES[0],_lastPassOid='';
 function _goBoxFromSuccess(){
   try{clearTimeout(_successTimer);}catch(e){}
   document.getElementById('qc-success-ov').style.display='none';
@@ -679,6 +693,7 @@ function _goBoxFromSuccess(){
 }
 function openBoxPage(prefill){
   goPage('box');
+  loadBoxTypesPDA();
   renderBoxSizeChips();
   var info=document.getElementById('box-order-info');if(info)info.style.display='none';
   var hint=document.getElementById('box-find-hint');if(hint)hint.textContent='';
@@ -689,7 +704,8 @@ function openBoxPage(prefill){
 }
 function renderBoxSizeChips(){
   var el=document.getElementById('box-size-chips');if(!el)return;
-  el.innerHTML=_BOX_SIZES.map(function(s){
+  if(BOX_TYPES.indexOf(_boxSize)<0)_boxSize=BOX_TYPES[0]||'';
+  el.innerHTML=BOX_TYPES.map(function(s){
     var on=s===_boxSize;
     return '<button onclick="pickBoxSize(&quot;'+s+'&quot;)" style="padding:9px 13px;border-radius:8px;border:1.5px solid '+(on?'var(--teal)':'var(--border2)')+';background:'+(on?'var(--teal)':'var(--bg2)')+';color:'+(on?'#fff':'var(--text2)')+';font-size:13px;font-weight:700;cursor:pointer">'+s+'</button>';
   }).join('');

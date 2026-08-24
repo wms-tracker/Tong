@@ -473,7 +473,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-12</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-13</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -773,6 +773,16 @@ tr:hover td{background:var(--bg3)}
       <button class="btn btn-o btn-sm" onclick="genPdaLink()" title="สร้างลิงค์พร้อม config สำหรับ PDA">📱 ลิงค์ PDA</button>
     </div>
     <div id="conn-txt" style="margin-top:8px;font-size:12px;color:var(--text2)"></div>
+  </div>
+  <div class="card" style="margin-top:10px">
+    <div class="card-t">📦 ประเภท/ขนาดบรรจุภัณฑ์</div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:10px">เพิ่ม/ลบประเภทกล่องที่ใช้ตอนยิงกล่อง — บันทึกใน Firebase ทุกเครื่อง (PC/PDA) เห็นเหมือนกัน</p>
+    <div id="boxtype-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <input id="boxtype-new" type="text" placeholder="เช่น กล่อง 3XL, ลังไม้..." onkeydown="if(event.key==='Enter'){event.preventDefault();addBoxType();}" style="flex:1;min-width:160px;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px">
+      <button class="btn btn-p btn-sm" onclick="addBoxType()">+ เพิ่ม</button>
+      <button class="btn btn-o btn-sm" onclick="resetBoxTypes()">↺ ค่าเริ่มต้น</button>
+    </div>
   </div>
   <div class="card" style="margin-top:10px">
     <div class="card-t">🗑 ล้างข้อมูล</div>
@@ -1226,6 +1236,7 @@ function goPage(p){
   if(p==='stock'){ if(FB_URL)loadStockFromFB(true); renderStock(); }
   if(p==='truck'){ renderTruckLoad(); }
   if(p==='audit'){ renderAudit(); }
+  if(p==='settings'){ renderBoxTypesSettings(); if(FB_URL)loadBoxTypesFB(); }
   // update mobile nav highlight
   ['dashboard','qcscan','pack','orders','report'].forEach(id=>{
     let el=document.getElementById('mn-'+id);
@@ -3916,10 +3927,50 @@ function openEditOrder(oid, trk){
 }
 
 /* ===== 📦 กล่องบรรจุภัณฑ์ ===== */
-var _BOX_SIZES=['กล่อง S','กล่อง M','กล่อง L','กล่อง XL','กล่อง 2XL','ซองไปรษณีย์','พาเลท','อื่นๆ'];
+var _BOX_DEFAULTS=['กล่อง S','กล่อง M','กล่อง L','กล่อง XL','กล่อง 2XL','ซองไปรษณีย์','พาเลท','อื่นๆ'];
+var BOX_TYPES=(function(){try{var s=JSON.parse(localStorage.getItem('WMS_BOXTYPES')||'null');return (Array.isArray(s)&&s.length)?s:_BOX_DEFAULTS.slice();}catch(e){return _BOX_DEFAULTS.slice();}})();
+function loadBoxTypesFB(){
+  if(!FB_URL)return;
+  fbGet('/boxTypes',function(err,data){
+    if(err||!data)return;
+    var arr=Array.isArray(data)?data:Object.keys(data).map(function(k){return data[k];});
+    arr=arr.filter(function(x){return x&&typeof x==='string';});
+    if(arr.length){BOX_TYPES=arr;try{localStorage.setItem('WMS_BOXTYPES',JSON.stringify(arr));}catch(e){}renderBoxTypesSettings();}
+  });
+}
+function saveBoxTypesFB(){
+  try{localStorage.setItem('WMS_BOXTYPES',JSON.stringify(BOX_TYPES));}catch(e){}
+  if(FB_URL)fbPut('/boxTypes',BOX_TYPES);
+}
+function renderBoxTypesSettings(){
+  var el=document.getElementById('boxtype-list');if(!el)return;
+  if(!BOX_TYPES.length){el.innerHTML='<div style="font-size:12px;color:var(--text3)">— ยังไม่มี —</div>';return;}
+  el.innerHTML=BOX_TYPES.map(function(s,i){
+    return '<span style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:99px;font-size:13px">📦 '+escHtml(s)
+      +'<button onclick="removeBoxType('+i+')" title="ลบ" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:14px;line-height:1;padding:0">✕</button></span>';
+  }).join('');
+}
+function addBoxType(){
+  var inp=document.getElementById('boxtype-new');var v=(inp?inp.value:'').trim();
+  if(!v)return;
+  if(BOX_TYPES.indexOf(v)>=0){ulAlert('มีประเภทนี้อยู่แล้ว','warn');return;}
+  BOX_TYPES.push(v);saveBoxTypesFB();renderBoxTypesSettings();
+  if(inp){inp.value='';inp.focus();}
+  logAudit('เพิ่มประเภทกล่อง','',v);
+}
+function removeBoxType(i){
+  var v=BOX_TYPES[i];if(v===undefined)return;
+  if(!confirm('ลบประเภท "'+v+'"?'))return;
+  BOX_TYPES.splice(i,1);saveBoxTypesFB();renderBoxTypesSettings();
+  logAudit('ลบประเภทกล่อง','',v);
+}
+function resetBoxTypes(){
+  if(!confirm('คืนค่าประเภทกล่องเป็นค่าเริ่มต้น?'))return;
+  BOX_TYPES=_BOX_DEFAULTS.slice();saveBoxTypesFB();renderBoxTypesSettings();
+}
 function renderEditBoxes(){
   var sel=document.getElementById('edit-box-size');
-  if(sel&&!sel.options.length) sel.innerHTML=_BOX_SIZES.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('');
+  if(sel) sel.innerHTML=BOX_TYPES.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('');
   var o=ORDERS[_editOid]; if(!o)return;
   var boxes=o.boxes||[];
   var cnt=document.getElementById('edit-box-count'); if(cnt)cnt.textContent=boxes.length?('· '+boxes.length+' กล่อง'):'· ยังไม่มี';
@@ -5917,6 +5968,8 @@ setTimeout(function(){
     setInterval(function(){syncDraftsFromFB();},10000);
     // Auto-cleanup ประวัติเก่า วันละครั้ง
     setTimeout(function(){autoCleanupTick();},8000);
+    // โหลดประเภทกล่องจาก Firebase
+    setTimeout(function(){loadBoxTypesFB();},1500);
   }
 },1200);
 
