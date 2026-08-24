@@ -473,7 +473,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-15</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-16</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -5400,6 +5400,38 @@ function renderDailyReport(){
     +'<td style="'+_tdc+';font-size:12px">'+_pct(tot.process)+'</td>'
     +'</tr>';
   mtxHtml+='</tbody></table></div>';
+
+  // ===== 📦 รายงานบรรจุภัณฑ์ (กล่อง) ของวันนี้ =====
+  var _allBoxes=[];
+  orders.forEach(function(o){(o.boxes||[]).forEach(function(b){_allBoxes.push({oid:o.id,carrier:classifyCourier(o),code:b.code||'',size:b.size||'ไม่ระบุ',by:b.by||''});});});
+  var boxHtml='<div style="padding:4px 14px 8px">'
+    +'<div style="display:flex;align-items:center;gap:8px;margin:6px 0 8px"><span style="font-size:14px;font-weight:800">📦 รายงานบรรจุภัณฑ์</span>'
+    +'<span style="font-size:12px;color:var(--text2)">'+selDate+' · รวม <b style="color:var(--teal)">'+_allBoxes.length+'</b> กล่อง จาก '+orders.filter(function(o){return o.boxes&&o.boxes.length;}).length+' ออเดอร์</span></div>';
+  if(!_allBoxes.length){
+    boxHtml+='<div class="empty" style="padding:14px;font-size:12px">— ยังไม่มีการยิงกล่องในวันนี้ —</div></div>';
+  }else{
+    // สรุปตามขนาด
+    var _bySize={};_allBoxes.forEach(function(b){_bySize[b.size]=(_bySize[b.size]||0)+1;});
+    boxHtml+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">'
+      +Object.keys(_bySize).sort(function(a,b){return _bySize[b]-_bySize[a];}).map(function(s){
+        return '<span style="padding:5px 12px;background:var(--tb);color:var(--teal);border:1px solid var(--tbr);border-radius:20px;font-size:12px;font-weight:700">'+escHtml(s)+': '+_bySize[s]+'</span>';
+      }).join('')+'</div>';
+    // ตารางรายกล่อง
+    boxHtml+='<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:12px">'
+      +'<thead><tr style="background:var(--bg3)">'
+      +['Order ID','ขนส่ง','บาร์โค้ดกล่อง','ขนาด','คนแพ็ค'].map(function(h){return '<th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">'+h+'</th>';}).join('')
+      +'</tr></thead><tbody>';
+    _allBoxes.forEach(function(b,n){
+      boxHtml+='<tr style="background:'+(n%2===0?'var(--bg)':'var(--bg3)')+';border-bottom:1px solid var(--border)">'
+        +'<td style="padding:6px 10px;font-family:monospace;font-weight:700;font-size:11px;color:var(--primary)">'+escHtml(String(b.oid).split(' · ')[0].replace(/\s*\([^)]*\)\s*$/,''))+'</td>'
+        +'<td style="padding:6px 10px;font-size:12px">'+escHtml(b.carrier)+'</td>'
+        +'<td style="padding:6px 10px;font-family:monospace;font-size:12px;color:var(--teal);font-weight:700">'+escHtml(b.code)+'</td>'
+        +'<td style="padding:6px 10px;font-size:12px">'+escHtml(b.size)+'</td>'
+        +'<td style="padding:6px 10px;font-size:11px;color:var(--text2)">'+escHtml(b.by)+'</td></tr>';
+    });
+    boxHtml+='</tbody></table></div></div>';
+  }
+  mtxHtml+=boxHtml;
 
   // Table
   if(!orders.length){
