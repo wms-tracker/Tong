@@ -159,6 +159,7 @@ input:focus{outline:none;border-color:var(--primary)}
     <div style="display:flex;flex-direction:column;gap:8px">
       <button class="btn btn-p" onclick="startScan('tracking')">📦 สแกน by Tracking</button>
       <button class="btn btn-p" onclick="startScan('order')">🔖 สแกน by Order ID</button>
+      <button class="btn" style="background:linear-gradient(135deg,#0D9488,#0F766E);color:#fff;font-weight:700" onclick="openBoxPage()">📦 ยิงกล่องบรรจุ</button>
     </div>
   </div>
   <div class="card">
@@ -170,7 +171,7 @@ input:focus{outline:none;border-color:var(--primary)}
     <div style="display:flex;flex-direction:column;gap:8px">
       <button class="btn btn-fb" onclick="syncOrdersFromFirebase()">🔥 ดึงออเดอร์จาก Firebase</button>
       <button class="btn" style="background:#DC2626;color:#fff;font-weight:700" onclick="clearSyncOrders()">🗑 ล้างและ Sync ใหม่ทั้งหมด</button>
-      <div style="text-align:center"><span style="background:#16A34A;color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:6px">PDA BUILD 20260731-2</span></div>
+      <div style="text-align:center"><span style="background:#16A34A;color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:6px">PDA BUILD 20260731-3</span></div>
       <div id="sync-debug" style="font-size:11px;color:var(--text2);padding:6px;background:var(--bg3);border-radius:6px;word-break:break-all"></div>
     </div>
   </div>
@@ -282,6 +283,39 @@ input:focus{outline:none;border-color:var(--primary)}
     <div style="display:flex;gap:8px">
       <button id="exc-confirm-btn" onclick="confirmException()" style="flex:1;padding:14px;background:#DC2626;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;opacity:.4" disabled>⚠️ ยืนยัน Exception</button>
       <button onclick="closeExceptionModal()" style="padding:14px 20px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<!-- 📦 BOX SCAN -->
+<div id="page-box" class="page">
+  <div class="card">
+    <div class="card-t">📦 ยิงกล่องบรรจุ</div>
+    <div class="fg">
+      <label class="fl">1. สแกน Order ID / Tracking</label>
+      <input class="big-inp" id="box-find" placeholder="สแกน Order/Tracking..." oninput="onBoxFind(this.value)" autocomplete="off">
+      <div class="hint" id="box-find-hint"></div>
+    </div>
+    <div id="box-order-info" style="display:none">
+      <div style="background:var(--bg3);border-radius:var(--rs);padding:11px 12px;margin-bottom:10px">
+        <div style="font-family:monospace;font-weight:800;font-size:15px" id="box-oid">—</div>
+        <div style="font-size:12px;color:var(--text2)" id="box-consign">—</div>
+        <div style="font-size:12px;margin-top:2px"><span class="badge" id="box-ostatus">—</span> · <span id="box-items">0</span> รายการ</div>
+      </div>
+      <div class="fg">
+        <label class="fl">2. สแกนบาร์โค้ดกล่อง</label>
+        <input class="big-inp" id="box-code" placeholder="สแกนกล่อง..." onkeydown="if(event.key==='Enter'){event.preventDefault();addBoxPDA();}" autocomplete="off">
+      </div>
+      <div class="fg">
+        <label class="fl">3. ขนาด/ประเภทกล่อง</label>
+        <div id="box-size-chips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+      </div>
+      <button class="btn btn-g" onclick="addBoxPDA()">＋ เพิ่มกล่องนี้</button>
+      <div class="hint" id="box-add-hint"></div>
+      <div style="margin-top:12px">
+        <div class="card-t" style="margin-bottom:6px">กล่องของออเดอร์นี้ <span id="box-list-cnt" style="color:var(--teal)"></span></div>
+        <div id="box-list"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -406,7 +440,10 @@ input:focus{outline:none;border-color:var(--primary)}
   <div style="font-size:20px;font-weight:700;color:rgba(255,255,255,.9);font-family:monospace;margin-bottom:4px" id="qc-succ-oid"></div>
   <div style="font-size:14px;color:rgba(255,255,255,.75);margin-bottom:24px" id="qc-succ-detail"></div>
   <div id="qc-succ-trk-bar" style="margin-bottom:24px"></div>
-  <button onclick="closeSuccessOv()" style="padding:16px 40px;background:#fff;color:#16A34A;border:none;border-radius:16px;font-size:18px;font-weight:800;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.2)">📦 สแกน Order ต่อไป</button>
+  <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:320px">
+    <button onclick="_goBoxFromSuccess()" style="padding:15px 32px;background:rgba(255,255,255,.18);color:#fff;border:2px solid #fff;border-radius:16px;font-size:16px;font-weight:800;cursor:pointer">📦 ยิงกล่องบรรจุ</button>
+    <button onclick="closeSuccessOv()" style="padding:16px 40px;background:#fff;color:#16A34A;border:none;border-radius:16px;font-size:18px;font-weight:800;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.2)">📦 สแกน Order ต่อไป</button>
+  </div>
   <div style="margin-top:16px;font-size:12px;color:rgba(255,255,255,.5)" id="qc-succ-countdown"></div>
 </div>
 <style>
@@ -632,6 +669,95 @@ function goPage(p){
     var devEl=document.getElementById('dev-name');if(devEl)devEl.value=DEV;
   }
 }
+/* ===== 📦 BOX SCAN (PDA) ===== */
+var _BOX_SIZES=['กล่อง S','กล่อง M','กล่อง L','กล่อง XL','กล่อง 2XL','ซองไปรษณีย์','พาเลท','อื่นๆ'];
+var _boxOid='',_boxSize=_BOX_SIZES[1],_lastPassOid='';
+function _goBoxFromSuccess(){
+  try{clearTimeout(_successTimer);}catch(e){}
+  document.getElementById('qc-success-ov').style.display='none';
+  openBoxPage(_lastPassOid||'');
+}
+function openBoxPage(prefill){
+  goPage('box');
+  renderBoxSizeChips();
+  var info=document.getElementById('box-order-info');if(info)info.style.display='none';
+  var hint=document.getElementById('box-find-hint');if(hint)hint.textContent='';
+  _boxOid='';
+  var f=document.getElementById('box-find');if(!f)return;
+  if(prefill){f.value=prefill;onBoxFind(prefill);}
+  else{f.value='';setTimeout(function(){f.focus();},200);}
+}
+function renderBoxSizeChips(){
+  var el=document.getElementById('box-size-chips');if(!el)return;
+  el.innerHTML=_BOX_SIZES.map(function(s){
+    var on=s===_boxSize;
+    return '<button onclick="pickBoxSize(&quot;'+s+'&quot;)" style="padding:9px 13px;border-radius:8px;border:1.5px solid '+(on?'var(--teal)':'var(--border2)')+';background:'+(on?'var(--teal)':'var(--bg2)')+';color:'+(on?'#fff':'var(--text2)')+';font-size:13px;font-weight:700;cursor:pointer">'+s+'</button>';
+  }).join('');
+}
+function pickBoxSize(s){_boxSize=s;renderBoxSizeChips();}
+function onBoxFind(val){
+  val=(val||'').trim();
+  var hint=document.getElementById('box-find-hint');
+  var info=document.getElementById('box-order-info');
+  if(!val){info.style.display='none';_boxOid='';hint.textContent='';return;}
+  var orders=Object.values(ORDERS);
+  var o=orders.find(function(x){return x.id.toLowerCase()===val.toLowerCase();});
+  if(!o)o=orders.find(function(x){return (x.tracking||'').toLowerCase()===val.toLowerCase()||(x.items||[]).some(function(it){return (it.tracking||'').toLowerCase()===val.toLowerCase();});});
+  if(!o){hint.className='hint h-err';hint.textContent='ไม่พบ Order/Tracking นี้';info.style.display='none';_boxOid='';return;}
+  if(o.status==='cancel'){hint.className='hint h-err';hint.textContent='🚫 Order นี้ถูก Cancel';info.style.display='none';_boxOid='';return;}
+  _boxOid=o.id;
+  hint.className='hint h-ok';hint.textContent='✓ '+o.id;
+  document.getElementById('box-oid').textContent=o.id;
+  document.getElementById('box-consign').textContent=o.consign||'—';
+  var cs=computeOrderStatus(o);
+  var b=document.getElementById('box-ostatus');b.className='badge '+(SB[cs]||'b-new');b.textContent=SL[cs]||cs;
+  document.getElementById('box-items').textContent=(o.items||[]).length;
+  info.style.display='';
+  renderBoxList();
+  setTimeout(function(){var c=document.getElementById('box-code');if(c)c.focus();},150);
+}
+function renderBoxList(){
+  var o=ORDERS[_boxOid];var el=document.getElementById('box-list');if(!el)return;
+  var boxes=(o&&o.boxes)||[];
+  var cnt=document.getElementById('box-list-cnt');if(cnt)cnt.textContent=boxes.length?('· '+boxes.length+' กล่อง'):'';
+  if(!boxes.length){el.innerHTML='<div class="empty" style="padding:10px">— ยังไม่มีกล่อง —</div>';return;}
+  el.innerHTML=boxes.map(function(b,i){
+    return '<div class="pi"><span style="font-size:17px">📦</span><div style="flex:1;min-width:0"><div style="font-family:monospace;font-weight:700;font-size:13px;color:var(--teal);overflow:hidden;text-overflow:ellipsis">'+escHtml(b.code||'—')+'</div><div style="font-size:11px;color:var(--text2)">'+escHtml(b.size||'—')+(b.by?' · '+escHtml(b.by):'')+'</div></div><button onclick="removeBoxPDA('+i+')" style="padding:6px 10px;background:var(--rb);color:var(--red);border:1px solid var(--rbr);border-radius:6px;font-size:13px">🗑</button></div>';
+  }).join('');
+}
+function addBoxPDA(){
+  var o=ORDERS[_boxOid];var hint=document.getElementById('box-add-hint');
+  if(!o){if(hint){hint.className='hint h-err';hint.textContent='สแกน Order ก่อน';}return;}
+  var codeEl=document.getElementById('box-code');var code=(codeEl?codeEl.value:'').trim();
+  if(!code){if(codeEl)codeEl.focus();return;}
+  o.boxes=o.boxes||[];
+  if(o.boxes.some(function(b){return String(b.code)===code;})){if(hint){hint.className='hint h-warn';hint.textContent='กล่องนี้ยิงไปแล้ว';}if(codeEl){codeEl.value='';codeEl.focus();}return;}
+  o.boxes.push({code:code,size:_boxSize,at:new Date().toISOString(),by:CUR_USER||'PDA',device:DEV||'PDA'});
+  o.boxesAt=new Date().toISOString();
+  if(!o.timeline)o.timeline=[];
+  o.timeline.push({time:new Date().toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),action:'📦 ยิงกล่อง '+code+' ('+_boxSize+')',user:CUR_USER||'PDA'});
+  save();
+  _pushBoxesFBpda(_boxOid);
+  if(typeof playPack==='function')playPack();
+  if(navigator.vibrate)navigator.vibrate(60);
+  if(hint){hint.className='hint h-ok';hint.textContent='✓ เพิ่มกล่อง '+code;}
+  if(codeEl){codeEl.value='';codeEl.focus();}
+  renderBoxList();
+}
+function removeBoxPDA(i){
+  var o=ORDERS[_boxOid];if(!o||!o.boxes)return;
+  var b=o.boxes[i];if(!b)return;
+  if(!confirm('ลบกล่อง '+b.code+'?'))return;
+  o.boxes.splice(i,1);o.boxesAt=new Date().toISOString();
+  save();_pushBoxesFBpda(_boxOid);renderBoxList();
+}
+function _pushBoxesFBpda(oid){
+  if(!FB||!ORDERS[oid])return;
+  var boxes=ORDERS[oid].boxes||[];var _ts=ORDERS[oid].boxesAt||new Date().toISOString();
+  fbPatch('/statuses/'+encId(oid),{boxes:boxes,boxesAt:_ts,updatedAt:_ts});
+  fbPatch('/orders/'+encId(oid),{boxes:boxes});
+}
+
 function startScan(mode){
   MODE=mode||'tracking';
   goPage('scan');
@@ -975,6 +1101,9 @@ function startStatusSSE(){
             ORDERS[oid].trkStatus=Object.assign({},ORDERS[oid].trkStatus||{},entry.trkStatus);
             changed=true;
           }
+          if(entry&&entry.boxesAt&&entry.boxesAt>(ORDERS[oid].boxesAt||'')){
+            ORDERS[oid].boxes=entry.boxes||[];ORDERS[oid].boxesAt=entry.boxesAt;changed=true;
+          }
         }
         if(path==='/'||path===''){
           if(typeof payload==='object'&&payload!==null)
@@ -1044,6 +1173,9 @@ function syncFBStatuses(){
         if(JSON.stringify(merged)!==JSON.stringify(ORDERS[oid].trkStatus||{})){
           ORDERS[oid].trkStatus=merged; changed=true;
         }
+      }
+      if(entry&&entry.boxesAt&&entry.boxesAt>(ORDERS[oid].boxesAt||'')){
+        ORDERS[oid].boxes=entry.boxes||[];ORDERS[oid].boxesAt=entry.boxesAt;changed=true;
       }
     });
     if(changed){save();refreshStats();renderDashboard();}
@@ -1496,6 +1628,7 @@ function showSuccessOv(oid,itemCount,totalQty,trk,doneCount,totalTrk){
   if(navigator.vibrate) navigator.vibrate([100,80,100,80,300]);
 
   // ใส่ข้อมูล
+  _lastPassOid=oid;
   document.getElementById('qc-succ-title').textContent=totalTrk>1?'QC ครบทั้ง Order! 🎉':'QC ผ่าน! ✅';
   document.getElementById('qc-succ-oid').textContent=oid;
   document.getElementById('qc-succ-detail').textContent=itemCount+' รายการ · '+totalQty+' ชิ้น'+(trk?' · '+trk:'');
