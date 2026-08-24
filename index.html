@@ -473,7 +473,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-11</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-12</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -2139,7 +2139,7 @@ function renderOrders(){
       row+='<td class="hide-mobile" style="vertical-align:top"><div>'+trkDisp+'</div>'+itemSummary+'</td>';
       row+='<td style="text-align:center;vertical-align:top">'+trkBadge+'</td>';
       row+='<td style="font-size:12px;vertical-align:top">'+trkItems.length+' รายการ</td>';
-      row+='<td style="vertical-align:top">'+oStat+'</td>';
+      row+='<td style="vertical-align:top">'+oStat+((ti===0&&o.boxes&&o.boxes.length)?'<br><span class="badge b-draft" style="font-size:9px;margin-top:2px">📦 '+o.boxes.length+' กล่อง</span>':'')+'</td>';
       row+='<td class="hide-mobile" style="vertical-align:top;font-size:12px">'+escHtml(o.shipDate||o.date||'—')+'</td>';
       // ===== ACTIONS =====
       row+='<td style="vertical-align:top"><div class="brow" style="flex-wrap:wrap;gap:4px">';
@@ -3911,7 +3911,64 @@ function openEditOrder(oid, trk){
     });
   }
   renderEditItems(itemsToEdit);
+  renderEditBoxes();
   document.getElementById('edit-order-modal').style.display='block';
+}
+
+/* ===== 📦 กล่องบรรจุภัณฑ์ ===== */
+var _BOX_SIZES=['กล่อง S','กล่อง M','กล่อง L','กล่อง XL','กล่อง 2XL','ซองไปรษณีย์','พาเลท','อื่นๆ'];
+function renderEditBoxes(){
+  var sel=document.getElementById('edit-box-size');
+  if(sel&&!sel.options.length) sel.innerHTML=_BOX_SIZES.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('');
+  var o=ORDERS[_editOid]; if(!o)return;
+  var boxes=o.boxes||[];
+  var cnt=document.getElementById('edit-box-count'); if(cnt)cnt.textContent=boxes.length?('· '+boxes.length+' กล่อง'):'· ยังไม่มี';
+  var list=document.getElementById('edit-box-list'); if(!list)return;
+  if(!boxes.length){list.innerHTML='<div style="font-size:12px;color:var(--text3);padding:4px">— ยังไม่มีกล่อง —</div>';return;}
+  list.innerHTML=boxes.map(function(b,i){
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px">'
+      +'<span style="font-size:15px">📦</span>'
+      +'<div style="flex:1;min-width:0"><div style="font-family:monospace;font-size:13px;font-weight:700;color:var(--teal);overflow:hidden;text-overflow:ellipsis">'+escHtml(b.code||'—')+'</div>'
+      +'<div style="font-size:11px;color:var(--text2)">'+escHtml(b.size||'—')+(b.by?' · '+escHtml(b.by):'')+'</div></div>'
+      +'<button onclick="removeEditBox('+i+')" style="padding:4px 9px;background:var(--rb);color:var(--red);border:1px solid var(--rbr);border-radius:6px;cursor:pointer;font-size:12px">🗑</button>'
+      +'</div>';
+  }).join('');
+}
+function addEditBox(){
+  var o=ORDERS[_editOid]; if(!o)return;
+  var codeEl=document.getElementById('edit-box-code');
+  var code=(codeEl?codeEl.value:'').trim();
+  if(!code){if(codeEl)codeEl.focus();return;}
+  var size=document.getElementById('edit-box-size')?document.getElementById('edit-box-size').value:'';
+  o.boxes=o.boxes||[];
+  if(o.boxes.some(function(b){return String(b.code)===code;})){ulAlert('กล่องนี้ยิงไปแล้ว: '+code,'warn');if(codeEl)codeEl.value='';return;}
+  var usr=localStorage.getItem('WMS_USR')||'PC';
+  o.boxes.push({code:code,size:size,at:new Date().toISOString(),by:usr,device:localStorage.getItem('WMS_DEV')||'WMS-PC'});
+  if(!o.timeline)o.timeline=[];
+  o.timeline.push({time:new Date().toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),action:'📦 ยิงกล่อง '+code+(size?' ('+size+')':''),user:usr});
+  saveLocal();
+  _pushBoxesFB(_editOid);
+  logAudit('ยิงกล่อง',_editOid,code+(size?' · '+size:''));
+  if(codeEl){codeEl.value='';codeEl.focus();}
+  renderEditBoxes();refreshAll();
+}
+function removeEditBox(i){
+  var o=ORDERS[_editOid]; if(!o||!o.boxes)return;
+  var b=o.boxes[i]; if(!b)return;
+  if(!confirm('ลบกล่อง '+b.code+'?'))return;
+  o.boxes.splice(i,1);
+  saveLocal();
+  _pushBoxesFB(_editOid);
+  logAudit('ลบกล่อง',_editOid,b.code);
+  renderEditBoxes();refreshAll();
+}
+function _pushBoxesFB(oid){
+  if(!FB_URL||!ORDERS[oid])return;
+  var boxes=ORDERS[oid].boxes||[];
+  var _ts=new Date().toISOString();
+  ORDERS[oid].boxesAt=_ts;
+  fbPatch('/statuses/'+encodeId(oid),{boxes:boxes,boxesAt:_ts,updatedAt:_ts});
+  fbPatch('/orders/'+encodeId(oid),{boxes:boxes});
 }
 
 function closeEditModal(){
@@ -4266,6 +4323,12 @@ function syncStatusesNow(){
         var merged=Object.assign({},ORDERS[oid].trkStatus||{},entry.trkStatus);
         var trkChanged=JSON.stringify(merged)!==JSON.stringify(ORDERS[oid].trkStatus||{});
         if(trkChanged){ORDERS[oid].trkStatus=merged;changed=true;}
+      }
+      // sync กล่อง (last-write-wins ตาม boxesAt — รองรับทั้งเพิ่ม/ลบข้ามเครื่อง)
+      if(entry&&entry.boxesAt&&entry.boxesAt>(ORDERS[oid].boxesAt||'')){
+        ORDERS[oid].boxes=entry.boxes||[];
+        ORDERS[oid].boxesAt=entry.boxesAt;
+        changed=true;
       }
     });
     if(changed){saveLocal();refreshAll();}
@@ -5881,6 +5944,16 @@ setTimeout(function(){
       </div>
       <div id="edit-items-list"></div>
       <button onclick="addEditItem()" style="margin-top:10px;padding:8px 16px;background:var(--primary);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px">+ เพิ่มรายการ</button>
+    </div>
+    <!-- 📦 กล่องบรรจุภัณฑ์ -->
+    <div style="background:var(--bg3);border-radius:10px;padding:14px;margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">📦 กล่องบรรจุ <span id="edit-box-count" style="color:var(--text3);font-weight:600"></span></div>
+      <div id="edit-box-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <input id="edit-box-code" type="text" placeholder="ยิ/พิมพ์ บาร์โค้ดกล่อง" onkeydown="if(event.key==='Enter'){event.preventDefault();addEditBox();}" style="flex:1;min-width:160px;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;font-family:monospace">
+        <select id="edit-box-size" style="width:150px;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px"></select>
+        <button onclick="addEditBox()" style="padding:8px 16px;background:var(--teal);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">+ เพิ่มกล่อง</button>
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
       <div><label style="font-size:12px;font-weight:600;color:var(--text2)">Consign</label>
