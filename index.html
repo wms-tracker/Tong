@@ -473,7 +473,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-19</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-20</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -612,7 +612,12 @@ tr:hover td{background:var(--bg3)}
       </div>
       <div id="qc-box-list" style="display:flex;flex-direction:column;gap:5px"></div>
     </div>
-    <button id="qc-vdo-btn" onclick="openVdoModalPC(curQCOid)" style="display:none;width:100%;padding:11px;margin-bottom:12px;background:var(--bg2);color:var(--red);border:1.5px solid var(--rbr);border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">🎥 อัดวิดีโอตรวจสอบ</button>
+    <!-- 🎥 สถานะบันทึกวิดีโอ QC อัตโนมัติ -->
+    <div id="qcvid-bar" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span id="qcvid-dot" style="font-size:14px">🔴</span>
+      <div style="flex:1;min-width:120px"><div id="qcvid-state" style="font-size:13px;font-weight:800">VIDEO: OFF</div><div id="qcvid-sub" style="font-size:11px;color:var(--text2)"></div></div>
+      <button id="qcvid-stop" onclick="QCVID.stop('manual')" style="display:none;padding:8px 14px;background:var(--red);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">⏹ หยุดบันทึก</button>
+    </div>
 
     <div class="scan-card" id="qc-sku-card">
       <div class="card-t">สแกน / พิมพ์ SKU</div>
@@ -794,8 +799,31 @@ tr:hover td{background:var(--bg3)}
     </label>
     <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:10px;cursor:pointer;font-size:13px;font-weight:600">
       <input type="checkbox" id="vdo-toggle" onchange="setVdoOn(this.checked)" style="width:18px;height:18px;cursor:pointer">
-      🎥 เปิดใช้บันทึกวิดีโอตรวจสอบ (PC + PDA — เซฟลงเครื่อง)
+      🎥 เปิดใช้บันทึกวิดีโอตรวจสอบ QC อัตโนมัติ (PC — เซฟลงเครื่อง)
     </label>
+    <div style="border:1.5px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--bg)">
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px">🎥 ตั้งค่าบันทึกวิดีโอ QC <span style="font-weight:500;color:var(--text3)">(Chrome/Edge)</span></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <button class="btn btn-p btn-sm" onclick="QCVID.pickFolder()">📁 เลือกโฟลเดอร์เก็บวิดีโอ</button>
+        <span id="vid-folder-name" style="font-size:12px;color:var(--text2)">— ยังไม่ได้เลือก —</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <label style="font-size:12px;color:var(--text2)">ความละเอียด
+          <select id="vid-res" onchange="QCVID.saveCfg()" style="width:100%;padding:6px;border:1.5px solid var(--border2);border-radius:6px;font-size:13px;margin-top:2px"><option value="480">480p</option><option value="720">720p</option><option value="1080">1080p</option></select>
+        </label>
+        <label style="font-size:12px;color:var(--text2)">FPS
+          <select id="vid-fps" onchange="QCVID.saveCfg()" style="width:100%;padding:6px;border:1.5px solid var(--border2);border-radius:6px;font-size:13px;margin-top:2px"><option value="15">15</option><option value="24">24</option><option value="30">30</option></select>
+        </label>
+      </div>
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px"><input type="checkbox" id="vid-audio" onchange="QCVID.saveCfg()" style="width:16px;height:16px"> อัดเสียง</label>
+        <label style="font-size:12px;color:var(--text2)">เก็บวิดีโอ
+          <select id="vid-retention" onchange="QCVID.saveCfg()" style="padding:6px;border:1.5px solid var(--border2);border-radius:6px;font-size:13px"><option value="0">ไม่ลบอัตโนมัติ</option><option value="30">30 วัน</option><option value="60">60 วัน</option><option value="90">90 วัน</option></select>
+        </label>
+        <button class="btn btn-o btn-sm" onclick="QCVID.cleanup()">🧹 ล้างวิดีโอเก่าตอนนี้</button>
+      </div>
+      <div id="vid-dashboard" style="margin-top:6px"></div>
+    </div>
     <p style="font-size:12px;color:var(--text2);margin-bottom:10px">เพิ่ม/ลบประเภทกล่องที่ใช้ตอนยิงกล่อง — บันทึกใน Firebase ทุกเครื่อง (PC/PDA) เห็นเหมือนกัน</p>
     <div id="boxtype-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
@@ -1303,7 +1331,9 @@ function goPage(p){
   if(p==='stock'){ if(FB_URL)loadStockFromFB(true); renderStock(); }
   if(p==='truck'){ renderTruckLoad(); }
   if(p==='audit'){ renderAudit(); }
-  if(p==='settings'){ renderBoxTypesSettings(); if(FB_URL)loadBoxTypesFB(); }
+  if(p==='settings'){ renderBoxTypesSettings(); if(FB_URL)loadBoxTypesFB(); if(window.QCVID){QCVID.updateSettingsUI();renderVidDashboard();} }
+  // ออกจากหน้า QC ระหว่างอัด → หยุด+finalize วิดีโอ (ไม่กระทบ QC)
+  if(p!=='qcscan'&&window.QCVID&&QCVID.session){ QCVID.stop('leave-page'); }
   // update mobile nav highlight
   ['dashboard','qcscan','pack','orders','report'].forEach(id=>{
     let el=document.getElementById('mn-'+id);
@@ -1809,7 +1839,12 @@ function showQCOrder(){
       qcBoxRender();
     }
   }
-  var vb=document.getElementById('qc-vdo-btn');if(vb)vb.style.display=VDO_ON?'block':'none';
+  // 🎥 บันทึกวิดีโอ QC อัตโนมัติ — เริ่มทันทีเมื่อโหลดออเดอร์ (ถ้าเปิดใช้งาน)
+  var vbar=document.getElementById('qcvid-bar');
+  if(vbar){
+    vbar.style.display=VDO_ON?'flex':'none';
+    if(VDO_ON&&window.QCVID) QCVID.startFor(curQCOid,curQCTracking||o.tracking||'');
+  }
   renderQCProdList();updateQCProgress();
   setTimeout(()=>document.getElementById('qc-in-sku').focus(),80);
 }
@@ -2875,7 +2910,21 @@ function openOrder(oid){
     }
   }
   document.getElementById('m-items').innerHTML=renderItemsWithBoxes(o.items||[]);
-  document.getElementById('m-box-plan').innerHTML='';
+  // 🎥 วิดีโอ QC ที่ผูกกับออเดอร์นี้
+  var _vs=o.videoSessions||[];
+  document.getElementById('m-box-plan').innerHTML=_vs.length?(
+    '<div class="fl" style="margin:10px 0 6px">🎥 วิดีโอ QC ('+_vs.length+')</div>'
+    +_vs.map(function(v){
+      var dur=v.duration?(String(Math.floor(v.duration/60)).padStart(2,'0')+':'+String(v.duration%60).padStart(2,'0')):'—';
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;margin-bottom:5px">'
+        +'<span style="font-size:15px">🎥</span>'
+        +'<div style="flex:1;min-width:0"><div style="font-family:monospace;font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis">'+escHtml(v.file||'—')+'</div>'
+        +'<div style="font-size:10px;color:var(--text2)">'+dur+' · '+_fmtBytes(v.size)+' · '+escHtml(v.user||'')+'</div>'
+        +'<div style="font-size:9px;color:var(--text3);font-family:monospace">'+escHtml(v.path||'')+'</div></div>'
+        +'<button onclick="QCVID.playSession('+JSON.stringify(v.path||'').replace(/"/g,'&quot;')+')" style="padding:6px 12px;background:var(--primary);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700">▶ เล่น</button>'
+        +'</div>';
+    }).join('')
+  ):'';
   var tl=o.timeline||[];
   document.getElementById('m-tl').innerHTML=tl.length?tl.map(function(t){
     return '<div class="tli ok" style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)">'
@@ -4309,6 +4358,227 @@ function closeVdoPC(){
   if(_pcvStream){_pcvStream.getTracks().forEach(function(t){t.stop();});_pcvStream=null;}
   var v=document.getElementById('pcv-preview');if(v){v.srcObject=null;v.src='';v.controls=false;}
   document.getElementById('vdo-modal-pc').classList.remove('show');
+}
+
+/* ================= 🎥 QCVID — บันทึกวิดีโอ QC อัตโนมัติ (เซฟลงเครื่องแบบ streaming) ================= */
+function _vidIdb(mode,fn){
+  return new Promise(function(res){
+    var r=indexedDB.open('wms-vid',1);
+    r.onupgradeneeded=function(){try{r.result.createObjectStore('kv');}catch(e){}};
+    r.onsuccess=function(){try{var tx=r.result.transaction('kv',mode);fn(tx.objectStore('kv'),res);}catch(e){res(null);}};
+    r.onerror=function(){res(null);};
+  });
+}
+function _vidIdbGet(k){return _vidIdb('readonly',function(st,res){var g=st.get(k);g.onsuccess=function(){res(g.result);};g.onerror=function(){res(null);};});}
+function _vidIdbSet(k,v){return _vidIdb('readwrite',function(st,res){st.put(v,k);res(true);});}
+
+var QCVID={
+  root:null,stream:null,rec:null,writable:null,session:null,timer:null,lastErr:'',
+  cfg:{res:720,fps:24,audio:false,retention:0},
+  async init(){
+    try{var c=JSON.parse(localStorage.getItem('WMS_VIDCFG')||'null');if(c)Object.assign(this.cfg,c);}catch(e){}
+    try{var h=await _vidIdbGet('root');if(h)this.root=h;}catch(e){}
+    this.updateStatusUI();this.updateSettingsUI();
+    this.checkOpenSession();
+  },
+  supported(){return !!(window.showDirectoryPicker&&window.MediaRecorder&&navigator.mediaDevices);},
+  async pickFolder(){
+    if(!window.showDirectoryPicker){alert('เบราว์เซอร์นี้ไม่รองรับการเลือกโฟลเดอร์ (กรุณาใช้ Chrome หรือ Edge บน PC)');return;}
+    try{var h=await window.showDirectoryPicker({id:'qcvid',mode:'readwrite',startIn:'documents'});this.root=h;await _vidIdbSet('root',h);this.updateSettingsUI();ulAlert('✓ เลือกโฟลเดอร์เก็บวิดีโอแล้ว: '+h.name,'ok');}catch(e){}
+  },
+  async ensurePerm(){
+    if(!this.root)return false;
+    try{var opt={mode:'readwrite'};
+      if((await this.root.queryPermission(opt))==='granted')return true;
+      if((await this.root.requestPermission(opt))==='granted')return true;
+    }catch(e){}
+    return false;
+  },
+  async dayDir(){
+    var d=new Date();var y=''+d.getFullYear();var m=String(d.getMonth()+1).padStart(2,'0');var da=String(d.getDate()).padStart(2,'0');
+    var qc=await this.root.getDirectoryHandle('QC_Video',{create:true});
+    var yy=await qc.getDirectoryHandle(y,{create:true});
+    var mm=await yy.getDirectoryHandle(m,{create:true});
+    var dd=await mm.getDirectoryHandle(da,{create:true});
+    return {dir:dd,path:'QC_Video/'+y+'/'+m+'/'+da};
+  },
+  sanitize(s){return String(s||'').replace(/[\\\/:*?"<>|]/g,'_').replace(/\s+/g,'_').slice(0,60);},
+  fname(oid,trk){
+    var d=new Date();
+    var ts=d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+'_'+String(d.getHours()).padStart(2,'0')+String(d.getMinutes()).padStart(2,'0')+String(d.getSeconds()).padStart(2,'0');
+    var p=['ORDER_'+this.sanitize(oid)];
+    if(trk)p.push('TRACK_'+this.sanitize(trk));
+    p.push(ts);
+    return p.join('_');
+  },
+  pickMime(){
+    var c=this.cfg.audio?['video/mp4;codecs=h264,aac','video/webm;codecs=vp9,opus','video/webm']:['video/mp4;codecs=h264','video/mp4','video/webm;codecs=vp9','video/webm'];
+    for(var i=0;i<c.length;i++){try{if(MediaRecorder.isTypeSupported(c[i]))return c[i];}catch(e){}}
+    return 'video/webm';
+  },
+  warn(msg){this.lastErr=msg;try{ulAlert('⚠️ วิดีโอ: '+msg,'warn');}catch(e){}this.updateStatusUI();},
+  async startFor(oid,trk){
+    if(!VDO_ON||!oid)return;
+    if(this.session&&this.session.oid===oid)return; // อัดออเดอร์นี้อยู่แล้ว
+    if(this.session){await this.stop('superseded');} // ยิงออเดอร์ใหม่ → ปิดไฟล์เดิมก่อน
+    if(!this.supported()){this.warn('เบราว์เซอร์ไม่รองรับ (ใช้ Chrome/Edge)');return;}
+    if(!this.root){this.warn('ยังไม่ได้เลือกโฟลเดอร์เก็บวิดีโอ — ไปที่ ตั้งค่า');return;}
+    // ถาม QC ซ้ำ ถ้าออเดอร์นี้เคยมีวิดีโอแล้ว
+    var o=ORDERS[oid];
+    if(o&&o.videoSessions&&o.videoSessions.length){
+      if(!confirm('Order '+_dispOid(oid)+' มีวิดีโอ QC แล้ว\nต้องการเริ่มบันทึกวิดีโอใหม่หรือไม่? (ไฟล์เดิมไม่ถูกเขียนทับ)'))return;
+    }
+    if(!(await this.ensurePerm())){this.warn('ไม่ได้รับสิทธิ์เขียนโฟลเดอร์');return;}
+    try{
+      if(!this.stream||!this.stream.active){
+        var vc={};if(this.cfg.res)vc.height={ideal:this.cfg.res};if(this.cfg.fps)vc.frameRate={ideal:this.cfg.fps};
+        this.stream=await navigator.mediaDevices.getUserMedia({video:vc,audio:!!this.cfg.audio});
+      }
+    }catch(e){this.warn('เปิดกล้องไม่ได้: '+(e&&e.message||e));return;}
+    var mime=this.pickMime();var ext=mime.indexOf('mp4')>=0?'mp4':'webm';
+    var base=this.fname(oid,trk);var name=base+'.'+ext;
+    var dd;try{dd=await this.dayDir();}catch(e){this.warn('สร้างโฟลเดอร์ไม่ได้: '+(e&&e.message||e));return;}
+    var fh,writable;
+    try{fh=await dd.dir.getFileHandle(name,{create:true});writable=await fh.createWritable();}
+    catch(e){this.warn('เขียนไฟล์ไม่ได้ (ดิสก์เต็ม/สิทธิ์?): '+(e&&e.message||e));return;}
+    this.writable=writable;
+    var sess={id:'VID-'+base,oid:oid,tracking:trk||'',start:new Date().toISOString(),file:name,path:dd.path+'/'+name,user:localStorage.getItem('WMS_USR')||'PC',device:localStorage.getItem('WMS_DEV')||'WMS-PC',status:'recording',bytes:0,t0:Date.now()};
+    this.session=sess;
+    try{localStorage.setItem('WMS_VID_OPEN',JSON.stringify({file:name,path:sess.path,oid:oid,start:sess.start}));}catch(e){}
+    try{this.rec=new MediaRecorder(this.stream,{mimeType:mime});}catch(e){try{this.rec=new MediaRecorder(this.stream);}catch(e2){this.warn('อัดไม่ได้: '+(e2&&e2.message||e2));return;}}
+    var self=this;
+    this.rec.ondataavailable=async function(ev){if(ev.data&&ev.data.size&&self.writable){try{await self.writable.write(ev.data);sess.bytes+=ev.data.size;}catch(er){self.warn('เขียนดิสก์ล้มเหลว: '+(er&&er.message||er));}}};
+    this.rec.onerror=function(ev){self.warn('กล้อง/อัดผิดพลาด');};
+    try{this.rec.start(1000);}catch(e){this.warn('เริ่มอัดไม่ได้');return;}
+    this.stream.getVideoTracks().forEach(function(t){t.onended=function(){self.warn('กล้องถูกถอด/หลุด');};});
+    clearInterval(this.timer);this.timer=setInterval(function(){self.updateStatusUI();},500);
+    try{logAudit('เริ่มบันทึกวิดีโอ',oid,sess.file);}catch(e){}
+    this.updateStatusUI();
+  },
+  stop(reason){
+    var self=this;var sess=this.session;
+    if(!sess)return Promise.resolve(null);
+    return new Promise(function(res){
+      function fin(){
+        (async function(){try{if(self.writable)await self.writable.close();}catch(e){}
+          sess.end=new Date().toISOString();sess.duration=Math.round((Date.now()-sess.t0)/1000);sess.status='completed';
+          self.saveSession(sess);
+          clearInterval(self.timer);try{localStorage.removeItem('WMS_VID_OPEN');}catch(e){}
+          self.rec=null;self.writable=null;self.session=null;
+          try{logAudit('หยุดบันทึกวิดีโอ',sess.oid,sess.file+' ('+sess.duration+'s · '+reason+')');}catch(e){}
+          self.updateStatusUI();res(sess);
+        })();
+      }
+      try{if(self.rec&&self.rec.state!=='inactive'){self.rec.onstop=fin;self.rec.stop();}else{fin();}}catch(e){fin();}
+    });
+  },
+  saveSession(sess){
+    var o=ORDERS[sess.oid];
+    if(o){o.videoSessions=o.videoSessions||[];
+      o.videoSessions.push({id:sess.id,oid:sess.oid,tracking:sess.tracking,start:sess.start,end:sess.end,duration:sess.duration,file:sess.file,path:sess.path,size:sess.bytes,user:sess.user,device:sess.device,status:sess.status});
+      if(!o.timeline)o.timeline=[];
+      o.timeline.push({time:new Date().toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),action:'🎥 วิดีโอ QC '+sess.file+' ('+sess.duration+'s)',user:sess.user});
+      saveLocal();try{fbPatch('/orders/'+encodeId(sess.oid),{videoSessions:o.videoSessions});}catch(e){}}
+    try{var idx=JSON.parse(localStorage.getItem('WMS_VIDIDX')||'[]');idx.push({oid:sess.oid,tracking:sess.tracking,file:sess.file,path:sess.path,size:sess.bytes,at:sess.end,duration:sess.duration});localStorage.setItem('WMS_VIDIDX',JSON.stringify(idx));}catch(e){}
+  },
+  updateStatusUI(){
+    var bar=document.getElementById('qcvid-bar');if(!bar)return;
+    var dot=document.getElementById('qcvid-dot'),st=document.getElementById('qcvid-state'),sub=document.getElementById('qcvid-sub'),stopB=document.getElementById('qcvid-stop');
+    if(this.session){
+      var s=Math.round((Date.now()-this.session.t0)/1000);
+      var tt=String(Math.floor(s/3600)).padStart(2,'0')+':'+String(Math.floor(s%3600/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+      dot.textContent='🟢';st.textContent='VIDEO: RECORDING  '+tt;
+      sub.textContent='Order '+_dispOid(this.session.oid)+(this.session.tracking?' · '+this.session.tracking:'')+' · '+this.session.file;
+      bar.style.borderColor='var(--gbr)';bar.style.background='var(--gb)';
+      if(stopB)stopB.style.display='';
+    }else{
+      dot.textContent=this.lastErr?'⚠️':'🔴';st.textContent=this.lastErr?'VIDEO: ERROR':'VIDEO: OFF';
+      sub.textContent=this.lastErr||(this.root?('พร้อมบันทึก · โฟลเดอร์: '+this.root.name):'ยังไม่ได้เลือกโฟลเดอร์ (ไปตั้งค่า)');
+      bar.style.borderColor='var(--border)';bar.style.background='var(--bg2)';
+      if(stopB)stopB.style.display='none';
+    }
+  },
+  updateSettingsUI(){
+    var el=document.getElementById('vid-folder-name');if(el)el.textContent=this.root?('📁 '+this.root.name):'— ยังไม่ได้เลือก —';
+    var r=document.getElementById('vid-res');if(r)r.value=String(this.cfg.res);
+    var f=document.getElementById('vid-fps');if(f)f.value=String(this.cfg.fps);
+    var a=document.getElementById('vid-audio');if(a)a.checked=!!this.cfg.audio;
+    var rt=document.getElementById('vid-retention');if(rt)rt.value=String(this.cfg.retention);
+  },
+  saveCfg(){
+    var r=document.getElementById('vid-res'),f=document.getElementById('vid-fps'),a=document.getElementById('vid-audio'),rt=document.getElementById('vid-retention');
+    if(r)this.cfg.res=parseInt(r.value)||720;
+    if(f)this.cfg.fps=parseInt(f.value)||24;
+    if(a)this.cfg.audio=!!a.checked;
+    if(rt)this.cfg.retention=parseInt(rt.value)||0;
+    try{localStorage.setItem('WMS_VIDCFG',JSON.stringify(this.cfg));}catch(e){}
+    ulAlert('บันทึกการตั้งค่าวิดีโอแล้ว','ok');
+  },
+  checkOpenSession(){
+    try{var op=JSON.parse(localStorage.getItem('WMS_VID_OPEN')||'null');
+      if(op&&op.file){
+        setTimeout(function(){ulAlert('⚠️ พบวิดีโอที่บันทึกไม่สมบูรณ์: '+op.file+' (ไฟล์อาจเล่นได้บางส่วน) — ตรวจสอบในโฟลเดอร์ '+op.path,'warn');},1500);
+        localStorage.removeItem('WMS_VID_OPEN');
+      }
+    }catch(e){}
+  },
+  async playSession(path){
+    if(!this.root){alert('ยังไม่ได้เลือกโฟลเดอร์');return;}
+    if(!(await this.ensurePerm())){alert('ไม่ได้รับสิทธิ์เข้าถึงโฟลเดอร์');return;}
+    try{
+      var parts=String(path).split('/');var dir=this.root;
+      for(var i=0;i<parts.length-1;i++){dir=await dir.getDirectoryHandle(parts[i]);}
+      var fh=await dir.getFileHandle(parts[parts.length-1]);
+      var file=await fh.getFile();var url=URL.createObjectURL(file);
+      _pcvOid='';document.getElementById('vdo-modal-pc').classList.add('show');
+      document.getElementById('pcv-oid').textContent=parts[parts.length-1];
+      document.getElementById('pcv-rec-btn').style.display='none';document.getElementById('pcv-save-btn').style.display='none';
+      document.getElementById('pcv-hint').textContent='กำลังเล่นไฟล์ที่บันทึกไว้';
+      var v=document.getElementById('pcv-preview');v.srcObject=null;v.src=url;v.muted=false;v.controls=true;v.play();
+    }catch(e){alert('เปิดไฟล์ไม่ได้: '+(e&&e.message||e)+'\n(อาจถูกย้าย/ลบ) path: '+path);}
+  },
+  async cleanup(){
+    if(!this.root){alert('ยังไม่ได้เลือกโฟลเดอร์');return;}
+    var days=this.cfg.retention;
+    if(!days){alert('ยังไม่ได้ตั้งระยะเวลาเก็บ (เลือก 30/60/90 วันในตั้งค่า)');return;}
+    if(!confirm('ลบวิดีโอที่เก่ากว่า '+days+' วัน?'))return;
+    if(!(await this.ensurePerm())){alert('ไม่ได้รับสิทธิ์');return;}
+    var cutoff=Date.now()-days*86400000,removed=0;var self=this;
+    try{
+      var qc=await this.root.getDirectoryHandle('QC_Video',{create:true});
+      for await(var yEnt of qc.values()){if(yEnt.kind!=='directory')continue;
+        for await(var mEnt of yEnt.values()){if(mEnt.kind!=='directory')continue;
+          for await(var dEnt of mEnt.values()){if(dEnt.kind!=='directory')continue;
+            for await(var fEnt of dEnt.values()){if(fEnt.kind!=='file')continue;
+              try{var fl=await fEnt.getFile();if(fl.lastModified<cutoff){await dEnt.removeEntry(fEnt.name);removed++;}}catch(e){}
+            }
+          }
+        }
+      }
+      ulAlert('ล้างวิดีโอเก่าแล้ว '+removed+' ไฟล์','ok');
+      try{logAudit('ล้างวิดีโอเก่า','',removed+' ไฟล์ (>'+days+' วัน)');}catch(e){}
+    }catch(e){alert('ล้างไม่สำเร็จ: '+(e&&e.message||e));}
+  },
+  async storageInfo(){
+    var out={usage:0,quota:0};
+    try{if(navigator.storage&&navigator.storage.estimate){var est=await navigator.storage.estimate();out.usage=est.usage||0;out.quota=est.quota||0;}}catch(e){}
+    var cnt=0,size=0;try{var idx=JSON.parse(localStorage.getItem('WMS_VIDIDX')||'[]');cnt=idx.length;size=idx.reduce(function(a,x){return a+(x.size||0);},0);}catch(e){}
+    out.videoCount=cnt;out.videoSize=size;return out;
+  }
+};
+function _fmtBytes(b){b=b||0;if(b<1024)return b+' B';var u=['KB','MB','GB','TB'],i=-1;do{b/=1024;i++;}while(b>=1024&&i<u.length-1);return b.toFixed(1)+' '+u[i];}
+async function renderVidDashboard(){
+  var el=document.getElementById('vid-dashboard');if(!el||!window.QCVID)return;
+  var s=await QCVID.storageInfo();
+  var freePct=s.quota?Math.round((s.quota-s.usage)/s.quota*100):null;
+  el.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px">'
+    +'<div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800">'+s.videoCount+'</div><div style="font-size:10px;color:var(--text2)">ไฟล์วิดีโอ</div></div>'
+    +'<div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800">'+_fmtBytes(s.videoSize)+'</div><div style="font-size:10px;color:var(--text2)">ขนาดรวม</div></div>'
+    +'<div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800">'+_fmtBytes(s.usage)+'</div><div style="font-size:10px;color:var(--text2)">ใช้ (โควตาแอป)</div></div>'
+    +'<div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800">'+(freePct!==null?freePct+'%':'—')+'</div><div style="font-size:10px;color:var(--text2)">ว่าง (โควตา)</div></div>'
+    +'</div>'
+    +(freePct!==null&&freePct<20?'<div class="al al-warn show" style="margin-top:8px">⚠️ พื้นที่จัดเก็บ (โควตาเบราว์เซอร์) เหลือน้อย กรุณาตรวจสอบพื้นที่ Disk</div>':'')
+    +'<div style="font-size:10px;color:var(--text3);margin-top:6px">* เบราว์เซอร์อ่านได้แค่โควตาของแอป ไม่ใช่พื้นที่ดิสก์จริงทั้งเครื่อง</div>';
 }
 
 function closeEditModal(){
@@ -6269,6 +6539,8 @@ function renderReport(){
 
 init();
 _syncThemeBtn();
+if(window.QCVID)QCVID.init();
+window.addEventListener('beforeunload',function(e){if(window.QCVID&&QCVID.session){try{QCVID.stop('unload');}catch(_){}}});
 if(window.matchMedia){try{window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',_syncThemeBtn);}catch(e){}}
 // เริ่ม auto-sync หลัง init
 setTimeout(function(){
