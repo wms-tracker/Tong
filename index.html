@@ -473,7 +473,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-20</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-21</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1053,6 +1053,13 @@ tr:hover td{background:var(--bg3)}
     </div>
   </div>
 </div>
+<!-- 🎥 พรีวิวสดตอนอัด (ลอยมุมล่างขวา) -->
+<div id="qcvid-pip" style="display:none;position:fixed;bottom:16px;right:16px;z-index:8500;width:210px;background:#000;border:2px solid #DC2626;border-radius:10px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.45)">
+  <video id="qcvid-pip-video" autoplay muted playsinline style="width:100%;display:block;background:#000;aspect-ratio:4/3;object-fit:cover"></video>
+  <div style="position:absolute;top:6px;left:6px;background:rgba(220,38,38,.92);color:#fff;font-size:11px;font-weight:800;padding:2px 8px;border-radius:20px;display:flex;align-items:center;gap:4px"><span style="animation:pulse 1s infinite">●</span> REC <span id="qcvid-pip-time">00:00</span></div>
+  <div id="qcvid-pip-oid" style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.75));color:#fff;font-size:10px;font-family:monospace;padding:12px 8px 5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+</div>
+<style>@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}</style>
 <!-- 🎥 VIDEO MODAL (PC) -->
 <div class="pov" id="vdo-modal-pc">
   <div class="pov-box" style="max-width:560px;width:100%;text-align:left;padding:0;overflow:hidden">
@@ -4452,6 +4459,12 @@ var QCVID={
     try{this.rec.start(1000);}catch(e){this.warn('เริ่มอัดไม่ได้');return;}
     this.stream.getVideoTracks().forEach(function(t){t.onended=function(){self.warn('กล้องถูกถอด/หลุด');};});
     clearInterval(this.timer);this.timer=setInterval(function(){self.updateStatusUI();},500);
+    // พรีวิวสดมุมล่างขวา
+    try{var pip=document.getElementById('qcvid-pip'),pv=document.getElementById('qcvid-pip-video');
+      if(pv){pv.srcObject=this.stream;pv.play();}
+      if(pip)pip.style.display='block';
+      var po=document.getElementById('qcvid-pip-oid');if(po)po.textContent=_dispOid(oid)+(trk?' · '+trk:'');
+    }catch(e){}
     try{logAudit('เริ่มบันทึกวิดีโอ',oid,sess.file);}catch(e){}
     this.updateStatusUI();
   },
@@ -4464,6 +4477,7 @@ var QCVID={
           sess.end=new Date().toISOString();sess.duration=Math.round((Date.now()-sess.t0)/1000);sess.status='completed';
           self.saveSession(sess);
           clearInterval(self.timer);try{localStorage.removeItem('WMS_VID_OPEN');}catch(e){}
+          try{var pip=document.getElementById('qcvid-pip'),pv=document.getElementById('qcvid-pip-video');if(pv)pv.srcObject=null;if(pip)pip.style.display='none';}catch(e){}
           self.rec=null;self.writable=null;self.session=null;
           try{logAudit('หยุดบันทึกวิดีโอ',sess.oid,sess.file+' ('+sess.duration+'s · '+reason+')');}catch(e){}
           self.updateStatusUI();res(sess);
@@ -4489,6 +4503,7 @@ var QCVID={
       var tt=String(Math.floor(s/3600)).padStart(2,'0')+':'+String(Math.floor(s%3600/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
       dot.textContent='🟢';st.textContent='VIDEO: RECORDING  '+tt;
       sub.textContent='Order '+_dispOid(this.session.oid)+(this.session.tracking?' · '+this.session.tracking:'')+' · '+this.session.file;
+      var pt=document.getElementById('qcvid-pip-time');if(pt)pt.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
       bar.style.borderColor='var(--gbr)';bar.style.background='var(--gb)';
       if(stopB)stopB.style.display='';
     }else{
