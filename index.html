@@ -473,7 +473,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-16</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-17</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -776,6 +776,10 @@ tr:hover td{background:var(--bg3)}
   </div>
   <div class="card" style="margin-top:10px">
     <div class="card-t">📦 ประเภท/ขนาดบรรจุภัณฑ์</div>
+    <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:10px;cursor:pointer;font-size:13px;font-weight:600">
+      <input type="checkbox" id="box-scan-toggle" onchange="setBoxScanOn(this.checked)" style="width:18px;height:18px;cursor:pointer">
+      เปิดใช้การยิงบรรจุภัณฑ์ (แสดงช่องยิงกล่องหลัง QC ผ่าน)
+    </label>
     <p style="font-size:12px;color:var(--text2);margin-bottom:10px">เพิ่ม/ลบประเภทกล่องที่ใช้ตอนยิงกล่อง — บันทึกใน Firebase ทุกเครื่อง (PC/PDA) เห็นเหมือนกัน</p>
     <div id="boxtype-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
@@ -991,7 +995,7 @@ tr:hover td{background:var(--bg3)}
     <div style="font-size:20px;font-weight:700;color:var(--green);margin-bottom:6px">ผ่าน QC!</div>
     <div style="font-size:13px;color:var(--text2);margin-bottom:14px" id="pass-sub"></div>
     <!-- 📦 ยิงกล่อง inline -->
-    <div style="text-align:left;border-top:1px solid var(--border);padding-top:12px;margin-bottom:14px">
+    <div id="pass-box-section" style="text-align:left;border-top:1px solid var(--border);padding-top:12px;margin-bottom:14px">
       <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:7px">📦 ยิงกล่องบรรจุ <span style="font-weight:500;color:var(--text3)">(ถ้ามี — ไม่มีก็กดสำเร็จได้เลย)</span></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
         <input id="pass-box-code" type="text" placeholder="ยิงบาร์โค้ดกล่อง..." onkeydown="if(event.key==='Enter'){event.preventDefault();passBoxAdd();}" style="flex:1;min-width:140px;padding:11px;border:1.5px solid var(--border2);border-radius:8px;font-size:15px;font-family:monospace">
@@ -1870,13 +1874,17 @@ function resetQCSku(){
 function passQC(){
   let items=curQCItems.length?curQCItems:(ORDERS[curQCOid]?.items||[]);
   document.getElementById('pass-sub').textContent=curQCOid+' · ครบ '+items.length+' รายการ';
-  // เตรียมช่องยิงกล่อง inline
-  var sel=document.getElementById('pass-box-size');
-  if(sel) sel.innerHTML=BOX_TYPES.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('');
+  // ช่องยิงกล่อง inline — แสดงเฉพาะเมื่อเปิดใช้งาน
+  var sec=document.getElementById('pass-box-section');
+  if(sec) sec.style.display=BOX_SCAN_ON?'':'none';
   var codeEl=document.getElementById('pass-box-code'); if(codeEl)codeEl.value='';
-  passBoxRender();
+  if(BOX_SCAN_ON){
+    var sel=document.getElementById('pass-box-size');
+    if(sel) sel.innerHTML=BOX_TYPES.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('');
+    passBoxRender();
+  }
   document.getElementById('pass-ov').classList.add('show');
-  setTimeout(function(){if(codeEl)codeEl.focus();},200);
+  if(BOX_SCAN_ON) setTimeout(function(){if(codeEl)codeEl.focus();},200);
 }
 function passBoxRender(){
   var o=ORDERS[curQCOid];var el=document.getElementById('pass-box-list');if(!el)return;
@@ -3994,6 +4002,14 @@ function openEditOrder(oid, trk){
 /* ===== 📦 กล่องบรรจุภัณฑ์ ===== */
 var _BOX_DEFAULTS=['กล่อง S','กล่อง M','กล่อง L','กล่อง XL','กล่อง 2XL','ซองไปรษณีย์','พาเลท','อื่นๆ'];
 var BOX_TYPES=(function(){try{var s=JSON.parse(localStorage.getItem('WMS_BOXTYPES')||'null');return (Array.isArray(s)&&s.length)?s:_BOX_DEFAULTS.slice();}catch(e){return _BOX_DEFAULTS.slice();}})();
+var BOX_SCAN_ON=(localStorage.getItem('WMS_BOXSCAN')!=='0'); // ค่าเริ่มต้น = เปิด
+function setBoxScanOn(on){
+  BOX_SCAN_ON=!!on;
+  try{localStorage.setItem('WMS_BOXSCAN',on?'1':'0');}catch(e){}
+  if(FB_URL)fbPut('/boxScanOn',!!on);
+  var t=document.getElementById('box-scan-toggle');if(t)t.checked=BOX_SCAN_ON;
+  logAudit('ตั้งค่ายิงกล่อง','',on?'เปิด':'ปิด');
+}
 function loadBoxTypesFB(){
   if(!FB_URL)return;
   fbGet('/boxTypes',function(err,data){
@@ -4002,12 +4018,18 @@ function loadBoxTypesFB(){
     arr=arr.filter(function(x){return x&&typeof x==='string';});
     if(arr.length){BOX_TYPES=arr;try{localStorage.setItem('WMS_BOXTYPES',JSON.stringify(arr));}catch(e){}renderBoxTypesSettings();}
   });
+  fbGet('/boxScanOn',function(err,data){
+    if(err||data===null||data===undefined)return;
+    BOX_SCAN_ON=!!data;try{localStorage.setItem('WMS_BOXSCAN',BOX_SCAN_ON?'1':'0');}catch(e){}
+    var t=document.getElementById('box-scan-toggle');if(t)t.checked=BOX_SCAN_ON;
+  });
 }
 function saveBoxTypesFB(){
   try{localStorage.setItem('WMS_BOXTYPES',JSON.stringify(BOX_TYPES));}catch(e){}
   if(FB_URL)fbPut('/boxTypes',BOX_TYPES);
 }
 function renderBoxTypesSettings(){
+  var t=document.getElementById('box-scan-toggle');if(t)t.checked=BOX_SCAN_ON;
   var el=document.getElementById('boxtype-list');if(!el)return;
   if(!BOX_TYPES.length){el.innerHTML='<div style="font-size:12px;color:var(--text3)">— ยังไม่มี —</div>';return;}
   el.innerHTML=BOX_TYPES.map(function(s,i){

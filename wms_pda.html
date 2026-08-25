@@ -171,7 +171,7 @@ input:focus{outline:none;border-color:var(--primary)}
     <div style="display:flex;flex-direction:column;gap:8px">
       <button class="btn btn-fb" onclick="syncOrdersFromFirebase()">🔥 ดึงออเดอร์จาก Firebase</button>
       <button class="btn" style="background:#DC2626;color:#fff;font-weight:700" onclick="clearSyncOrders()">🗑 ล้างและ Sync ใหม่ทั้งหมด</button>
-      <div style="text-align:center"><span style="background:#16A34A;color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:6px">PDA BUILD 20260731-4</span></div>
+      <div style="text-align:center"><span style="background:#16A34A;color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:6px">PDA BUILD 20260731-5</span></div>
       <div id="sync-debug" style="font-size:11px;color:var(--text2);padding:6px;background:var(--bg3);border-radius:6px;word-break:break-all"></div>
     </div>
   </div>
@@ -441,7 +441,7 @@ input:focus{outline:none;border-color:var(--primary)}
   <div style="font-size:14px;color:rgba(255,255,255,.75);margin-bottom:24px" id="qc-succ-detail"></div>
   <div id="qc-succ-trk-bar" style="margin-bottom:24px"></div>
   <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:320px">
-    <button onclick="_goBoxFromSuccess()" style="padding:15px 32px;background:rgba(255,255,255,.18);color:#fff;border:2px solid #fff;border-radius:16px;font-size:16px;font-weight:800;cursor:pointer">📦 ยิงกล่องบรรจุ</button>
+    <button id="succ-box-btn" onclick="_goBoxFromSuccess()" style="padding:15px 32px;background:rgba(255,255,255,.18);color:#fff;border:2px solid #fff;border-radius:16px;font-size:16px;font-weight:800;cursor:pointer">📦 ยิงกล่องบรรจุ</button>
     <button onclick="closeSuccessOv()" style="padding:16px 40px;background:#fff;color:#16A34A;border:none;border-radius:16px;font-size:18px;font-weight:800;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.2)">📦 สแกน Order ต่อไป</button>
   </div>
   <div style="margin-top:16px;font-size:12px;color:rgba(255,255,255,.5)" id="qc-succ-countdown"></div>
@@ -673,6 +673,7 @@ function goPage(p){
 /* ===== 📦 BOX SCAN (PDA) ===== */
 var _BOX_DEFAULTS=['กล่อง S','กล่อง M','กล่อง L','กล่อง XL','กล่อง 2XL','ซองไปรษณีย์','พาเลท','อื่นๆ'];
 var BOX_TYPES=(function(){try{var s=JSON.parse(ls('PDA_BOXTYPES')||'null');return (Array.isArray(s)&&s.length)?s:_BOX_DEFAULTS.slice();}catch(e){return _BOX_DEFAULTS.slice();}})();
+var BOX_SCAN_ON=(ls('PDA_BOXSCAN')!=='0');
 function loadBoxTypesPDA(){
   if(!FB)return;
   fbGet('/boxTypes',function(err,data){
@@ -683,6 +684,10 @@ function loadBoxTypesPDA(){
       if(BOX_TYPES.indexOf(_boxSize)<0)_boxSize=BOX_TYPES[0];
       var chips=document.getElementById('box-size-chips');if(chips&&chips.children.length)renderBoxSizeChips();
     }
+  });
+  fbGet('/boxScanOn',function(err,data){
+    if(err||data===null||data===undefined)return;
+    BOX_SCAN_ON=!!data;try{ls('PDA_BOXSCAN',BOX_SCAN_ON?'1':'0');}catch(e){}
   });
 }
 var _boxOid='',_boxSize=BOX_TYPES[0],_lastPassOid='';
@@ -1645,6 +1650,7 @@ function showSuccessOv(oid,itemCount,totalQty,trk,doneCount,totalTrk){
 
   // ใส่ข้อมูล
   _lastPassOid=oid;
+  var _sbb=document.getElementById('succ-box-btn');if(_sbb)_sbb.style.display=BOX_SCAN_ON?'':'none';
   document.getElementById('qc-succ-title').textContent=totalTrk>1?'QC ครบทั้ง Order! 🎉':'QC ผ่าน! ✅';
   document.getElementById('qc-succ-oid').textContent=oid;
   document.getElementById('qc-succ-detail').textContent=itemCount+' รายการ · '+totalQty+' ชิ้น'+(trk?' · '+trk:'');
