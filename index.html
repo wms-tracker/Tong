@@ -473,7 +473,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-21</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-22</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -2069,8 +2069,12 @@ function saveDraft(){
   let orderKeys={};
   items.forEach(item=>{let k=getQCKey(curQCOid,item.sku||'',item.tracking||'');if(SC[k])orderKeys[k]=SC[k];});
   DRAFTS[curQCOid]={oid:curQCOid,tracking:curQCTracking,items:items,sc:orderKeys,ts:Date.now()};
-  saveLocal();renderDrafts();
+  saveLocal();
+  // push ขึ้น Firebase ไม่งั้น syncDraftsFromFB จะลบ draft ในเครื่องทิ้ง (draft หาย)
+  if(FB_URL){try{fbPut('/drafts/'+encodeId(curQCOid),DRAFTS[curQCOid]);}catch(e){}}
+  renderDrafts();renderDraftList();
   qcAlert('💾 บันทึก Draft ของ '+curQCOid+' แล้ว','ok');
+  if(window.QCVID&&QCVID.session){try{QCVID.stop('draft');}catch(e){}}
   resetQCScan();
 }
 
@@ -4790,7 +4794,11 @@ function syncDraftsFromFB(){
     });
     // ลบ draft ที่ถูกลบ/ทำเสร็จจากเครื่องอื่นแล้ว ให้หายไปทุกเครื่อง
     Object.keys(DRAFTS).forEach(function(oid){
-      if(!remoteOids[oid]){ delete DRAFTS[oid]; changed=true; }
+      if(!remoteOids[oid]){
+        // อย่าลบ draft ที่เพิ่งเซฟในเครื่อง (< 2 นาที) — อาจยัง push ขึ้น Firebase ไม่ถึง → re-push แทน
+        if(DRAFTS[oid]&&DRAFTS[oid].ts&&(now-DRAFTS[oid].ts)<120000){ if(FB_URL){try{fbPut('/drafts/'+encodeId(oid),DRAFTS[oid]);}catch(e){}} return; }
+        delete DRAFTS[oid]; changed=true;
+      }
     });
     if(changed){saveLocal();refreshAll();renderDraftList();}
   });
