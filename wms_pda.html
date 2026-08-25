@@ -171,7 +171,7 @@ input:focus{outline:none;border-color:var(--primary)}
     <div style="display:flex;flex-direction:column;gap:8px">
       <button class="btn btn-fb" onclick="syncOrdersFromFirebase()">🔥 ดึงออเดอร์จาก Firebase</button>
       <button class="btn" style="background:#DC2626;color:#fff;font-weight:700" onclick="clearSyncOrders()">🗑 ล้างและ Sync ใหม่ทั้งหมด</button>
-      <div style="text-align:center"><span style="background:#16A34A;color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:6px">PDA BUILD 20260731-5</span></div>
+      <div style="text-align:center"><span style="background:#16A34A;color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:6px">PDA BUILD 20260731-6</span></div>
       <div id="sync-debug" style="font-size:11px;color:var(--text2);padding:6px;background:var(--bg3);border-radius:6px;word-break:break-all"></div>
     </div>
   </div>
@@ -441,6 +441,7 @@ input:focus{outline:none;border-color:var(--primary)}
   <div style="font-size:14px;color:rgba(255,255,255,.75);margin-bottom:24px" id="qc-succ-detail"></div>
   <div id="qc-succ-trk-bar" style="margin-bottom:24px"></div>
   <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:320px">
+    <button id="succ-vdo-btn" onclick="openVdoModal(_lastPassOid)" style="padding:15px 32px;background:rgba(255,255,255,.18);color:#fff;border:2px solid #fff;border-radius:16px;font-size:16px;font-weight:800;cursor:pointer;display:none">🎥 อัดวิดีโอตรวจสอบ</button>
     <button id="succ-box-btn" onclick="_goBoxFromSuccess()" style="padding:15px 32px;background:rgba(255,255,255,.18);color:#fff;border:2px solid #fff;border-radius:16px;font-size:16px;font-weight:800;cursor:pointer">📦 ยิงกล่องบรรจุ</button>
     <button onclick="closeSuccessOv()" style="padding:16px 40px;background:#fff;color:#16A34A;border:none;border-radius:16px;font-size:18px;font-weight:800;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.2)">📦 สแกน Order ต่อไป</button>
   </div>
@@ -449,6 +450,27 @@ input:focus{outline:none;border-color:var(--primary)}
 <style>
 @keyframes popIn{0%{transform:scale(.5);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
 </style>
+
+<!-- 🎥 VIDEO RECORD MODAL -->
+<div class="pov" id="vdo-modal" style="align-items:stretch;padding:0">
+  <div style="background:#000;width:100%;height:100%;display:flex;flex-direction:column">
+    <div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;color:#fff;background:#0F172A;flex-shrink:0">
+      <div><div style="font-weight:800">🎥 อัดวิดีโอตรวจสอบ</div><div id="vdo-oid" style="font-size:12px;color:rgba(255,255,255,.6);font-family:monospace"></div></div>
+      <button onclick="closeVdo()" style="padding:8px 14px;background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer">✕ ปิด</button>
+    </div>
+    <div style="flex:1;position:relative;background:#000;display:flex;align-items:center;justify-content:center;min-height:0">
+      <video id="vdo-preview" autoplay muted playsinline style="width:100%;height:100%;object-fit:contain"></video>
+      <div id="vdo-timer" style="position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(220,38,38,.92);color:#fff;padding:5px 14px;border-radius:20px;font-weight:800;font-size:15px;display:none">● 00:00</div>
+    </div>
+    <div style="padding:14px;background:#0F172A;display:flex;flex-direction:column;gap:10px;flex-shrink:0">
+      <div id="vdo-hint" style="text-align:center;color:rgba(255,255,255,.6);font-size:12px;min-height:16px"></div>
+      <div style="display:flex;gap:10px">
+        <button id="vdo-rec-btn" onclick="toggleRec()" style="flex:1;padding:16px;background:#DC2626;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer">● เริ่มอัด</button>
+        <button id="vdo-save-btn" onclick="saveVdo()" style="flex:1;padding:16px;background:#16A34A;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;display:none">💾 บันทึกไฟล์</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="lov" id="lov"><div class="spin"></div><div class="lov-t" id="lov-t">กำลังโหลด...</div></div>
 
@@ -674,8 +696,13 @@ function goPage(p){
 var _BOX_DEFAULTS=['กล่อง S','กล่อง M','กล่อง L','กล่อง XL','กล่อง 2XL','ซองไปรษณีย์','พาเลท','อื่นๆ'];
 var BOX_TYPES=(function(){try{var s=JSON.parse(ls('PDA_BOXTYPES')||'null');return (Array.isArray(s)&&s.length)?s:_BOX_DEFAULTS.slice();}catch(e){return _BOX_DEFAULTS.slice();}})();
 var BOX_SCAN_ON=(ls('PDA_BOXSCAN')!=='0');
+var VDO_ON=(ls('PDA_VDO')==='1');
 function loadBoxTypesPDA(){
   if(!FB)return;
+  fbGet('/vdoOn',function(err,data){
+    if(err||data===null||data===undefined)return;
+    VDO_ON=!!data;try{ls('PDA_VDO',VDO_ON?'1':'0');}catch(e){}
+  });
   fbGet('/boxTypes',function(err,data){
     if(err||!data)return;
     var arr=Array.isArray(data)?data:Object.keys(data).map(function(k){return data[k];});
@@ -777,6 +804,71 @@ function _pushBoxesFBpda(oid){
   var boxes=ORDERS[oid].boxes||[];var _ts=ORDERS[oid].boxesAt||new Date().toISOString();
   fbPatch('/statuses/'+encId(oid),{boxes:boxes,boxesAt:_ts,updatedAt:_ts});
   fbPatch('/orders/'+encId(oid),{boxes:boxes});
+}
+
+/* ===== 🎥 VIDEO RECORD (PDA — เซฟลงเครื่อง) ===== */
+var _vdoStream=null,_vdoRec=null,_vdoChunks=[],_vdoBlob=null,_vdoOid='',_vdoTimer=null,_vdoT0=0;
+function openVdoModal(oid){
+  _vdoOid=oid||'';_vdoBlob=null;_vdoChunks=[];
+  document.getElementById('vdo-oid').textContent=_vdoOid;
+  document.getElementById('vdo-modal').classList.add('show');
+  document.getElementById('vdo-save-btn').style.display='none';
+  var rb=document.getElementById('vdo-rec-btn');rb.style.display='';rb.textContent='● เริ่มอัด';rb.style.background='#DC2626';
+  var v=document.getElementById('vdo-preview');v.controls=false;v.muted=true;
+  document.getElementById('vdo-hint').textContent='กำลังเปิดกล้อง...';
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:true}).then(function(stream){
+    _vdoStream=stream;var vp=document.getElementById('vdo-preview');vp.srcObject=stream;vp.muted=true;vp.play();
+    document.getElementById('vdo-hint').textContent='พร้อมอัด — กด "เริ่มอัด"';
+  }).catch(function(e){document.getElementById('vdo-hint').textContent='เปิดกล้องไม่ได้: '+(e&&e.message||e);});
+}
+function toggleRec(){
+  if(_vdoRec&&_vdoRec.state==='recording'){stopRec();return;}
+  if(!_vdoStream){return;}
+  _vdoChunks=[];
+  var mime='';
+  if(window.MediaRecorder){
+    if(MediaRecorder.isTypeSupported('video/mp4'))mime='video/mp4';
+    else if(MediaRecorder.isTypeSupported('video/webm;codecs=vp9'))mime='video/webm;codecs=vp9';
+    else if(MediaRecorder.isTypeSupported('video/webm'))mime='video/webm';
+  }
+  try{_vdoRec=mime?new MediaRecorder(_vdoStream,{mimeType:mime}):new MediaRecorder(_vdoStream);}
+  catch(e){document.getElementById('vdo-hint').textContent='อัดไม่ได้: '+(e&&e.message||e);return;}
+  _vdoRec.ondataavailable=function(ev){if(ev.data&&ev.data.size)_vdoChunks.push(ev.data);};
+  _vdoRec.onstop=function(){
+    _vdoBlob=new Blob(_vdoChunks,{type:(_vdoRec&&_vdoRec.mimeType)||'video/webm'});
+    var v=document.getElementById('vdo-preview');v.srcObject=null;v.src=URL.createObjectURL(_vdoBlob);v.muted=false;v.controls=true;
+    document.getElementById('vdo-save-btn').style.display='';
+    document.getElementById('vdo-hint').textContent='อัดเสร็จ — กด "บันทึกไฟล์" เพื่อเซฟลงเครื่อง';
+  };
+  _vdoRec.start();
+  _vdoT0=Date.now();var tm=document.getElementById('vdo-timer');tm.style.display='';_vdoTick();
+  _vdoTimer=setInterval(_vdoTick,500);
+  var b=document.getElementById('vdo-rec-btn');b.textContent='■ หยุดอัด';b.style.background='#374151';
+  if(navigator.vibrate)navigator.vibrate(50);
+}
+function _vdoTick(){var s=Math.floor((Date.now()-_vdoT0)/1000);var t=document.getElementById('vdo-timer');if(t)t.textContent='● '+String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+function stopRec(){
+  try{if(_vdoRec&&_vdoRec.state==='recording')_vdoRec.stop();}catch(e){}
+  clearInterval(_vdoTimer);var t=document.getElementById('vdo-timer');if(t)t.style.display='none';
+  var b=document.getElementById('vdo-rec-btn');if(b)b.style.display='none';
+}
+function saveVdo(){
+  if(!_vdoBlob)return;
+  var ext=(String(_vdoBlob.type).indexOf('mp4')>=0)?'mp4':'webm';
+  var name='QC_'+(_vdoOid||'order').replace(/[^\w\-]/g,'_')+'_'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.'+ext;
+  var url=URL.createObjectURL(_vdoBlob);
+  var a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(function(){URL.revokeObjectURL(url);},4000);
+  document.getElementById('vdo-hint').textContent='✓ บันทึกแล้ว: '+name;
+  var o=ORDERS[_vdoOid];
+  if(o){if(!o.timeline)o.timeline=[];o.timeline.push({time:new Date().toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),action:'🎥 บันทึกวิดีโอตรวจสอบ',user:CUR_USER||'PDA'});save();try{fbPatch('/orders/'+encId(_vdoOid),{timeline:o.timeline});}catch(e){}}
+}
+function closeVdo(){
+  try{if(_vdoRec&&_vdoRec.state==='recording')_vdoRec.stop();}catch(e){}
+  clearInterval(_vdoTimer);
+  if(_vdoStream){_vdoStream.getTracks().forEach(function(t){t.stop();});_vdoStream=null;}
+  var v=document.getElementById('vdo-preview');if(v){v.srcObject=null;v.src='';v.controls=false;}
+  document.getElementById('vdo-modal').classList.remove('show');
 }
 
 function startScan(mode){
@@ -1651,6 +1743,7 @@ function showSuccessOv(oid,itemCount,totalQty,trk,doneCount,totalTrk){
   // ใส่ข้อมูล
   _lastPassOid=oid;
   var _sbb=document.getElementById('succ-box-btn');if(_sbb)_sbb.style.display=BOX_SCAN_ON?'':'none';
+  var _svb=document.getElementById('succ-vdo-btn');if(_svb)_svb.style.display=VDO_ON?'':'none';
   document.getElementById('qc-succ-title').textContent=totalTrk>1?'QC ครบทั้ง Order! 🎉':'QC ผ่าน! ✅';
   document.getElementById('qc-succ-oid').textContent=oid;
   document.getElementById('qc-succ-detail').textContent=itemCount+' รายการ · '+totalQty+' ชิ้น'+(trk?' · '+trk:'');

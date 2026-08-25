@@ -473,7 +473,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-17</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-18</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -776,9 +776,13 @@ tr:hover td{background:var(--bg3)}
   </div>
   <div class="card" style="margin-top:10px">
     <div class="card-t">📦 ประเภท/ขนาดบรรจุภัณฑ์</div>
-    <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:10px;cursor:pointer;font-size:13px;font-weight:600">
+    <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:8px;cursor:pointer;font-size:13px;font-weight:600">
       <input type="checkbox" id="box-scan-toggle" onchange="setBoxScanOn(this.checked)" style="width:18px;height:18px;cursor:pointer">
       เปิดใช้การยิงบรรจุภัณฑ์ (แสดงช่องยิงกล่องหลัง QC ผ่าน)
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:10px;cursor:pointer;font-size:13px;font-weight:600">
+      <input type="checkbox" id="vdo-toggle" onchange="setVdoOn(this.checked)" style="width:18px;height:18px;cursor:pointer">
+      🎥 เปิดใช้บันทึกวิดีโอตรวจสอบ (บน PDA — เซฟลงเครื่อง)
     </label>
     <p style="font-size:12px;color:var(--text2);margin-bottom:10px">เพิ่ม/ลบประเภทกล่องที่ใช้ตอนยิงกล่อง — บันทึกใน Firebase ทุกเครื่อง (PC/PDA) เห็นเหมือนกัน</p>
     <div id="boxtype-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
@@ -4010,6 +4014,14 @@ function setBoxScanOn(on){
   var t=document.getElementById('box-scan-toggle');if(t)t.checked=BOX_SCAN_ON;
   logAudit('ตั้งค่ายิงกล่อง','',on?'เปิด':'ปิด');
 }
+var VDO_ON=(localStorage.getItem('WMS_VDO')==='1'); // ค่าเริ่มต้น = ปิด
+function setVdoOn(on){
+  VDO_ON=!!on;
+  try{localStorage.setItem('WMS_VDO',on?'1':'0');}catch(e){}
+  if(FB_URL)fbPut('/vdoOn',!!on);
+  var t=document.getElementById('vdo-toggle');if(t)t.checked=VDO_ON;
+  logAudit('ตั้งค่าวิดีโอตรวจสอบ','',on?'เปิด':'ปิด');
+}
 function loadBoxTypesFB(){
   if(!FB_URL)return;
   fbGet('/boxTypes',function(err,data){
@@ -4023,6 +4035,11 @@ function loadBoxTypesFB(){
     BOX_SCAN_ON=!!data;try{localStorage.setItem('WMS_BOXSCAN',BOX_SCAN_ON?'1':'0');}catch(e){}
     var t=document.getElementById('box-scan-toggle');if(t)t.checked=BOX_SCAN_ON;
   });
+  fbGet('/vdoOn',function(err,data){
+    if(err||data===null||data===undefined)return;
+    VDO_ON=!!data;try{localStorage.setItem('WMS_VDO',VDO_ON?'1':'0');}catch(e){}
+    var t=document.getElementById('vdo-toggle');if(t)t.checked=VDO_ON;
+  });
 }
 function saveBoxTypesFB(){
   try{localStorage.setItem('WMS_BOXTYPES',JSON.stringify(BOX_TYPES));}catch(e){}
@@ -4030,6 +4047,7 @@ function saveBoxTypesFB(){
 }
 function renderBoxTypesSettings(){
   var t=document.getElementById('box-scan-toggle');if(t)t.checked=BOX_SCAN_ON;
+  var tv=document.getElementById('vdo-toggle');if(tv)tv.checked=VDO_ON;
   var el=document.getElementById('boxtype-list');if(!el)return;
   if(!BOX_TYPES.length){el.innerHTML='<div style="font-size:12px;color:var(--text3)">— ยังไม่มี —</div>';return;}
   el.innerHTML=BOX_TYPES.map(function(s,i){
