@@ -473,7 +473,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-22</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-23</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1038,15 +1038,6 @@ tr:hover td{background:var(--bg3)}
     <div style="font-size:52px;margin-bottom:10px">✅</div>
     <div style="font-size:20px;font-weight:700;color:var(--green);margin-bottom:6px">ผ่าน QC!</div>
     <div style="font-size:13px;color:var(--text2);margin-bottom:14px" id="pass-sub"></div>
-    <!-- 📦 ยิงกล่อง inline -->
-    <div id="pass-box-section" style="text-align:left;border-top:1px solid var(--border);padding-top:12px;margin-bottom:14px">
-      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:7px">📦 ยิงกล่องบรรจุ <span style="font-weight:500;color:var(--text3)">(ถ้ามี — ไม่มีก็กดสำเร็จได้เลย)</span></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-        <input id="pass-box-code" type="text" placeholder="ยิงบาร์โค้ดกล่อง..." onkeydown="if(event.key==='Enter'){event.preventDefault();passBoxAdd();}" style="flex:1;min-width:140px;padding:11px;border:1.5px solid var(--border2);border-radius:8px;font-size:15px;font-family:monospace">
-        <select id="pass-box-size" style="width:135px;padding:11px;border:1.5px solid var(--border2);border-radius:8px;font-size:14px"></select>
-      </div>
-      <div id="pass-box-list" style="display:flex;flex-direction:column;gap:5px"></div>
-    </div>
     <div class="brow" style="justify-content:center">
       <button class="btn btn-g" onclick="passQCConfirm()" style="font-weight:800">✓ สำเร็จ → Pack</button>
       <button class="btn btn-o" onclick="document.getElementById('pass-ov').classList.remove('show')">อยู่หน้านี้</button>
@@ -1996,42 +1987,8 @@ function resetQCSku(){
 function passQC(){
   let items=curQCItems.length?curQCItems:(ORDERS[curQCOid]?.items||[]);
   document.getElementById('pass-sub').textContent=curQCOid+' · ครบ '+items.length+' รายการ';
-  // ยิงกล่องย้ายไปก่อนสแกนสินค้าแล้ว — ซ่อนช่องในกล่องนี้
-  var sec=document.getElementById('pass-box-section');
-  if(sec) sec.style.display='none';
   document.getElementById('pass-ov').classList.add('show');
 }
-function passBoxRender(){
-  var o=ORDERS[curQCOid];var el=document.getElementById('pass-box-list');if(!el)return;
-  var boxes=(o&&o.boxes)||[];
-  if(!boxes.length){el.innerHTML='';return;}
-  el.innerHTML=boxes.map(function(b,i){
-    return '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--gb);border:1px solid var(--gbr);border-radius:8px">'
-      +'<span>📦</span><div style="flex:1;min-width:0"><span style="font-family:monospace;font-size:13px;font-weight:700;color:var(--teal)">'+escHtml(b.code||'—')+'</span> <span style="font-size:11px;color:var(--text2)">'+escHtml(b.size||'')+'</span></div>'
-      +'<button onclick="passBoxRemove('+i+')" style="padding:3px 8px;background:var(--rb);color:var(--red);border:1px solid var(--rbr);border-radius:6px;cursor:pointer;font-size:12px">🗑</button></div>';
-  }).join('');
-}
-function passBoxAdd(){
-  var o=ORDERS[curQCOid]; if(!o)return;
-  var codeEl=document.getElementById('pass-box-code');var code=(codeEl?codeEl.value:'').trim();
-  if(!code){if(codeEl)codeEl.focus();return;}
-  var size=document.getElementById('pass-box-size')?document.getElementById('pass-box-size').value:'';
-  o.boxes=o.boxes||[];
-  if(o.boxes.some(function(b){return String(b.code)===code;})){ulAlert('กล่องนี้ยิงไปแล้ว: '+code,'warn');if(codeEl){codeEl.value='';codeEl.focus();}return;}
-  var usr=localStorage.getItem('WMS_USR')||'PC';
-  o.boxes.push({code:code,size:size,at:new Date().toISOString(),by:usr,device:localStorage.getItem('WMS_DEV')||'WMS-PC'});
-  if(!o.timeline)o.timeline=[];
-  o.timeline.push({time:new Date().toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),action:'📦 ยิงกล่อง '+code+(size?' ('+size+')':''),user:usr});
-  saveLocal();_pushBoxesFB(curQCOid);logAudit('ยิงกล่อง',curQCOid,code+(size?' · '+size:''));
-  if(codeEl){codeEl.value='';codeEl.focus();}
-  passBoxRender();
-}
-function passBoxRemove(i){
-  var o=ORDERS[curQCOid]; if(!o||!o.boxes)return;
-  var b=o.boxes[i]; if(!b)return;
-  o.boxes.splice(i,1);saveLocal();_pushBoxesFB(curQCOid);passBoxRender();
-}
-
 function passQCConfirm(){
   document.getElementById('pass-ov').classList.remove('show');
   if(DRAFTS[curQCOid])delete DRAFTS[curQCOid];
@@ -4248,10 +4205,12 @@ function removeEditBox(i){
   renderEditBoxes();refreshAll();
 }
 function _pushBoxesFB(oid){
-  if(!FB_URL||!ORDERS[oid])return;
-  var boxes=ORDERS[oid].boxes||[];
+  if(!ORDERS[oid])return;
+  // ตั้ง boxesAt เสมอ (แม้ออฟไลน์) ไม่งั้น LWW merge จะเขียนทับกล่องที่ยิงตอนออฟไลน์ทิ้ง
   var _ts=new Date().toISOString();
   ORDERS[oid].boxesAt=_ts;
+  if(!FB_URL)return;
+  var boxes=ORDERS[oid].boxes||[];
   fbPatch('/statuses/'+encodeId(oid),{boxes:boxes,boxesAt:_ts,updatedAt:_ts});
   fbPatch('/orders/'+encodeId(oid),{boxes:boxes});
 }
