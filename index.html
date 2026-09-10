@@ -473,7 +473,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-23</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-24</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1992,7 +1992,21 @@ function passQC(){
 function passQCConfirm(){
   document.getElementById('pass-ov').classList.remove('show');
   if(DRAFTS[curQCOid])delete DRAFTS[curQCOid];
+  // ★ มาร์ค trkStatus ของ tracking ที่เพิ่ง QC แล้ว push ขึ้น Firebase ด้วย (ไม่งั้นเครื่องอื่นไม่เห็นว่า tracking นี้ QC แล้ว)
+  var _qo=ORDERS[curQCOid];
+  if(_qo){
+    _qo.trkStatus=_qo.trkStatus||{};
+    var _trks={};
+    (curQCItems&&curQCItems.length?curQCItems:(_qo.items||[])).forEach(function(it){var t=it.tracking||curQCTracking||_qo.tracking||'';if(t)_trks[t]=1;});
+    if(curQCTracking)_trks[curQCTracking]=1;
+    Object.keys(_trks).forEach(function(t){_qo.trkStatus[t]='qc';});
+  }
   setStatus(curQCOid,'qc');
+  if(FB_URL&&_qo){
+    var _tts=new Date().toISOString();
+    fbPatch('/statuses/'+encodeId(curQCOid),{trkStatus:_qo.trkStatus,updatedAt:_tts,device:localStorage.getItem('WMS_DEV')||'WMS-PC',user:localStorage.getItem('WMS_USR')||'PC'});
+    fbPatch('/orders/'+encodeId(curQCOid),{trkStatus:_qo.trkStatus});
+  }
   if(API_URL){
     let saved={};
     let o=ORDERS[curQCOid];
@@ -6156,10 +6170,16 @@ function completeDraftManual(oid){
   ORDERS[oid].status='qc';
   ORDERS[oid].updatedAt=new Date().toISOString();
   ORDERS[oid].user=localStorage.getItem('WMS_USR')||'PC';
+  // มาร์คทุก tracking เป็น qc (ผ่านทั้งออเดอร์) เพื่อให้ซิงค์ราย tracking ตรงกัน
+  var _co=ORDERS[oid];_co.trkStatus=_co.trkStatus||{};
+  var _ct={};(_co.items||[]).forEach(function(it){var t=it.tracking||_co.tracking||'';if(t)_ct[t]=1;});
+  (_co.trackings||[]).forEach(function(t){if(t)_ct[t]=1;});
+  Object.keys(_ct).forEach(function(t){_co.trkStatus[t]='qc';});
   // push status
   if(FB_URL){
-    fbPatch('/statuses/'+encodeId(oid),{status:'qc',updatedAt:ORDERS[oid].updatedAt,
+    fbPatch('/statuses/'+encodeId(oid),{status:'qc',updatedAt:ORDERS[oid].updatedAt,trkStatus:_co.trkStatus,
       user:ORDERS[oid].user,device:localStorage.getItem('WMS_DEV')||'WMS-PC'});
+    fbPatch('/orders/'+encodeId(oid),{trkStatus:_co.trkStatus});
     fbPut('/drafts/'+encodeId(oid),null);
   }
   delete DRAFTS[oid];
