@@ -473,7 +473,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-28</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-29</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -5124,6 +5124,21 @@ function _stdCarrier(s){
   if(/รับที่คลัง|pickup|walk\s*in|self/.test(v)) return 'รับที่คลัง';
   return s; // ไม่ตรงกลุ่มไหน คืนค่าเดิม
 }
+// จัดกลุ่มขนส่งเป็น 5 กลุ่มหลัก (+ อื่นๆ) — ใช้ร่วมกันทั้งรายงานบนจอและ CSV ให้ตรงกัน
+var _COURIER_GROUPS=[
+  {label:'Best Express Bulky',keys:['best','bulky']},
+  {label:'Lunio',keys:['lunio']},
+  {label:'KEX HRZ',keys:['kex','kerry']},
+  {label:'Business Idea HRZ',keys:['business idea','bihrz','bi hrz']},
+  {label:'รับที่คลัง',keys:['รับที่คลัง','pickup','walk in','self']}
+];
+function _courierGroup(o){
+  var s=(getOrderSUP(o)||'').toLowerCase();
+  for(var i=0;i<_COURIER_GROUPS.length;i++){
+    if(_COURIER_GROUPS[i].keys.some(function(k){return s.indexOf(k)>=0;}))return _COURIER_GROUPS[i].label;
+  }
+  return 'อื่นๆ';
+}
 function getOrderSUP(o){
   if(!o) return '—';
   // 1. sup field ที่บันทึกจาก Excel col B (ชื่อเต็ม)
@@ -5851,7 +5866,7 @@ function renderDailyReport(){
       if(!bymd){var od=_getOrderDate(o);bymd=od?_ymdOf(od):null;} // ข้อมูลเก่าที่ไม่มีเวลายิง → ใช้วันจัดส่ง
       if(bymd!==selDate)return;
       _boxOids[o.id]=1;
-      _allBoxes.push({oid:o.id,carrier:classifyCourier(o),code:b.code||'',size:b.size||'ไม่ระบุ',by:b.by||'',at:bd});
+      _allBoxes.push({oid:o.id,carrier:_courierGroup(o),code:b.code||'',size:b.size||'ไม่ระบุ',by:b.by||'',at:bd});
     });
   });
   _allBoxes.sort(function(a,b){return (a.at?a.at.getTime():0)-(b.at?b.at.getTime():0);});
@@ -6027,7 +6042,7 @@ function _downloadBoxCsv(rows,fname){
 function _boxScanDate(o,b){var d=b&&b.at?new Date(b.at):null;if(d&&!isNaN(d.getTime()))return d;return _getOrderDate(o);}
 function _boxRow(o,b){
   var d=_boxScanDate(o,b);
-  return [d?_ymdOf(d):'',String(o.id).split(' · ')[0].replace(/\s*\([^)]*\)\s*$/,''),(getOrderSUP(o)||''),(b.code||''),(b.size||''),(b.by||''),(b.at?new Date(b.at).toLocaleString('th-TH'):'')];
+  return [d?_ymdOf(d):'',String(o.id).split(' · ')[0].replace(/\s*\([^)]*\)\s*$/,''),(_courierGroup(o)||''),(b.code||''),(b.size||''),(b.by||''),(b.at?new Date(b.at).toLocaleString('th-TH'):'')];
 }
 function exportBoxCSV(){
   var selDate=document.getElementById('daily-date')?document.getElementById('daily-date').value:'';
@@ -6049,7 +6064,7 @@ function exportBoxCSVReport(){
     if(range==='all')return true;
     if(!d)return false;
     if(range==='today')return d.toDateString()===now.toDateString();
-    if(range==='week'){var wk=new Date(now);wk.setDate(wk.getDate()-7);wk.setHours(0,0,0,0);return d>=wk;}
+    if(range==='week'){var wk=new Date(now);wk.setDate(wk.getDate()-7);wk.setHours(0,0,0,0);var we=new Date(now);we.setHours(23,59,59,999);return d>=wk&&d<=we;}
     if(range==='month')return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
     if(range==='custom'){var y=_ymdOf(d);if(dFrom&&y<dFrom)return false;if(dTo&&y>dTo)return false;return true;}
     return true;
