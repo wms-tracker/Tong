@@ -473,7 +473,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-27</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-28</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1833,7 +1833,7 @@ function showQCOrder(){
     bp.style.display=BOX_SCAN_ON?'block':'none';
     if(BOX_SCAN_ON){
       var sel=document.getElementById('qc-box-size');
-      if(sel) sel.innerHTML=BOX_TYPES.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('');
+      if(sel) sel.innerHTML='<option value="">— ไม่ระบุ —</option>'+BOX_TYPES.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('');
       var ce=document.getElementById('qc-box-code');if(ce)ce.value='';
       qcBoxRender();
     }
@@ -4176,7 +4176,7 @@ function resetBoxTypes(){
 }
 function renderEditBoxes(){
   var sel=document.getElementById('edit-box-size');
-  if(sel) sel.innerHTML=BOX_TYPES.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('');
+  if(sel) sel.innerHTML='<option value="">— ไม่ระบุ —</option>'+BOX_TYPES.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('');
   var o=ORDERS[_editOid]; if(!o)return;
   var boxes=o.boxes||[];
   var cnt=document.getElementById('edit-box-count'); if(cnt)cnt.textContent=boxes.length?('· '+boxes.length+' กล่อง'):'· ยังไม่มี';
@@ -4236,7 +4236,7 @@ function openBoxModalPC(oid){
   var o=ORDERS[oid]; if(!o){ulAlert('ไม่พบออเดอร์','warn');return;}
   _boxModalOid=oid;
   var sel=document.getElementById('bm-size');
-  if(sel) sel.innerHTML=BOX_TYPES.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('');
+  if(sel) sel.innerHTML='<option value="">— ไม่ระบุ —</option>'+BOX_TYPES.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('');
   document.getElementById('bm-oid').textContent=_dispOid(oid);
   document.getElementById('bm-consign').textContent=o.consign||'—';
   renderBoxModalList();
