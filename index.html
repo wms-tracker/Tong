@@ -473,7 +473,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-26</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-27</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -5842,12 +5842,22 @@ function renderDailyReport(){
     +'</tr>';
   mtxHtml+='</tbody></table></div>';
 
-  // ===== 📦 รายงานบรรจุภัณฑ์ (กล่อง) ของวันนี้ =====
-  var _allBoxes=[];
-  orders.forEach(function(o){(o.boxes||[]).forEach(function(b){_allBoxes.push({oid:o.id,carrier:classifyCourier(o),code:b.code||'',size:b.size||'ไม่ระบุ',by:b.by||''});});});
+  // ===== 📦 รายงานบรรจุภัณฑ์ (กล่อง) — กรองตาม "เวลาที่ยิงกล่องจริง" (b.at) =====
+  var _allBoxes=[];var _boxOids={};
+  Object.values(ORDERS).forEach(function(o){
+    (o.boxes||[]).forEach(function(b){
+      var bd=b.at?new Date(b.at):null;
+      var bymd=(bd&&!isNaN(bd.getTime()))?_ymdOf(bd):null;
+      if(!bymd){var od=_getOrderDate(o);bymd=od?_ymdOf(od):null;} // ข้อมูลเก่าที่ไม่มีเวลายิง → ใช้วันจัดส่ง
+      if(bymd!==selDate)return;
+      _boxOids[o.id]=1;
+      _allBoxes.push({oid:o.id,carrier:classifyCourier(o),code:b.code||'',size:b.size||'ไม่ระบุ',by:b.by||'',at:bd});
+    });
+  });
+  _allBoxes.sort(function(a,b){return (a.at?a.at.getTime():0)-(b.at?b.at.getTime():0);});
   var boxHtml='<div style="padding:4px 14px 8px">'
     +'<div style="display:flex;align-items:center;gap:8px;margin:6px 0 8px;flex-wrap:wrap"><span style="font-size:14px;font-weight:800">📦 รายงานบรรจุภัณฑ์</span>'
-    +'<span style="font-size:12px;color:var(--text2)">'+selDate+' · รวม <b style="color:var(--teal)">'+_allBoxes.length+'</b> กล่อง จาก '+orders.filter(function(o){return o.boxes&&o.boxes.length;}).length+' ออเดอร์</span>'
+    +'<span style="font-size:12px;color:var(--text2)">'+selDate+' · รวม <b style="color:var(--teal)">'+_allBoxes.length+'</b> กล่อง จาก '+Object.keys(_boxOids).length+' ออเดอร์</span>'
     +(_allBoxes.length?'<button onclick="exportBoxCSV()" style="margin-left:auto;padding:5px 12px;background:var(--teal);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">⬇ ดาวน์โหลด CSV</button>':'')
     +'</div>';
   if(!_allBoxes.length){
@@ -5862,10 +5872,12 @@ function renderDailyReport(){
     // ตารางรายกล่อง
     boxHtml+='<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:12px">'
       +'<thead><tr style="background:var(--bg3)">'
-      +['Order ID','ขนส่ง','บาร์โค้ดกล่อง','ขนาด','คนแพ็ค'].map(function(h){return '<th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">'+h+'</th>';}).join('')
+      +['เวลายิง','Order ID','ขนส่ง','บาร์โค้ดกล่อง','ขนาด','คนแพ็ค'].map(function(h){return '<th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">'+h+'</th>';}).join('')
       +'</tr></thead><tbody>';
     _allBoxes.forEach(function(b,n){
+      var _tm=b.at?b.at.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—';
       boxHtml+='<tr style="background:'+(n%2===0?'var(--bg)':'var(--bg3)')+';border-bottom:1px solid var(--border)">'
+        +'<td style="padding:6px 10px;font-size:11px;color:var(--text2);font-family:monospace;white-space:nowrap">'+_tm+'</td>'
         +'<td style="padding:6px 10px;font-family:monospace;font-weight:700;font-size:11px;color:var(--primary)">'+escHtml(String(b.oid).split(' · ')[0].replace(/\s*\([^)]*\)\s*$/,''))+'</td>'
         +'<td style="padding:6px 10px;font-size:12px">'+escHtml(b.carrier)+'</td>'
         +'<td style="padding:6px 10px;font-family:monospace;font-size:12px;color:var(--teal);font-weight:700">'+escHtml(b.code)+'</td>'
@@ -6011,8 +6023,10 @@ function _downloadBoxCsv(rows,fname){
   setTimeout(function(){URL.revokeObjectURL(url);},3000);
   try{logAudit('ดาวน์โหลดรายงานกล่อง','',fname+' · '+rows.length+' กล่อง');}catch(e){}
 }
+// วันเวลาที่ยิงกล่องจริง (fallback วันจัดส่งถ้าข้อมูลเก่าไม่มี b.at)
+function _boxScanDate(o,b){var d=b&&b.at?new Date(b.at):null;if(d&&!isNaN(d.getTime()))return d;return _getOrderDate(o);}
 function _boxRow(o,b){
-  var d=_getOrderDate(o);
+  var d=_boxScanDate(o,b);
   return [d?_ymdOf(d):'',String(o.id).split(' · ')[0].replace(/\s*\([^)]*\)\s*$/,''),(getOrderSUP(o)||''),(b.code||''),(b.size||''),(b.by||''),(b.at?new Date(b.at).toLocaleString('th-TH'):'')];
 }
 function exportBoxCSV(){
@@ -6020,21 +6034,20 @@ function exportBoxCSV(){
   if(!selDate){alert('เลือกวันที่ก่อน');return;}
   var rows=[];
   Object.values(ORDERS).forEach(function(o){
-    var d=_getOrderDate(o);if(!d||_ymdOf(d)!==selDate)return;
-    (o.boxes||[]).forEach(function(b){rows.push(_boxRow(o,b));});
+    (o.boxes||[]).forEach(function(b){var d=_boxScanDate(o,b);if(d&&_ymdOf(d)===selDate)rows.push(_boxRow(o,b));});
   });
   if(!rows.length){alert('ไม่มีข้อมูลกล่องในวันที่ '+selDate);return;}
   _downloadBoxCsv(rows,'box_report_'+selDate+'.csv');
 }
-// รายงานกล่องตามช่วงที่เลือกในหน้ารีพอร์ต (today/week/month/custom/all)
+// รายงานกล่องตามช่วงที่เลือกในหน้ารีพอร์ต (today/week/month/custom/all) — กรองตามเวลายิงกล่องจริง
 function exportBoxCSVReport(){
   var range=document.getElementById('rpt-range')?document.getElementById('rpt-range').value:'all';
   var dFrom=document.getElementById('rpt-date-from')?document.getElementById('rpt-date-from').value:'';
   var dTo=document.getElementById('rpt-date-to')?document.getElementById('rpt-date-to').value:'';
   var now=new Date();
-  function inRange(o){
+  function inRange(d){
     if(range==='all')return true;
-    var d=_getOrderDate(o);if(!d)return false;
+    if(!d)return false;
     if(range==='today')return d.toDateString()===now.toDateString();
     if(range==='week'){var wk=new Date(now);wk.setDate(wk.getDate()-7);wk.setHours(0,0,0,0);return d>=wk;}
     if(range==='month')return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
@@ -6042,7 +6055,7 @@ function exportBoxCSVReport(){
     return true;
   }
   var rows=[];
-  Object.values(ORDERS).forEach(function(o){if(!inRange(o))return;(o.boxes||[]).forEach(function(b){rows.push(_boxRow(o,b));});});
+  Object.values(ORDERS).forEach(function(o){(o.boxes||[]).forEach(function(b){if(inRange(_boxScanDate(o,b)))rows.push(_boxRow(o,b));});});
   var tag=range==='custom'?((dFrom||'')+'_'+(dTo||'')):range;
   _downloadBoxCsv(rows,'box_report_'+tag+'.csv');
 }
