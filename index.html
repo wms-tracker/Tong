@@ -484,7 +484,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-36</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-37</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1813,6 +1813,19 @@ function confirmQC1(){
   let o=ORDERS[curQCOid];
   if(!o){return;}
   if(o.status==='cancel'){document.getElementById('cancel-banner').style.display='block';playErr();curQCOid='';curQCItems=[];return;}
+  // ⚠️ เตือนถ้ายิงซ้ำ — tracking นี้ (หรือทั้งออเดอร์ถ้ามี tracking เดียว) QC ไปแล้ว (ยกเว้นงานค้าง Draft)
+  var _trkDone=curQCTracking&&o.trkStatus&&(o.trkStatus[curQCTracking]==='qc'||o.trkStatus[curQCTracking]==='done');
+  var _ordDone=!curQCTracking&&['qc','ship','pack','done','completed'].indexOf(o.status)>=0;
+  if((_trkDone||_ordDone)&&!DRAFTS[curQCOid]){
+    playErr();
+    if(!confirm('⚠️ '+curQCOid+(curQCTracking?' · '+curQCTracking:'')+' ตรวจ QC ไปแล้ว\n(สถานะ: '+(SL[o.status]||o.status)+')\n\nต้องการ QC ซ้ำหรือไม่?')){
+      var _p=curQCOid;curQCOid='';curQCTracking='';curQCItems=[];
+      var h=document.getElementById('qc-hint1');h.className='hint hint-err';h.textContent='⚠️ '+_p+' QC ไปแล้ว — ยกเลิก';
+      setTimeout(function(){if(h.textContent.indexOf(_p)>=0){h.className='hint';h.textContent='';}},2500);
+      document.getElementById('qc-in1').value='';document.getElementById('qc-in1').focus();
+      return;
+    }
+  }
   if(!curQCItems||!curQCItems.length) curQCItems=o.items||[];
   if(DRAFTS[curQCOid]){
     Object.entries(DRAFTS[curQCOid].sc||{}).forEach(([k,v])=>{SC[k]=v;});
@@ -1831,6 +1844,7 @@ function getQCDone(oid){
 
 function showQCOrder(){
   let o=ORDERS[curQCOid];if(!o)return;
+  _qcJustScanned=false; // เพิ่งโหลดออเดอร์ — ยังไม่ได้สแกน → ไม่ auto-pass
   if(!curQCItems||!curQCItems.length) curQCItems=o.items;
   document.getElementById('qc-oid-label').textContent=curQCOid;
   document.getElementById('qc-consign-label').textContent=o.consign||'—';
@@ -1935,11 +1949,19 @@ function updateQCProgress(){
     document.getElementById('pass-sub').textContent=curQCOid+' · ครบ '+total+' รายการ';
     document.getElementById('pass-ov').classList.add('show');
     playOk();
+    // ✅ ครบจากการสแกนจริง → auto-confirm หลังโชว์สำเร็จ ~1.1 วิ (ไม่ต้องกดปุ่ม)
+    if(_qcJustScanned){
+      _qcJustScanned=false;
+      clearTimeout(window._qcAutoPass);
+      window._qcAutoPass=setTimeout(function(){
+        if(document.getElementById('pass-ov').classList.contains('show')) passQCConfirm();
+      },1100);
+    }
   }
 }
 
 function markNoSku(oid,sku,idx){
-  let k=oid+'||'+sku;SC[k]=1;saveLocal();renderQCProdList();updateQCProgress();playOk();
+  let k=oid+'||'+sku;SC[k]=1;_qcJustScanned=true;saveLocal();renderQCProdList();updateQCProgress();playOk();
 }
 
 function onQCSkuInput(val){
@@ -1989,6 +2011,7 @@ function doQCScan(){
   if(s===f.qty){qcAlert('✓ ครบแล้ว '+s+'/'+f.qty,'ok');playOk();}
   else{qcAlert('สแกนแล้ว '+s+'/'+f.qty+' ขาด '+(f.qty-s),'warn');}
   document.getElementById('qc-in-sku').value='';document.getElementById('qc-sku-hint').textContent='';
+  _qcJustScanned=true;
   renderQCProdList();updateQCProgress();saveLocal();
   document.getElementById('qc-in-sku').focus();
 }
@@ -2010,6 +2033,7 @@ function resetQCSku(){
   document.getElementById('qc-in-sku').focus();
 }
 
+var _qcJustScanned=false; // true = เพิ่งสแกนจริง (ใช้ตัดสิน auto-pass)
 function passQC(){
   let items=curQCItems.length?curQCItems:(ORDERS[curQCOid]?.items||[]);
   document.getElementById('pass-sub').textContent=curQCOid+' · ครบ '+items.length+' รายการ';
