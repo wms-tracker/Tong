@@ -473,7 +473,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-29</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-30</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -602,16 +602,6 @@ tr:hover td{background:var(--bg3)}
       <div class="prod-list" id="qc-prod-list"></div>
     </div>
 
-    <!-- 📦 ยิงกล่อง (ก่อนสแกนสินค้า) -->
-    <div class="scan-card" id="qc-box-panel" style="display:none">
-      <div class="card-t">📦 ยิงบรรจุภัณฑ์ <span id="qc-box-cnt" style="color:var(--teal);font-weight:600"></span></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-        <input type="text" id="qc-box-code" placeholder="ยิ/พิมพ์ บาร์โค้ดกล่อง" onkeydown="if(event.key==='Enter'){event.preventDefault();qcBoxAdd();}" style="flex:1;min-width:150px;padding:10px;border:1.5px solid var(--border2);border-radius:8px;font-size:15px;font-family:monospace">
-        <select id="qc-box-size" style="width:150px;padding:10px;border:1.5px solid var(--border2);border-radius:8px;font-size:14px"></select>
-        <button class="btn btn-teal" onclick="qcBoxAdd()" style="padding:10px 16px">＋ เพิ่มกล่อง</button>
-      </div>
-      <div id="qc-box-list" style="display:flex;flex-direction:column;gap:5px"></div>
-    </div>
     <!-- 🎥 สถานะบันทึกวิดีโอ QC อัตโนมัติ -->
     <div id="qcvid-bar" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <span id="qcvid-dot" style="font-size:14px">🔴</span>
@@ -620,7 +610,16 @@ tr:hover td{background:var(--bg3)}
     </div>
 
     <div class="scan-card" id="qc-sku-card">
-      <div class="card-t">สแกน / พิมพ์ SKU</div>
+      <div class="card-t" id="qc-scan-title">สแกน / พิมพ์ SKU</div>
+      <!-- 📦 แถบกล่อง (โผล่เมื่อเปิดใช้ยิงกล่อง) -->
+      <div id="qc-box-strip" style="display:none;margin-bottom:10px">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+          <span style="font-size:12px;color:var(--text2);font-weight:700">📦 ขนาดกล่องถัดไป</span>
+          <select id="qc-box-size" style="padding:8px 10px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px"></select>
+          <span id="qc-box-cnt" style="font-size:12px;color:var(--teal);font-weight:700;margin-left:auto"></span>
+        </div>
+        <div id="qc-box-list" style="display:flex;flex-direction:column;gap:5px"></div>
+      </div>
       <div class="scan-big">
         <input type="search" id="qc-in-sku" placeholder="สแกน SKU..." autocomplete="off" autocorrect="off"
           oninput="onQCSkuInput(this.value)"
@@ -1827,15 +1826,21 @@ function showQCOrder(){
   document.getElementById('qc-tracking-label').textContent=curQCTracking||o.tracking||'';
   document.getElementById('qc-order-info').style.display='block';
   document.getElementById('qc-sku-card').style.display='block';
-  // 📦 panel ยิงกล่อง — แสดงหลังโหลดออเดอร์ ก่อนสแกนสินค้า (เมื่อเปิดใช้งาน)
-  var bp=document.getElementById('qc-box-panel');
-  if(bp){
-    bp.style.display=BOX_SCAN_ON?'block':'none';
+  // 📦 แถบกล่องในการ์ดเดียวกับ SKU — ยิงกล่อง/สแกนสินค้าในช่องเดียว (เมื่อเปิดใช้งาน)
+  var strip=document.getElementById('qc-box-strip');
+  var title=document.getElementById('qc-scan-title');
+  var skuIn=document.getElementById('qc-in-sku');
+  if(strip){
+    strip.style.display=BOX_SCAN_ON?'block':'none';
     if(BOX_SCAN_ON){
       var sel=document.getElementById('qc-box-size');
       if(sel) sel.innerHTML='<option value="">— ไม่ระบุ —</option>'+BOX_TYPES.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('');
-      var ce=document.getElementById('qc-box-code');if(ce)ce.value='';
       qcBoxRender();
+      if(title)title.textContent='📦 ยิงกล่อง / สแกน SKU';
+      if(skuIn)skuIn.placeholder='ยิงกล่อง หรือ สแกน SKU...';
+    }else{
+      if(title)title.textContent='สแกน / พิมพ์ SKU';
+      if(skuIn)skuIn.placeholder='สแกน SKU...';
     }
   }
   // 🎥 บันทึกวิดีโอ QC อัตโนมัติ — เริ่มทันทีเมื่อโหลดออเดอร์ (ถ้าเปิดใช้งาน)
@@ -1859,20 +1864,20 @@ function qcBoxRender(){
       +'<button onclick="qcBoxRemove('+i+')" style="padding:3px 8px;background:var(--rb);color:var(--red);border:1px solid var(--rbr);border-radius:6px;cursor:pointer;font-size:12px">🗑</button></div>';
   }).join('');
 }
-function qcBoxAdd(){
-  var o=ORDERS[curQCOid]; if(!o){ulAlert('เลือกออเดอร์ก่อน','warn');return;}
-  var codeEl=document.getElementById('qc-box-code');var code=(codeEl?codeEl.value:'').trim();
-  if(!code){if(codeEl)codeEl.focus();return;}
+// ยิงกล่องจากช่องสแกนเดียวกับ SKU (code ที่ไม่ตรง SKU ใดๆ)
+function qcAddBoxFromScan(code){
+  var o=ORDERS[curQCOid]; if(!o)return;
+  code=String(code||'').trim(); if(!code)return;
   var size=document.getElementById('qc-box-size')?document.getElementById('qc-box-size').value:'';
   o.boxes=o.boxes||[];
-  if(o.boxes.some(function(b){return String(b.code)===code;})){ulAlert('กล่องนี้ยิงไปแล้ว: '+code,'warn');if(codeEl){codeEl.value='';codeEl.focus();}return;}
+  if(o.boxes.some(function(b){return String(b.code)===code;})){qcAlert('📦 กล่องนี้ยิงไปแล้ว: '+code,'warn');playErr();return;}
   var usr=localStorage.getItem('WMS_USR')||'PC';
   o.boxes.push({code:code,size:size,at:new Date().toISOString(),by:usr,device:localStorage.getItem('WMS_DEV')||'WMS-PC'});
   if(!o.timeline)o.timeline=[];
   o.timeline.push({time:new Date().toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),action:'📦 ยิงกล่อง '+code+(size?' ('+size+')':''),user:usr});
   saveLocal();_pushBoxesFB(curQCOid);logAudit('ยิงกล่อง',curQCOid,code+(size?' · '+size:''));
-  if(codeEl){codeEl.value='';codeEl.focus();}
   qcBoxRender();
+  qcAlert('📦 เพิ่มกล่อง: '+code+(size?' ('+size+')':''),'ok');playOk();
 }
 function qcBoxRemove(i){
   var o=ORDERS[curQCOid]; if(!o||!o.boxes)return;
@@ -1931,11 +1936,13 @@ function onQCSkuInput(val){
   let o=ORDERS[curQCOid];
   let f=o.items.find(i=>i.sku===val.trim());
   let hint=document.getElementById('qc-sku-hint');
-  if(f){hint.className='hint hint-ok';hint.textContent='✓ '+f.name+(f.size?' ('+f.size+')':'');}
+  if(f){hint.className='hint hint-ok';hint.style.color='';hint.textContent='✓ '+f.name+(f.size?' ('+f.size+')':'');}
   else if(val.trim().length>4){
     let inOther=Object.values(ORDERS).find(o2=>o2.id!==curQCOid&&o2.items.some(i=>i.sku===val.trim()));
-    hint.className='hint hint-err';hint.textContent=inOther?'SKU นี้อยู่ใน Order อื่น ('+inOther.id+')':'ไม่พบ SKU นี้ใน Order';
-  }else{hint.className='hint';hint.textContent='';}
+    if(inOther){hint.className='hint hint-err';hint.style.color='';hint.textContent='SKU นี้อยู่ใน Order อื่น ('+inOther.id+')';}
+    else if(BOX_SCAN_ON){hint.className='hint';hint.style.color='var(--teal)';hint.textContent='📦 กด Enter เพื่อเพิ่มเป็นกล่องบรรจุ';}
+    else{hint.className='hint hint-err';hint.style.color='';hint.textContent='ไม่พบ SKU นี้ใน Order';}
+  }else{hint.className='hint';hint.style.color='';hint.textContent='';}
 }
 
 function doQCScan(){
@@ -1949,6 +1956,13 @@ function doQCScan(){
   if(!f){
     let inOtherT=o.items.find(i=>i.sku===sku&&i.tracking!==curQCTracking);
     let inOther=Object.values(ORDERS).find(o2=>o2.id!==curQCOid&&o2.items.some(i=>i.sku===sku));
+    // ไม่ใช่ SKU ที่รู้จัก + เปิดใช้ยิงกล่อง → ถือเป็นบาร์โค้ดกล่อง
+    if(!inOtherT&&!inOther&&BOX_SCAN_ON){
+      qcAddBoxFromScan(sku);
+      document.getElementById('qc-in-sku').value='';document.getElementById('qc-sku-hint').textContent='';
+      document.getElementById('qc-in-sku').focus();
+      return;
+    }
     qcAlert(inOtherT?'SKU นี้อยู่ใน Tracking อื่น: '+(inOtherT.tracking||'?'):inOther?'SKU นี้อยู่ใน Order อื่น: '+inOther.id:'ไม่พบ SKU นี้','err');
     playErr();return;
   }
