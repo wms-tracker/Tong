@@ -118,6 +118,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .btn-sm{padding:5px 10px;font-size:12px}
 .btn-xs{padding:3px 8px;font-size:11px;border-radius:4px;cursor:pointer;border:none;font-weight:600}
 .brow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn .bic,button .bic{width:14px;height:14px;vertical-align:-2px;margin-right:3px;flex-shrink:0}
 /* INPUT */
 input,select,textarea{width:100%;padding:8px 11px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text);transition:border .15s;font-family:inherit}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
@@ -476,7 +477,7 @@ tr:hover td{background:var(--bg3)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-32</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-33</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -2333,9 +2334,9 @@ function renderOrders(){
       row+='<td class="hide-mobile" style="vertical-align:top;font-size:12px">'+escHtml(o.shipDate||o.date||'—')+'</td>';
       // ===== ACTIONS =====
       row+='<td style="vertical-align:top"><div class="brow" style="flex-wrap:wrap;gap:4px">';
-      row+='<button class="btn btn-xs" onclick="openOrder(\''+oid_s+'\')" style="background:var(--primary);color:#fff;border:none;font-weight:700">🔎 ดูรายละเอียด</button>';
-      row+='<button class="btn btn-xs" style="background:#F59E0B;color:#fff;border:none;font-weight:700" onclick="openEditOrder(\''+oid_s+'\',\''+trk_s+'\')">✏️ แก้ไข</button>';
-      row+='<button class="btn btn-xs btn-teal" onclick="openBoxModalPC(\''+oid_s+'\')">📦 กล่อง</button>';
+      row+='<button class="btn btn-xs" onclick="openOrder(\''+oid_s+'\')" style="background:var(--primary);color:#fff;border:none;font-weight:700">'+_btnIc('eye')+'ดูรายละเอียด</button>';
+      row+='<button class="btn btn-xs" style="background:#F59E0B;color:#fff;border:none;font-weight:700" onclick="openEditOrder(\''+oid_s+'\',\''+trk_s+'\')">'+_btnIc('edit')+'แก้ไข</button>';
+      row+='<button class="btn btn-xs btn-teal" onclick="openBoxModalPC(\''+oid_s+'\')">'+_btnIc('box')+'กล่อง</button>';
       row+='</div></td></tr>';
       allRows.push(row);
     });
@@ -2719,9 +2720,9 @@ function renderPack(){
       <td class="mono" style="font-size:11px">${o.tracking||'—'}</td>
       <td>${o.items.length} รายการ</td>
       <td><div class="brow">
-        <button class="btn btn-xs" onclick="openOrder('${o.id}')" style="background:var(--primary);color:#fff;border:none;font-weight:700">🔎 ดูรายละเอียด</button>
-        <button class="btn btn-xs btn-teal" onclick="openBoxModalPC('${o.id}')">📦 กล่อง</button>
-        <button class="btn btn-xs" style="background:var(--purple);color:#fff;border:none;font-weight:600" onclick="setStatus('${o.id}','ship');renderPack()">🚚 Ship แล้ว</button>
+        <button class="btn btn-xs" onclick="openOrder('${o.id}')" style="background:var(--primary);color:#fff;border:none;font-weight:700">${_btnIc('eye')}ดูรายละเอียด</button>
+        <button class="btn btn-xs btn-teal" onclick="openBoxModalPC('${o.id}')">${_btnIc('box')}กล่อง</button>
+        <button class="btn btn-xs" style="background:var(--purple);color:#fff;border:none;font-weight:600" onclick="setStatus('${o.id}','ship');renderPack()">${_btnIc('truck')}Ship แล้ว</button>
       </div></td>
     </tr>`).join(''):'<tr><td colspan="5" class="empty">ไม่มีออเดอร์รอ Pack</td></tr>';
   document.getElementById('nb-pack').textContent=Object.values(ORDERS).filter(o=>o.status==='pack').length;
@@ -2737,8 +2738,8 @@ function renderShip(){
       <td class="mono" style="font-size:11px">${o.tracking||'—'}</td>
       <td style="font-size:12px">${t}</td>
       <td><div class="brow">
-        <button class="btn btn-xs" onclick="openOrder('${o.id}')" style="background:var(--primary);color:#fff;border:none;font-weight:700">🔎 ดูรายละเอียด</button>
-        <button class="btn btn-xs btn-teal" onclick="setStatus('${o.id}','done');renderShip()">🚚 ส่งแล้ว</button>
+        <button class="btn btn-xs" onclick="openOrder('${o.id}')" style="background:var(--primary);color:#fff;border:none;font-weight:700">${_btnIc('eye')}ดูรายละเอียด</button>
+        <button class="btn btn-xs btn-teal" onclick="setStatus('${o.id}','done');renderShip()">${_btnIc('truck')}ส่งแล้ว</button>
       </div></td>
     </tr>`;
   }).join(''):'<tr><td colspan="5" class="empty">ไม่มีออเดอร์รอส่ง</td></tr>';
@@ -6647,8 +6648,12 @@ var NAV_SVG={
   layers:'<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
   file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
   upload:'<polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>',
-  link:'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'
+  link:'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  eye:'<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>',
+  edit:'<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>'
 };
+// ไอคอนเล็กสำหรับปุ่มในตาราง
+function _btnIc(name){return '<svg class="bic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+(NAV_SVG[name]||'')+'</svg>';}
 function _navSvg(name){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+(NAV_SVG[name]||'')+'</svg>';}
 var NAV_ICON_MAP={'sbc-main':'grid','sbc-orders':'list','sbc-warehouse':'box','sbc-report':'chart','sbc-system':'settings',
   'ni-dashboard':'grid','ni-history':'clock','ni-orders':'list','ni-draft':'save','ni-qcscan':'search','ni-pick':'box','ni-ship':'truck','ni-report':'chart','ni-stock':'layers','ni-truck':'file','ni-audit':'clock','ni-upload':'upload','ni-matcher':'link','ni-settings':'settings'};
