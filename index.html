@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-40</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-41</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -2734,13 +2734,23 @@ function loadReservedFromFB(force){
     var inf=document.getElementById('reserved-info');if(inf)inf.textContent='✅ สินค้าจองจากส่วนกลาง '+RESERVED_ROWS.length+' รายการ (อัปเดต '+(d.by||'')+')';
   });
 }
-// แปลงวันที่ DD/MM/YYYY (รองรับ พ.ศ.), ISO, "Wed, Jun 17" → Date (เที่ยงคืน)
-function _parseResvDate(s){
+// แปลงวันที่ — รองรับ ISO, พ.ศ., "Wed, Jun 17" และ N/N/YYYY
+// prefer='mdy' = เดือน/วัน/ปี (US) | 'dmy' = วัน/เดือน/ปี | ถ้ามีเลข>12 จะเดาให้อัตโนมัติเสมอ
+function _parseResvDate(s,prefer){
   s=String(s||'').trim(); if(!s)return null;
   var iso=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if(iso){var y=parseInt(iso[1]);if(y>2400)y-=543;return new Date(y,parseInt(iso[2])-1,parseInt(iso[3]));}
   var m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
-  if(m){var yy=parseInt(m[3]);if(yy<100)yy+=(yy>50?1900:2000);if(yy>2400)yy-=543;return new Date(yy,parseInt(m[2])-1,parseInt(m[1]));}
+  if(m){
+    var a=parseInt(m[1]),b=parseInt(m[2]),yy=parseInt(m[3]);
+    if(yy<100)yy+=(yy>50?1900:2000); if(yy>2400)yy-=543;
+    var day,mon;
+    if(a>12){day=a;mon=b;}            // ตัวแรก>12 → เป็นวัน (D/M)
+    else if(b>12){mon=a;day=b;}       // ตัวสอง>12 → เป็นวัน (M/D)
+    else if(prefer==='mdy'){mon=a;day=b;}  // กำกวม → ตามที่กำหนด
+    else {day=a;mon=b;}
+    return new Date(yy,mon-1,day);
+  }
   var m2=s.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
   if(m2){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m2[1]];if(mn!==undefined)return new Date(new Date().getFullYear(),mn,parseInt(m2[2]));}
   var d=new Date(s);return isNaN(d.getTime())?null:new Date(d.getFullYear(),d.getMonth(),d.getDate());
@@ -2787,7 +2797,7 @@ function pullReserved(){
 }
 function setReservedFilter(f){_reservedFilter=f;try{localStorage.setItem('WMS_RESERVED_FILTER',f);}catch(_){}renderReserved();}
 function _resvBucket(row,today,tmr){
-  var d=_parseResvDate(row.shipDate); if(!d)return null;
+  var d=_parseResvDate(row.shipDate,'mdy'); if(!d)return null;
   var dt=d.getTime();
   if(dt===today)return 'today';
   if(dt===tmr)return 'tomorrow';
@@ -2813,9 +2823,9 @@ function renderReserved(){
     if(_reservedFilter!=='all'&&_resvBucket(row,today,tmr)!==_reservedFilter)return false;
     if(q){var hay=(row.pid+' '+row.desc+' '+row.order+' '+row.by).toLowerCase();if(hay.indexOf(q)<0)return false;}
     return true;
-  }).sort(function(a,b){var da=_parseResvDate(a.shipDate),db=_parseResvDate(b.shipDate);return (da?da.getTime():0)-(db?db.getTime():0);});
+  }).sort(function(a,b){var da=_parseResvDate(a.shipDate,'mdy'),db=_parseResvDate(b.shipDate,'mdy');return (da?da.getTime():0)-(db?db.getTime():0);});
   if(!list.length){tb.innerHTML='<tr><td colspan="8" class="empty" style="padding:24px">— ไม่มีรายการในกลุ่มนี้ —</td></tr>';return;}
-  function _fmt(s){var d=_parseResvDate(s);return d?(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()):(escHtml(s||'—'));}
+  function _fmt(s,prefer){var d=_parseResvDate(s,prefer);return d?(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()):(escHtml(s||'—'));}
   tb.innerHTML=list.map(function(row){
     var b=_resvBucket(row,today,tmr);
     var stColor=b==='overdue'?'var(--red)':(b==='today'?'var(--orange)':'var(--text2)');
@@ -2826,8 +2836,8 @@ function renderReserved(){
       +'<td class="mono" style="font-size:12px">'+escHtml(row.order||'—')+'</td>'
       +'<td style="text-align:center;font-weight:800;color:var(--orange)">'+escHtml(row.qty||'—')+'</td>'
       +'<td><span class="badge" style="background:'+stBg+';color:'+stColor+';border:1px solid '+stColor+'">'+escHtml(row.status||'—')+'</span></td>'
-      +'<td style="font-size:12px;font-family:monospace;white-space:nowrap;color:var(--text2)">'+_fmt(row.bookDate)+'</td>'
-      +'<td style="font-size:12px;font-family:monospace;white-space:nowrap;font-weight:700;color:'+stColor+'">'+_fmt(row.shipDate)+'</td>'
+      +'<td style="font-size:12px;font-family:monospace;white-space:nowrap;color:var(--text2)">'+_fmt(row.bookDate,'dmy')+'</td>'
+      +'<td style="font-size:12px;font-family:monospace;white-space:nowrap;font-weight:700;color:'+stColor+'">'+_fmt(row.shipDate,'mdy')+'</td>'
       +'<td style="font-size:12px;color:var(--text2)">'+escHtml(row.by||'—')+'</td>'
       +'</tr>';
   }).join('');
