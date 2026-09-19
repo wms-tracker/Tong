@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-39</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-40</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -987,14 +987,14 @@ tbody tr:hover td{background:var(--pl)}
     <input id="reserved-url" type="url" placeholder="วางลิงก์ Google Sheet (แท็บสินค้าจอง)" style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:8px">
     <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">ตั้งคอลัมน์ (ตัวอักษร A,B,C… ตามชีท)</label>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px 10px;margin-bottom:8px">
-      <label style="font-size:12px;color:var(--text2)">Product ID <input id="rc-pid" value="A" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
-      <label style="font-size:12px;color:var(--text2)">Description <input id="rc-desc" value="B" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
-      <label style="font-size:12px;color:var(--text2)">เลข Order <input id="rc-order" value="C" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
-      <label style="font-size:12px;color:var(--text2)">จำนวนจอง <input id="rc-qty" value="D" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
-      <label style="font-size:12px;color:var(--text2)">Status <input id="rc-status" value="E" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
-      <label style="font-size:12px;color:var(--text2)">วันที่จอง <input id="rc-bookdate" value="F" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
-      <label style="font-size:12px;color:var(--text2)">วันส่งสินค้า <input id="rc-shipdate" value="G" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
-      <label style="font-size:12px;color:var(--text2)">ผู้แจ้งจอง <input id="rc-by" value="H" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+      <label style="font-size:12px;color:var(--text2)">Product ID <input id="rc-pid" value="K" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+      <label style="font-size:12px;color:var(--text2)">Description <input id="rc-desc" value="L" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+      <label style="font-size:12px;color:var(--text2)">เลข Order <input id="rc-order" value="M" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+      <label style="font-size:12px;color:var(--text2)">จำนวนจอง <input id="rc-qty" value="N" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+      <label style="font-size:12px;color:var(--text2)">Status <input id="rc-status" value="O" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+      <label style="font-size:12px;color:var(--text2)">วันที่จอง <input id="rc-bookdate" value="P" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+      <label style="font-size:12px;color:var(--text2)">วันส่งสินค้า <input id="rc-shipdate" value="Q" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+      <label style="font-size:12px;color:var(--text2)">ผู้แจ้งจอง <input id="rc-by" value="R" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-p btn-sm" onclick="pullReserved()">🔄 ดึงสินค้าจอง</button>
@@ -2757,7 +2757,7 @@ function pullReserved(){
   var url=_sheetCsvUrl(rawUrl);
   function _ci(id,dflt){return _colToIdx((document.getElementById(id)||{}).value||dflt);}
   var map={pid:_ci('rc-pid','A'),desc:_ci('rc-desc','B'),order:_ci('rc-order','C'),qty:_ci('rc-qty','D'),status:_ci('rc-status','E'),bookDate:_ci('rc-bookdate','F'),shipDate:_ci('rc-shipdate','G'),by:_ci('rc-by','H')};
-  try{localStorage.setItem('WMS_RESERVED_MAP',JSON.stringify({pid:(document.getElementById('rc-pid')||{}).value,desc:(document.getElementById('rc-desc')||{}).value,order:(document.getElementById('rc-order')||{}).value,qty:(document.getElementById('rc-qty')||{}).value,status:(document.getElementById('rc-status')||{}).value,bookDate:(document.getElementById('rc-bookdate')||{}).value,shipDate:(document.getElementById('rc-shipdate')||{}).value,by:(document.getElementById('rc-by')||{}).value}));}catch(_){}
+  try{localStorage.setItem('WMS_RESERVED_MAP',JSON.stringify({_v:'kr',pid:(document.getElementById('rc-pid')||{}).value,desc:(document.getElementById('rc-desc')||{}).value,order:(document.getElementById('rc-order')||{}).value,qty:(document.getElementById('rc-qty')||{}).value,status:(document.getElementById('rc-status')||{}).value,bookDate:(document.getElementById('rc-bookdate')||{}).value,shipDate:(document.getElementById('rc-shipdate')||{}).value,by:(document.getElementById('rc-by')||{}).value}));}catch(_){}
   document.getElementById('reserved-info').textContent='⏳ กำลังดึงสินค้าจอง...';
   var xhr=new XMLHttpRequest();
   xhr.open('GET',url);xhr.timeout=30000;
@@ -2800,7 +2800,7 @@ function renderReserved(){
   var urlEl=document.getElementById('reserved-url');
   if(urlEl&&!urlEl.value)urlEl.value=localStorage.getItem('WMS_RESERVED_URL')||'';
   // เติมค่าคอลัมน์ที่บันทึกไว้
-  try{var mp=JSON.parse(localStorage.getItem('WMS_RESERVED_MAP')||'null');if(mp){var ids={pid:'rc-pid',desc:'rc-desc',order:'rc-order',qty:'rc-qty',status:'rc-status',bookDate:'rc-bookdate',shipDate:'rc-shipdate',by:'rc-by'};Object.keys(ids).forEach(function(k){var e=document.getElementById(ids[k]);if(e&&mp[k])e.value=mp[k];});}}catch(_){}
+  try{var mp=JSON.parse(localStorage.getItem('WMS_RESERVED_MAP')||'null');if(mp&&mp._v==='kr'){var ids={pid:'rc-pid',desc:'rc-desc',order:'rc-order',qty:'rc-qty',status:'rc-status',bookDate:'rc-bookdate',shipDate:'rc-shipdate',by:'rc-by'};Object.keys(ids).forEach(function(k){var e=document.getElementById(ids[k]);if(e&&mp[k])e.value=mp[k];});}}catch(_){}
   var now=new Date();var today=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();var tmr=today+86400000;
   // นับแต่ละกลุ่ม
   var cnt={today:0,tomorrow:0,overdue:0,all:RESERVED_ROWS.length};
