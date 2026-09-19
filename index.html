@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-44</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-45</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -842,6 +842,12 @@ tbody tr:hover td{background:var(--pl)}
       <button class="btn btn-p btn-sm" onclick="addBoxType()">+ เพิ่ม</button>
       <button class="btn btn-o btn-sm" onclick="resetBoxTypes()">↺ ค่าเริ่มต้น</button>
     </div>
+  </div>
+  <div class="card" style="margin-top:10px">
+    <div class="card-t">🔖 รหัสกล่อง → ชื่อบรรจุภัณฑ์</div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:8px">ใส่บรรทัดละ 1 รายการ รูปแบบ <b>รหัส:ชื่อ</b> เช่น <code>BOX00001:DreamsTown Size S</code> — เวลายิงรหัสนี้ รายงานจะโชว์ชื่อบรรจุภัณฑ์ให้</p>
+    <textarea id="boxcode-names" rows="8" placeholder="BOX00001:DreamsTown Size S" style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;font-family:monospace;box-sizing:border-box;margin-bottom:8px"></textarea>
+    <button class="btn btn-p btn-sm" onclick="saveBoxCodeNames()">💾 บันทึก</button>
   </div>
   <!-- 🔗 แหล่งข้อมูล Google Sheet (ย้ายมาจากหน้าสต็อก/สินค้าจอง) -->
   <div class="card" style="margin-top:10px">
@@ -1394,7 +1400,7 @@ function goPage(p){
   if(p==='reserved'){ if(FB_URL)loadReservedFromFB(true); renderReserved(); }
   if(p==='truck'){ renderTruckLoad(); }
   if(p==='audit'){ renderAudit(); }
-  if(p==='settings'){ renderBoxTypesSettings(); if(FB_URL)loadBoxTypesFB(); if(window.QCVID){QCVID.updateSettingsUI();renderVidDashboard();} try{renderStock();renderReserved();}catch(e){} }
+  if(p==='settings'){ renderBoxTypesSettings(); renderBoxCodeNames(); if(FB_URL){loadBoxTypesFB();loadBoxCodeNamesFB();} if(window.QCVID){QCVID.updateSettingsUI();renderVidDashboard();} try{renderStock();renderReserved();}catch(e){} }
   // ออกจากหน้า QC ระหว่างอัด → หยุด+finalize วิดีโอ (ไม่กระทบ QC)
   if(p!=='qcscan'&&window.QCVID&&QCVID.session){ QCVID.stop('leave-page'); }
   // update mobile nav highlight
@@ -4353,6 +4359,19 @@ function setBoxScanOn(on){
   var t=document.getElementById('box-scan-toggle');if(t)t.checked=BOX_SCAN_ON;
   logAudit('ตั้งค่ายิงกล่อง','',on?'เปิด':'ปิด');
 }
+/* ===== รหัสกล่อง → ชื่อบรรจุภัณฑ์ ===== */
+var _BOXCODE_DEFAULTS={BOX00001:'DreamsTown Size S',BOX00002:'DreamsTown Size M',BOX00003:'DreamsTown Size L',BOX00004:'DreamsTown Size L1',BOX00005:'DreamsTown Size L2',BOX00006:'DreamsTown Size L3',BOX00007:'DreamsTown Size XL',BOX00008:'DreamsTown Size XL1'};
+var BOX_CODE_NAMES=(function(){try{var s=JSON.parse(localStorage.getItem('WMS_BOXCODENAMES')||'null');if(s&&typeof s==='object'&&Object.keys(s).length)return s;}catch(e){}return Object.assign({},_BOXCODE_DEFAULTS);})();
+function _boxName(code){if(!code)return '';var c=String(code).trim();return BOX_CODE_NAMES[c]||BOX_CODE_NAMES[c.toUpperCase()]||'';}
+function renderBoxCodeNames(){var ta=document.getElementById('boxcode-names');if(!ta)return;ta.value=Object.keys(BOX_CODE_NAMES).map(function(k){return k+':'+BOX_CODE_NAMES[k];}).join('\n');}
+function saveBoxCodeNames(){
+  var ta=document.getElementById('boxcode-names');if(!ta)return;
+  var map={};ta.value.split('\n').forEach(function(line){line=line.trim();if(!line)return;var i=line.indexOf(':');if(i<0)return;var code=line.slice(0,i).trim();var name=line.slice(i+1).trim();if(code)map[code]=name;});
+  BOX_CODE_NAMES=map;try{localStorage.setItem('WMS_BOXCODENAMES',JSON.stringify(map));}catch(e){}
+  if(FB_URL)fbPut('/boxCodeNames',map);
+  ulAlert('บันทึกรหัสกล่องแล้ว ('+Object.keys(map).length+' รายการ)','ok');logAudit('ตั้งค่ารหัสกล่อง','',Object.keys(map).length+' รายการ');
+}
+function loadBoxCodeNamesFB(){if(!FB_URL)return;fbGet('/boxCodeNames',function(err,d){if(err||!d||typeof d!=='object')return;BOX_CODE_NAMES=d;try{localStorage.setItem('WMS_BOXCODENAMES',JSON.stringify(d));}catch(e){}renderBoxCodeNames();});}
 var VDO_ON=(localStorage.getItem('WMS_VDO')==='1'); // ค่าเริ่มต้น = ปิด
 function setVdoOn(on){
   VDO_ON=!!on;
@@ -6125,7 +6144,7 @@ function renderDailyReport(){
     // ตารางรายกล่อง
     boxHtml+='<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:12px">'
       +'<thead><tr style="background:var(--bg3)">'
-      +['เวลายิง','Order ID','ขนส่ง','บาร์โค้ดกล่อง','ขนาด','คนแพ็ค'].map(function(h){return '<th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">'+h+'</th>';}).join('')
+      +['เวลายิง','Order ID','ขนส่ง','บาร์โค้ดกล่อง','ชื่อบรรจุภัณฑ์','ขนาด','คนแพ็ค'].map(function(h){return '<th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">'+h+'</th>';}).join('')
       +'</tr></thead><tbody>';
     _allBoxes.forEach(function(b,n){
       var _tm=b.at?b.at.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—';
@@ -6134,6 +6153,7 @@ function renderDailyReport(){
         +'<td style="padding:6px 10px;font-family:monospace;font-weight:700;font-size:11px;color:var(--primary)">'+escHtml(String(b.oid).split(' · ')[0].replace(/\s*\([^)]*\)\s*$/,''))+'</td>'
         +'<td style="padding:6px 10px;font-size:12px">'+escHtml(b.carrier)+'</td>'
         +'<td style="padding:6px 10px;font-family:monospace;font-size:12px;color:var(--teal);font-weight:700">'+escHtml(b.code)+'</td>'
+        +'<td style="padding:6px 10px;font-size:12px;font-weight:600">'+escHtml(_boxName(b.code)||'—')+'</td>'
         +'<td style="padding:6px 10px;font-size:12px">'+escHtml(b.size)+'</td>'
         +'<td style="padding:6px 10px;font-size:11px;color:var(--text2)">'+escHtml(b.by)+'</td></tr>';
     });
@@ -6268,7 +6288,7 @@ function renderMonthlyReport(){
 function _ymdOf(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function _downloadBoxCsv(rows,fname){
   if(!rows.length){alert('ไม่มีข้อมูลกล่องในช่วงที่เลือก');return;}
-  var header=['วันที่','Order ID','ขนส่ง','บาร์โค้ดกล่อง','ขนาด','คนแพ็ค','เวลา'];
+  var header=['วันที่','Order ID','ขนส่ง','บาร์โค้ดกล่อง','ชื่อบรรจุภัณฑ์','ขนาด','คนแพ็ค','เวลา'];
   function esc(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
   var csv='﻿'+[header].concat(rows).map(function(r){return r.map(esc).join(',');}).join('\r\n');
   var blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
@@ -6280,7 +6300,7 @@ function _downloadBoxCsv(rows,fname){
 function _boxScanDate(o,b){var d=b&&b.at?new Date(b.at):null;if(d&&!isNaN(d.getTime()))return d;return _getOrderDate(o);}
 function _boxRow(o,b){
   var d=_boxScanDate(o,b);
-  return [d?_ymdOf(d):'',String(o.id).split(' · ')[0].replace(/\s*\([^)]*\)\s*$/,''),(_courierGroup(o)||''),(b.code||''),(b.size||''),(b.by||''),(b.at?new Date(b.at).toLocaleString('th-TH'):'')];
+  return [d?_ymdOf(d):'',String(o.id).split(' · ')[0].replace(/\s*\([^)]*\)\s*$/,''),(_courierGroup(o)||''),(b.code||''),(_boxName(b.code)||''),(b.size||''),(b.by||''),(b.at?new Date(b.at).toLocaleString('th-TH'):'')];
 }
 function exportBoxCSV(){
   var selDate=document.getElementById('daily-date')?document.getElementById('daily-date').value:'';
@@ -6910,8 +6930,8 @@ setTimeout(function(){
     setInterval(function(){syncDraftsFromFB();},10000);
     // Auto-cleanup ประวัติเก่า วันละครั้ง
     setTimeout(function(){autoCleanupTick();},8000);
-    // โหลดประเภทกล่องจาก Firebase
-    setTimeout(function(){loadBoxTypesFB();},1500);
+    // โหลดประเภทกล่อง + รหัสกล่องจาก Firebase
+    setTimeout(function(){loadBoxTypesFB();loadBoxCodeNamesFB();},1500);
   }
 },1200);
 
