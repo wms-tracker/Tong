@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-43</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-44</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -843,6 +843,39 @@ tbody tr:hover td{background:var(--pl)}
       <button class="btn btn-o btn-sm" onclick="resetBoxTypes()">↺ ค่าเริ่มต้น</button>
     </div>
   </div>
+  <!-- 🔗 แหล่งข้อมูล Google Sheet (ย้ายมาจากหน้าสต็อก/สินค้าจอง) -->
+  <div class="card" style="margin-top:10px">
+    <div class="card-t">🔗 แหล่งข้อมูล Google Sheet</div>
+    <!-- สต็อก -->
+    <div style="border:1.5px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--bg)">
+      <div style="font-size:13px;font-weight:700;margin-bottom:6px">📦 สต็อกสินค้า</div>
+      <input id="stock-url" type="url" placeholder="วางลิงก์ Google Sheet (สต็อก)" style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+        <label style="font-size:12px;color:var(--text2)">คอลัมน์ SKU: <input id="stock-col-sku" value="A" style="width:48px;padding:5px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+      </div>
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">คลังที่จะแสดง (คอลัมน์:ชื่อคลัง คั่นด้วยจุลภาค)</label>
+      <input id="stock-wh-cols" value="G:QA, H:NEW WH, I:Total, K:Pick, O:Live Stock" style="width:100%;padding:7px;border:1.5px solid var(--border2);border-radius:8px;font-size:12px;box-sizing:border-box;margin-bottom:8px;font-family:monospace">
+      <button class="btn btn-p btn-sm" onclick="pullStock()">🔄 ดึงสต็อก + บันทึก</button>
+    </div>
+    <!-- สินค้าจอง -->
+    <div style="border:1.5px solid var(--border);border-radius:10px;padding:12px;background:var(--bg)">
+      <div style="font-size:13px;font-weight:700;margin-bottom:6px">🔖 สินค้าจอง (แท็บ "สินค้าจอง")</div>
+      <input id="reserved-url" type="url" placeholder="วางลิงก์ Google Sheet (แท็บสินค้าจอง)" style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:8px">
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">ตั้งคอลัมน์ (ตัวอักษร A,B,C… ตามชีท)</label>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px 10px;margin-bottom:8px">
+        <label style="font-size:12px;color:var(--text2)">Product ID <input id="rc-pid" value="K" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+        <label style="font-size:12px;color:var(--text2)">Description <input id="rc-desc" value="L" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+        <label style="font-size:12px;color:var(--text2)">เลข Order <input id="rc-order" value="M" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+        <label style="font-size:12px;color:var(--text2)">จำนวนจอง <input id="rc-qty" value="N" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+        <label style="font-size:12px;color:var(--text2)">Status <input id="rc-status" value="O" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+        <label style="font-size:12px;color:var(--text2)">วันที่จอง <input id="rc-bookdate" value="P" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+        <label style="font-size:12px;color:var(--text2)">วันส่งสินค้า <input id="rc-shipdate" value="Q" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+        <label style="font-size:12px;color:var(--text2)">ผู้แจ้งจอง <input id="rc-by" value="R" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+      </div>
+      <button class="btn btn-p btn-sm" onclick="pullReserved()">🔄 ดึงสินค้าจอง + บันทึก</button>
+    </div>
+    <p style="font-size:11px;color:var(--text3);margin-top:8px">ดึงข้อมูลที่นี่ครั้งเดียว → ผลลัพธ์แสดงที่เมนู <b>สต็อกสินค้า</b> และ <b>ออเดอร์ → สินค้าจอง</b> (sync ทุกเครื่อง)</p>
+  </div>
   <div class="card" style="margin-top:10px">
     <div class="card-t">🗑 ล้างข้อมูล</div>
     <div style="display:flex;flex-direction:column;gap:8px">
@@ -956,62 +989,40 @@ tbody tr:hover td{background:var(--pl)}
 
 <!-- STOCK -->
 <div id="page-stock" class="page">
-  <div class="card" style="padding:14px;margin-bottom:12px">
-    <div class="card-t">📦 ดึงสต็อกจาก Google Sheet</div>
-    <p style="font-size:12px;color:var(--text2);margin-bottom:8px">วางลิงก์ Google Sheet (แชร์ "ทุกคนที่มีลิงก์" ก็พอ) — ระบบดึง SKU + สต็อกจากคอลัมน์ที่ระบุ</p>
-    <input id="stock-url" type="url" placeholder="วางลิงก์ Google Sheet ที่นี่" style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:8px">
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-      <label style="font-size:12px;color:var(--text2)">คอลัมน์ SKU: <input id="stock-col-sku" value="A" style="width:48px;padding:5px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
-    </div>
-    <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">คลังที่จะแสดง (คอลัมน์:ชื่อคลัง คั่นด้วยจุลภาค)</label>
-    <input id="stock-wh-cols" value="G:QA, H:NEW WH, I:Total, K:Pick, O:Live Stock" style="width:100%;padding:7px;border:1.5px solid var(--border2);border-radius:8px;font-size:12px;box-sizing:border-box;margin-bottom:8px;font-family:monospace">
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-p btn-sm" onclick="pullStock()">🔄 ดึงสต็อก</button>
-      <span id="stock-info" style="font-size:12px;color:var(--text2);align-self:center"></span>
-    </div>
-  </div>
   <div class="card" style="padding:12px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
       <div class="card-t" style="margin:0">📊 สต็อกคงเหลือแต่ละคลัง</div>
-      <input id="stock-q" oninput="renderStock()" placeholder="🔍 ค้นหา SKU/ชื่อ" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text)">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-p btn-sm" onclick="pullStock()">🔄 ดึงสต็อก</button>
+        <input id="stock-q" oninput="renderStock()" placeholder="🔍 ค้นหา SKU/ชื่อ" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text)">
+      </div>
     </div>
-    <label style="font-size:12px;color:var(--text2)"><input type="checkbox" id="stock-instock-only" onchange="renderStock()"> แสดงเฉพาะที่มีสต็อก</label>
-    <div class="tw" style="margin-top:8px;max-height:60vh;overflow:auto"><table><thead id="stock-thead"></thead><tbody id="stock-tbody"></tbody></table></div>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+      <label style="font-size:12px;color:var(--text2)"><input type="checkbox" id="stock-instock-only" onchange="renderStock()"> แสดงเฉพาะที่มีสต็อก</label>
+      <span id="stock-info" style="font-size:12px;color:var(--text2)"></span>
+      <span style="font-size:11px;color:var(--text3)">ตั้งค่าลิงก์ที่ ⚙️ ตั้งค่า → แหล่งข้อมูล</span>
+    </div>
+    <div class="tw" style="margin-top:8px;max-height:62vh;overflow:auto"><table><thead id="stock-thead"></thead><tbody id="stock-tbody"></tbody></table></div>
   </div>
 </div>
 
 <!-- สินค้าจอง -->
 <div id="page-reserved" class="page">
-  <div class="card" style="padding:14px;margin-bottom:12px">
-    <div class="card-t">🔖 ดึงสินค้าจองจาก Google Sheet (แท็บ "สินค้าจอง")</div>
-    <input id="reserved-url" type="url" placeholder="วางลิงก์ Google Sheet (แท็บสินค้าจอง)" style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:8px">
-    <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">ตั้งคอลัมน์ (ตัวอักษร A,B,C… ตามชีท)</label>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px 10px;margin-bottom:8px">
-      <label style="font-size:12px;color:var(--text2)">Product ID <input id="rc-pid" value="K" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
-      <label style="font-size:12px;color:var(--text2)">Description <input id="rc-desc" value="L" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
-      <label style="font-size:12px;color:var(--text2)">เลข Order <input id="rc-order" value="M" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
-      <label style="font-size:12px;color:var(--text2)">จำนวนจอง <input id="rc-qty" value="N" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
-      <label style="font-size:12px;color:var(--text2)">Status <input id="rc-status" value="O" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
-      <label style="font-size:12px;color:var(--text2)">วันที่จอง <input id="rc-bookdate" value="P" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
-      <label style="font-size:12px;color:var(--text2)">วันส่งสินค้า <input id="rc-shipdate" value="Q" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
-      <label style="font-size:12px;color:var(--text2)">ผู้แจ้งจอง <input id="rc-by" value="R" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-p btn-sm" onclick="pullReserved()">🔄 ดึงสินค้าจอง</button>
-      <span id="reserved-info" style="font-size:12px;color:var(--text2);align-self:center"></span>
-    </div>
-  </div>
   <div class="card" style="padding:12px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
       <div style="display:flex;gap:6px;flex-wrap:wrap" id="reserved-tabs">
         <button class="btn btn-sm rf-tab" data-f="today" onclick="setReservedFilter('today')">📅 ส่งวันนี้ <span class="rf-c" id="rf-c-today">0</span></button>
         <button class="btn btn-sm rf-tab" data-f="tomorrow" onclick="setReservedFilter('tomorrow')">➡️ ส่งพรุ่งนี้ <span class="rf-c" id="rf-c-tomorrow">0</span></button>
         <button class="btn btn-sm rf-tab" data-f="overdue" onclick="setReservedFilter('overdue')">⚠️ ค้างส่ง(เกินกำหนด) <span class="rf-c" id="rf-c-overdue">0</span></button>
         <button class="btn btn-sm rf-tab" data-f="all" onclick="setReservedFilter('all')">ทั้งหมด <span class="rf-c" id="rf-c-all">0</span></button>
       </div>
-      <input id="reserved-q" oninput="renderReserved()" placeholder="🔍 ค้นหา Product/Order/ผู้แจ้ง" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);min-width:200px">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-p btn-sm" onclick="pullReserved()">🔄 ดึงข้อมูล</button>
+        <input id="reserved-q" oninput="renderReserved()" placeholder="🔍 ค้นหา Product/Order/ผู้แจ้ง" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);min-width:180px">
+      </div>
     </div>
-    <div class="tw" style="margin-top:8px;max-height:62vh;overflow:auto"><table><thead id="reserved-thead"></thead><tbody id="reserved-tbody"></tbody></table></div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:4px"><span id="reserved-info" style="color:var(--text2)"></span> · ตั้งค่าลิงก์/คอลัมน์ที่ ⚙️ ตั้งค่า → แหล่งข้อมูล</div>
+    <div class="tw" style="margin-top:6px;max-height:62vh;overflow:auto"><table><thead id="reserved-thead"></thead><tbody id="reserved-tbody"></tbody></table></div>
   </div>
 </div>
 <style>
@@ -1383,7 +1394,7 @@ function goPage(p){
   if(p==='reserved'){ if(FB_URL)loadReservedFromFB(true); renderReserved(); }
   if(p==='truck'){ renderTruckLoad(); }
   if(p==='audit'){ renderAudit(); }
-  if(p==='settings'){ renderBoxTypesSettings(); if(FB_URL)loadBoxTypesFB(); if(window.QCVID){QCVID.updateSettingsUI();renderVidDashboard();} }
+  if(p==='settings'){ renderBoxTypesSettings(); if(FB_URL)loadBoxTypesFB(); if(window.QCVID){QCVID.updateSettingsUI();renderVidDashboard();} try{renderStock();renderReserved();}catch(e){} }
   // ออกจากหน้า QC ระหว่างอัด → หยุด+finalize วิดีโอ (ไม่กระทบ QC)
   if(p!=='qcscan'&&window.QCVID&&QCVID.session){ QCVID.stop('leave-page'); }
   // update mobile nav highlight
