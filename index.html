@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-41</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-42</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -2034,6 +2034,13 @@ function doQCScan(){
     let inOther=Object.values(ORDERS).find(o2=>o2.id!==curQCOid&&o2.items.some(i=>i.sku===sku));
     // ไม่ใช่ SKU ที่รู้จัก + เปิดใช้ยิงกล่อง → ถือเป็นบาร์โค้ดกล่อง
     if(!inOtherT&&!inOther&&BOX_SCAN_ON){
+      // 🛡️ กันสแกนผิด: ถ้าโค้ดมี SKU ซ้อนกัน (อ่านบาร์โค้ดชนกัน) → เตือน ไม่เพิ่มเป็นกล่อง
+      var _skuHits=(sku.match(/[A-Za-z]{2,5}\d{5,}/g)||[]);
+      if(_skuHits.length>=2){
+        qcAlert('⚠️ อ่านบาร์โค้ดซ้อนกัน '+_skuHits.length+' รหัส — สแกนใหม่ทีละชิ้น','err');playErr();
+        document.getElementById('qc-in-sku').value='';document.getElementById('qc-in-sku').focus();
+        return;
+      }
       qcAddBoxFromScan(sku);
       document.getElementById('qc-in-sku').value='';document.getElementById('qc-sku-hint').textContent='';
       document.getElementById('qc-in-sku').focus();
