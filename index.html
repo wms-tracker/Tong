@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-38</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-39</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -983,15 +983,19 @@ tbody tr:hover td{background:var(--pl)}
 <!-- สินค้าจอง -->
 <div id="page-reserved" class="page">
   <div class="card" style="padding:14px;margin-bottom:12px">
-    <div class="card-t">🔖 ดึงสินค้าจองจาก Google Sheet</div>
-    <p style="font-size:12px;color:var(--text2);margin-bottom:8px">วางลิงก์ชีท (แท็บ "สินค้าจอง") — แชร์ "ทุกคนที่มีลิงก์" ก็พอ · ถ้าเป็นสเปรดชีทเดียวกับสต็อก ให้ก็อปลิงก์ตอนเปิดแท็บ "สินค้าจอง" (จะได้ gid ของแท็บนั้น)</p>
+    <div class="card-t">🔖 ดึงสินค้าจองจาก Google Sheet (แท็บ "สินค้าจอง")</div>
     <input id="reserved-url" type="url" placeholder="วางลิงก์ Google Sheet (แท็บสินค้าจอง)" style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:8px">
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-      <label style="font-size:12px;color:var(--text2)">คอลัมน์ SKU: <input id="reserved-col-sku" value="A" style="width:48px;padding:5px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
-      <label style="font-size:12px;color:var(--text2)">คอลัมน์ชื่อสินค้า: <input id="reserved-col-name" value="B" style="width:48px;padding:5px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+    <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">ตั้งคอลัมน์ (ตัวอักษร A,B,C… ตามชีท)</label>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px 10px;margin-bottom:8px">
+      <label style="font-size:12px;color:var(--text2)">Product ID <input id="rc-pid" value="A" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+      <label style="font-size:12px;color:var(--text2)">Description <input id="rc-desc" value="B" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+      <label style="font-size:12px;color:var(--text2)">เลข Order <input id="rc-order" value="C" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+      <label style="font-size:12px;color:var(--text2)">จำนวนจอง <input id="rc-qty" value="D" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+      <label style="font-size:12px;color:var(--text2)">Status <input id="rc-status" value="E" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+      <label style="font-size:12px;color:var(--text2)">วันที่จอง <input id="rc-bookdate" value="F" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+      <label style="font-size:12px;color:var(--text2)">วันส่งสินค้า <input id="rc-shipdate" value="G" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
+      <label style="font-size:12px;color:var(--text2)">ผู้แจ้งจอง <input id="rc-by" value="H" style="width:44px;padding:4px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px"></label>
     </div>
-    <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">คอลัมน์ที่จะแสดง (คอลัมน์:หัวข้อ คั่นด้วยจุลภาค)</label>
-    <input id="reserved-cols" value="C:จำนวนจอง" style="width:100%;padding:7px;border:1.5px solid var(--border2);border-radius:8px;font-size:12px;box-sizing:border-box;margin-bottom:8px;font-family:monospace">
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-p btn-sm" onclick="pullReserved()">🔄 ดึงสินค้าจอง</button>
       <span id="reserved-info" style="font-size:12px;color:var(--text2);align-self:center"></span>
@@ -999,12 +1003,23 @@ tbody tr:hover td{background:var(--pl)}
   </div>
   <div class="card" style="padding:12px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-      <div class="card-t" style="margin:0">🔖 รายการสินค้าจอง</div>
-      <input id="reserved-q" oninput="renderReserved()" placeholder="🔍 ค้นหา SKU/ชื่อ" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text)">
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="reserved-tabs">
+        <button class="btn btn-sm rf-tab" data-f="today" onclick="setReservedFilter('today')">📅 ส่งวันนี้ <span class="rf-c" id="rf-c-today">0</span></button>
+        <button class="btn btn-sm rf-tab" data-f="tomorrow" onclick="setReservedFilter('tomorrow')">➡️ ส่งพรุ่งนี้ <span class="rf-c" id="rf-c-tomorrow">0</span></button>
+        <button class="btn btn-sm rf-tab" data-f="overdue" onclick="setReservedFilter('overdue')">⚠️ ค้างส่ง(เกินกำหนด) <span class="rf-c" id="rf-c-overdue">0</span></button>
+        <button class="btn btn-sm rf-tab" data-f="all" onclick="setReservedFilter('all')">ทั้งหมด <span class="rf-c" id="rf-c-all">0</span></button>
+      </div>
+      <input id="reserved-q" oninput="renderReserved()" placeholder="🔍 ค้นหา Product/Order/ผู้แจ้ง" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);min-width:200px">
     </div>
     <div class="tw" style="margin-top:8px;max-height:62vh;overflow:auto"><table><thead id="reserved-thead"></thead><tbody id="reserved-tbody"></tbody></table></div>
   </div>
 </div>
+<style>
+.rf-tab{background:var(--bg3);color:var(--text2);border:1.5px solid var(--border)}
+.rf-tab.act{background:var(--primary);color:#fff;border-color:var(--primary)}
+.rf-c{display:inline-block;min-width:18px;padding:0 5px;margin-left:3px;border-radius:99px;background:rgba(0,0,0,.15);font-size:11px;font-weight:800}
+.rf-tab.act .rf-c{background:rgba(255,255,255,.25)}
+</style>
 
 <!-- TRUCK LOAD -->
 <div id="page-truck" class="page">
@@ -2703,21 +2718,36 @@ function renderStock(){
 }
 
 /* ===== สินค้าจอง (Reserved) — ดึงจากชีท "สินค้าจอง" ===== */
-var RESERVED={};      // {sku:{name, cols:{หัวข้อ:ค่า}}}
-var RESERVED_COLS=[]; // [{name}]
-try{RESERVED=JSON.parse(localStorage.getItem('WMS_RESERVED')||'{}');RESERVED_COLS=JSON.parse(localStorage.getItem('WMS_RESERVED_COLS')||'[]');}catch(_){}
-function _saveReserved(){try{localStorage.setItem('WMS_RESERVED',JSON.stringify(RESERVED));localStorage.setItem('WMS_RESERVED_COLS',JSON.stringify(RESERVED_COLS));}catch(_){}}
-function pushReservedToFB(){ if(!FB_URL)return; fbPut('/reservedData',{items:RESERVED,cols:RESERVED_COLS,at:new Date().toISOString(),by:(localStorage.getItem('WMS_USR')||'PC')}); }
+var RESERVED_ROWS=[]; // [{pid,desc,order,qty,status,bookDate,shipDate,by}]
+var _reservedFilter='today';
+try{RESERVED_ROWS=JSON.parse(localStorage.getItem('WMS_RESERVED_ROWS')||'[]');}catch(_){}
+try{var _rf=localStorage.getItem('WMS_RESERVED_FILTER');if(_rf)_reservedFilter=_rf;}catch(_){}
+function _saveReserved(){try{localStorage.setItem('WMS_RESERVED_ROWS',JSON.stringify(RESERVED_ROWS));}catch(_){}}
+function pushReservedToFB(){ if(!FB_URL)return; fbPut('/reservedData',{rows:RESERVED_ROWS,at:new Date().toISOString(),by:(localStorage.getItem('WMS_USR')||'PC')}); }
 var _reservedLoaded=false;
 function loadReservedFromFB(force){
   if(!FB_URL)return; if(_reservedLoaded&&!force)return;
   fbGet('/reservedData',function(err,d){
-    if(err||!d||!d.items)return;
-    RESERVED=d.items||{};RESERVED_COLS=(d.cols&&d.cols.length)?d.cols:RESERVED_COLS;
-    _reservedLoaded=true;_saveReserved();
+    if(err||!d||!d.rows)return;
+    RESERVED_ROWS=d.rows||[];_reservedLoaded=true;_saveReserved();
     if(document.getElementById('page-reserved')&&document.getElementById('page-reserved').classList.contains('active'))renderReserved();
-    var inf=document.getElementById('reserved-info');if(inf)inf.textContent='✅ สินค้าจองจากส่วนกลาง '+Object.keys(RESERVED).length+' SKU (อัปเดต '+(d.by||'')+')';
+    var inf=document.getElementById('reserved-info');if(inf)inf.textContent='✅ สินค้าจองจากส่วนกลาง '+RESERVED_ROWS.length+' รายการ (อัปเดต '+(d.by||'')+')';
   });
+}
+// แปลงวันที่ DD/MM/YYYY (รองรับ พ.ศ.), ISO, "Wed, Jun 17" → Date (เที่ยงคืน)
+function _parseResvDate(s){
+  s=String(s||'').trim(); if(!s)return null;
+  var iso=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(iso){var y=parseInt(iso[1]);if(y>2400)y-=543;return new Date(y,parseInt(iso[2])-1,parseInt(iso[3]));}
+  var m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if(m){var yy=parseInt(m[3]);if(yy<100)yy+=(yy>50?1900:2000);if(yy>2400)yy-=543;return new Date(yy,parseInt(m[2])-1,parseInt(m[1]));}
+  var m2=s.match(/^\w+,?\s+([A-Za-z]+)\s+(\d+)/);
+  if(m2){var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var mn=MN[m2[1]];if(mn!==undefined)return new Date(new Date().getFullYear(),mn,parseInt(m2[2]));}
+  var d=new Date(s);return isNaN(d.getTime())?null:new Date(d.getFullYear(),d.getMonth(),d.getDate());
+}
+function _resvStatusPending(status){
+  var s=String(status||'').toLowerCase();
+  return !/ส่งแล้ว|จัดส่งแล้ว|สำเร็จ|เสร็จ|ยกเลิก|cancel|done|shipped|complete/.test(s);
 }
 function pullReserved(){
   var el=document.getElementById('reserved-url');
@@ -2725,12 +2755,9 @@ function pullReserved(){
   if(!rawUrl){document.getElementById('reserved-info').textContent='กรุณาวางลิงก์ Google Sheet';return;}
   localStorage.setItem('WMS_RESERVED_URL',rawUrl);
   var url=_sheetCsvUrl(rawUrl);
-  var skuIdx=_colToIdx((document.getElementById('reserved-col-sku')||{}).value||'A');
-  var nameIdx=_colToIdx((document.getElementById('reserved-col-name')||{}).value||'B');
-  var colsCfg=(document.getElementById('reserved-cols')||{}).value||'';
-  localStorage.setItem('WMS_RESERVED_COLSCFG',colsCfg);
-  var cols=_parseWhCols(colsCfg);
-  if(skuIdx<0||!cols.length){document.getElementById('reserved-info').textContent='ระบุคอลัมน์ SKU และคอลัมน์ที่จะแสดงให้ถูกต้อง';return;}
+  function _ci(id,dflt){return _colToIdx((document.getElementById(id)||{}).value||dflt);}
+  var map={pid:_ci('rc-pid','A'),desc:_ci('rc-desc','B'),order:_ci('rc-order','C'),qty:_ci('rc-qty','D'),status:_ci('rc-status','E'),bookDate:_ci('rc-bookdate','F'),shipDate:_ci('rc-shipdate','G'),by:_ci('rc-by','H')};
+  try{localStorage.setItem('WMS_RESERVED_MAP',JSON.stringify({pid:(document.getElementById('rc-pid')||{}).value,desc:(document.getElementById('rc-desc')||{}).value,order:(document.getElementById('rc-order')||{}).value,qty:(document.getElementById('rc-qty')||{}).value,status:(document.getElementById('rc-status')||{}).value,bookDate:(document.getElementById('rc-bookdate')||{}).value,shipDate:(document.getElementById('rc-shipdate')||{}).value,by:(document.getElementById('rc-by')||{}).value}));}catch(_){}
   document.getElementById('reserved-info').textContent='⏳ กำลังดึงสินค้าจอง...';
   var xhr=new XMLHttpRequest();
   xhr.open('GET',url);xhr.timeout=30000;
@@ -2738,17 +2765,19 @@ function pullReserved(){
     try{
       var rows=_parseCSVText(xhr.responseText);
       if(rows.length<2){document.getElementById('reserved-info').textContent='ชีทว่างเปล่า';return;}
-      RESERVED={};RESERVED_COLS=cols.map(function(c){return {name:c.name};});
+      function _g(row,idx){return idx>=0?String(row[idx]||'').trim():'';}
+      RESERVED_ROWS=[];
       for(var r=1;r<rows.length;r++){
-        var sku=String(rows[r][skuIdx]||'').trim();
-        if(!sku||!/^[A-Z]{2,5}\d/i.test(sku))continue;
-        var cv={};
-        cols.forEach(function(c){var q=parseInt(String(rows[r][c.idx]||'').replace(/[^\d-]/g,''));cv[c.name]=isNaN(q)?String(rows[r][c.idx]||'').trim():q;});
-        var nm=nameIdx>=0&&rows[r][nameIdx]?String(rows[r][nameIdx]).trim():'';
-        RESERVED[sku]={name:nm,cols:cv};
+        var pid=_g(rows[r],map.pid);
+        if(!pid)continue; // ข้ามแถวว่าง
+        RESERVED_ROWS.push({
+          pid:pid,desc:_g(rows[r],map.desc),order:_g(rows[r],map.order),
+          qty:_g(rows[r],map.qty),status:_g(rows[r],map.status),
+          bookDate:_g(rows[r],map.bookDate),shipDate:_g(rows[r],map.shipDate),by:_g(rows[r],map.by)
+        });
       }
       _saveReserved();pushReservedToFB();
-      document.getElementById('reserved-info').textContent='✅ ดึงแล้ว '+Object.keys(RESERVED).length+' SKU · sync แล้ว';
+      document.getElementById('reserved-info').textContent='✅ ดึงแล้ว '+RESERVED_ROWS.length+' รายการ · sync แล้ว';
       renderReserved();
     }catch(e){document.getElementById('reserved-info').textContent='อ่านข้อมูลไม่ได้: '+e.message;}
   };
@@ -2756,26 +2785,50 @@ function pullReserved(){
   xhr.ontimeout=function(){document.getElementById('reserved-info').textContent='timeout';};
   xhr.send();
 }
+function setReservedFilter(f){_reservedFilter=f;try{localStorage.setItem('WMS_RESERVED_FILTER',f);}catch(_){}renderReserved();}
+function _resvBucket(row,today,tmr){
+  var d=_parseResvDate(row.shipDate); if(!d)return null;
+  var dt=d.getTime();
+  if(dt===today)return 'today';
+  if(dt===tmr)return 'tomorrow';
+  if(dt<today&&_resvStatusPending(row.status))return 'overdue';
+  return 'other';
+}
 function renderReserved(){
   var tb=document.getElementById('reserved-tbody');if(!tb)return;
   var th=document.getElementById('reserved-thead');
   var urlEl=document.getElementById('reserved-url');
   if(urlEl&&!urlEl.value)urlEl.value=localStorage.getItem('WMS_RESERVED_URL')||'';
-  var cfgEl=document.getElementById('reserved-cols');
-  if(cfgEl&&localStorage.getItem('WMS_RESERVED_COLSCFG'))cfgEl.value=localStorage.getItem('WMS_RESERVED_COLSCFG');
+  // เติมค่าคอลัมน์ที่บันทึกไว้
+  try{var mp=JSON.parse(localStorage.getItem('WMS_RESERVED_MAP')||'null');if(mp){var ids={pid:'rc-pid',desc:'rc-desc',order:'rc-order',qty:'rc-qty',status:'rc-status',bookDate:'rc-bookdate',shipDate:'rc-shipdate',by:'rc-by'};Object.keys(ids).forEach(function(k){var e=document.getElementById(ids[k]);if(e&&mp[k])e.value=mp[k];});}}catch(_){}
+  var now=new Date();var today=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();var tmr=today+86400000;
+  // นับแต่ละกลุ่ม
+  var cnt={today:0,tomorrow:0,overdue:0,all:RESERVED_ROWS.length};
+  RESERVED_ROWS.forEach(function(row){var b=_resvBucket(row,today,tmr);if(b&&cnt[b]!==undefined)cnt[b]++;});
+  ['today','tomorrow','overdue','all'].forEach(function(f){var c=document.getElementById('rf-c-'+f);if(c)c.textContent=cnt[f];var t=document.querySelector('.rf-tab[data-f="'+f+'"]');if(t)t.classList.toggle('act',f===_reservedFilter);});
   var q=(document.getElementById('reserved-q')?document.getElementById('reserved-q').value:'').toLowerCase().trim();
-  var _thSty='position:sticky;top:0;z-index:3;background:var(--bg2,#f8fafc)';
-  if(th)th.innerHTML='<tr><th style="'+_thSty+'">SKU</th><th style="'+_thSty+'">ชื่อสินค้า</th>'+RESERVED_COLS.map(function(c){return '<th style="text-align:right;'+_thSty+'">'+escHtml(c.name)+'</th>';}).join('')+'</tr>';
-  var colspan=2+RESERVED_COLS.length;
-  var list=Object.keys(RESERVED).map(function(sku){return {sku:sku,name:RESERVED[sku].name||'',cols:RESERVED[sku].cols||{}};})
-    .filter(function(x){return !q||_skuSearchMatch(x.sku,x.name,q);})
-    .sort(function(a,b){return a.sku<b.sku?-1:1;});
-  if(!list.length){tb.innerHTML='<tr><td colspan="'+colspan+'" class="empty" style="padding:24px">ยังไม่มีข้อมูลสินค้าจอง — วางลิงก์แล้วกด "ดึงสินค้าจอง"</td></tr>';return;}
-  tb.innerHTML=list.map(function(x){
+  var _thSty='position:sticky;top:0;z-index:3;background:var(--bg2,#f8fafc);white-space:nowrap';
+  if(th)th.innerHTML='<tr>'+['Product ID','Description','เลข Order','จำนวนจอง','Status','วันที่จอง','วันส่งสินค้า','ผู้แจ้งจอง'].map(function(h){return '<th style="'+_thSty+'">'+h+'</th>';}).join('')+'</tr>';
+  var list=RESERVED_ROWS.filter(function(row){
+    if(_reservedFilter!=='all'&&_resvBucket(row,today,tmr)!==_reservedFilter)return false;
+    if(q){var hay=(row.pid+' '+row.desc+' '+row.order+' '+row.by).toLowerCase();if(hay.indexOf(q)<0)return false;}
+    return true;
+  }).sort(function(a,b){var da=_parseResvDate(a.shipDate),db=_parseResvDate(b.shipDate);return (da?da.getTime():0)-(db?db.getTime():0);});
+  if(!list.length){tb.innerHTML='<tr><td colspan="8" class="empty" style="padding:24px">— ไม่มีรายการในกลุ่มนี้ —</td></tr>';return;}
+  function _fmt(s){var d=_parseResvDate(s);return d?(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()):(escHtml(s||'—'));}
+  tb.innerHTML=list.map(function(row){
+    var b=_resvBucket(row,today,tmr);
+    var stColor=b==='overdue'?'var(--red)':(b==='today'?'var(--orange)':'var(--text2)');
+    var stBg=b==='overdue'?'var(--rb)':(b==='today'?'var(--ob)':'var(--bg3)');
     return '<tr>'
-      +'<td class="mono" style="font-size:12px">'+escHtml(x.sku)+'</td>'
-      +'<td style="font-size:12px">'+escHtml((x.name||'').substring(0,40))+'</td>'
-      +RESERVED_COLS.map(function(c){var v=x.cols[c.name];var n=(typeof v==='number');return '<td style="text-align:right;'+(n&&v>0?'font-weight:700;color:var(--orange)':'color:var(--text3)')+'">'+(v===undefined||v===''?'—':v)+'</td>';}).join('')
+      +'<td class="mono" style="font-size:12px;font-weight:700;color:var(--primary)">'+escHtml(row.pid)+'</td>'
+      +'<td style="font-size:12px">'+escHtml((row.desc||'').substring(0,45))+'</td>'
+      +'<td class="mono" style="font-size:12px">'+escHtml(row.order||'—')+'</td>'
+      +'<td style="text-align:center;font-weight:800;color:var(--orange)">'+escHtml(row.qty||'—')+'</td>'
+      +'<td><span class="badge" style="background:'+stBg+';color:'+stColor+';border:1px solid '+stColor+'">'+escHtml(row.status||'—')+'</span></td>'
+      +'<td style="font-size:12px;font-family:monospace;white-space:nowrap;color:var(--text2)">'+_fmt(row.bookDate)+'</td>'
+      +'<td style="font-size:12px;font-family:monospace;white-space:nowrap;font-weight:700;color:'+stColor+'">'+_fmt(row.shipDate)+'</td>'
+      +'<td style="font-size:12px;color:var(--text2)">'+escHtml(row.by||'—')+'</td>'
       +'</tr>';
   }).join('');
 }
