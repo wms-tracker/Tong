@@ -173,7 +173,7 @@ input:focus{outline:none;border-color:var(--primary)}
     <div style="display:flex;flex-direction:column;gap:8px">
       <button class="btn btn-fb" onclick="syncOrdersFromFirebase()">🔥 ดึงออเดอร์จาก Firebase</button>
       <button class="btn" style="background:#DC2626;color:#fff;font-weight:700" onclick="clearSyncOrders()">🗑 ล้างและ Sync ใหม่ทั้งหมด</button>
-      <div style="text-align:center"><span style="background:#16A34A;color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:6px">PDA BUILD 20260731-10</span></div>
+      <div style="text-align:center"><span style="background:#16A34A;color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:6px">PDA BUILD 20260731-11</span></div>
       <div id="sync-debug" style="font-size:11px;color:var(--text2);padding:6px;background:var(--bg3);border-radius:6px;word-break:break-all"></div>
     </div>
   </div>
@@ -708,8 +708,14 @@ var _BOX_DEFAULTS=['กล่อง S','กล่อง M','กล่อง L','
 var BOX_TYPES=(function(){try{var s=JSON.parse(ls('PDA_BOXTYPES')||'null');return (Array.isArray(s)&&s.length)?s:_BOX_DEFAULTS.slice();}catch(e){return _BOX_DEFAULTS.slice();}})();
 var BOX_SCAN_ON=(ls('PDA_BOXSCAN')!=='0');
 var VDO_ON=(ls('PDA_VDO')==='1');
+var BOX_CODE_NAMES={};try{BOX_CODE_NAMES=JSON.parse(ls('PDA_BOXCODENAMES')||'{}');}catch(e){}
+function _boxName(code){if(!code)return '';var c=String(code).trim();return BOX_CODE_NAMES[c]||BOX_CODE_NAMES[c.toUpperCase()]||'';}
 function loadBoxTypesPDA(){
   if(!FB)return;
+  fbGet('/boxCodeNames',function(err,data){
+    if(err||!data||typeof data!=='object')return;
+    BOX_CODE_NAMES=data;try{ls('PDA_BOXCODENAMES',JSON.stringify(data));}catch(e){}
+  });
   fbGet('/vdoOn',function(err,data){
     if(err||data===null||data===undefined)return;
     VDO_ON=!!data;try{ls('PDA_VDO',VDO_ON?'1':'0');}catch(e){}
@@ -786,7 +792,7 @@ function addBoxPDA(){
   var codeEl=document.getElementById('box-code');var code=(codeEl?codeEl.value:'').trim();
   if(!code){if(codeEl)codeEl.focus();return;}
   o.boxes=o.boxes||[];
-  if(o.boxes.some(function(b){return String(b.code)===code;})){if(hint){hint.className='hint h-warn';hint.textContent='กล่องนี้ยิงไปแล้ว';}if(codeEl){codeEl.value='';codeEl.focus();}return;}
+  if(!_boxName(code)&&o.boxes.some(function(b){return String(b.code)===code;})){if(hint){hint.className='hint h-warn';hint.textContent='กล่องนี้ยิงไปแล้ว';}if(codeEl){codeEl.value='';codeEl.focus();}return;}
   o.boxes.push({code:code,size:_boxSize,at:new Date().toISOString(),by:CUR_USER||'PDA',device:DEV||'PDA'});
   o.boxesAt=new Date().toISOString();
   if(!o.timeline)o.timeline=[];
@@ -1542,7 +1548,7 @@ function qcbAdd(){
   var codeEl=document.getElementById('qcb-code');var code=(codeEl?codeEl.value:'').trim();
   if(!code){if(codeEl)codeEl.focus();return;}
   o.boxes=o.boxes||[];
-  if(o.boxes.some(function(b){return String(b.code)===code;})){showAl('กล่องนี้ยิงไปแล้ว','warn');if(codeEl){codeEl.value='';codeEl.focus();}return;}
+  if(!_boxName(code)&&o.boxes.some(function(b){return String(b.code)===code;})){showAl('กล่องนี้ยิงไปแล้ว','warn');if(codeEl){codeEl.value='';codeEl.focus();}return;}
   o.boxes.push({code:code,size:_boxSize,at:new Date().toISOString(),by:CUR_USER||'PDA',device:DEV||'PDA'});
   o.boxesAt=new Date().toISOString();
   if(!o.timeline)o.timeline=[];

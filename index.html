@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-46</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-47</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1955,7 +1955,7 @@ function qcAddBoxFromScan(code){
   code=String(code||'').trim(); if(!code)return;
   var size=document.getElementById('qc-box-size')?document.getElementById('qc-box-size').value:'';
   o.boxes=o.boxes||[];
-  if(o.boxes.some(function(b){return String(b.code)===code;})){qcAlert('📦 กล่องนี้ยิงไปแล้ว: '+code,'warn');playErr();return;}
+  if(!_boxName(code)&&o.boxes.some(function(b){return String(b.code)===code;})){qcAlert('📦 กล่องนี้ยิงไปแล้ว: '+code,'warn');playErr();return;}
   var usr=localStorage.getItem('WMS_USR')||'PC';
   o.boxes.push({code:code,size:size,at:new Date().toISOString(),by:usr,device:localStorage.getItem('WMS_DEV')||'WMS-PC'});
   if(!o.timeline)o.timeline=[];
@@ -4476,7 +4476,7 @@ function addEditBox(){
   if(!code){if(codeEl)codeEl.focus();return;}
   var size=document.getElementById('edit-box-size')?document.getElementById('edit-box-size').value:'';
   o.boxes=o.boxes||[];
-  if(o.boxes.some(function(b){return String(b.code)===code;})){ulAlert('กล่องนี้ยิงไปแล้ว: '+code,'warn');if(codeEl)codeEl.value='';return;}
+  if(!_boxName(code)&&o.boxes.some(function(b){return String(b.code)===code;})){ulAlert('กล่องนี้ยิงไปแล้ว: '+code,'warn');if(codeEl)codeEl.value='';return;}
   var usr=localStorage.getItem('WMS_USR')||'PC';
   o.boxes.push({code:code,size:size,at:new Date().toISOString(),by:usr,device:localStorage.getItem('WMS_DEV')||'WMS-PC'});
   if(!o.timeline)o.timeline=[];
@@ -4541,7 +4541,7 @@ function pcBoxAdd(){
   if(!code){if(codeEl)codeEl.focus();return;}
   var size=document.getElementById('bm-size')?document.getElementById('bm-size').value:'';
   o.boxes=o.boxes||[];
-  if(o.boxes.some(function(b){return String(b.code)===code;})){ulAlert('กล่องนี้ยิงไปแล้ว: '+code,'warn');if(codeEl){codeEl.value='';codeEl.focus();}return;}
+  if(!_boxName(code)&&o.boxes.some(function(b){return String(b.code)===code;})){ulAlert('กล่องนี้ยิงไปแล้ว: '+code,'warn');if(codeEl){codeEl.value='';codeEl.focus();}return;}
   var usr=localStorage.getItem('WMS_USR')||'PC';
   o.boxes.push({code:code,size:size,at:new Date().toISOString(),by:usr,device:localStorage.getItem('WMS_DEV')||'WMS-PC'});
   if(!o.timeline)o.timeline=[];
@@ -6157,7 +6157,7 @@ function renderDailyReport(){
     boxHtml+='<div class="empty" style="padding:14px;font-size:12px">— ยังไม่มีการยิงกล่องในวันนี้ —</div></div>';
   }else{
     // สรุปตามขนาด
-    var _bySize={};_allBoxes.forEach(function(b){_bySize[b.size]=(_bySize[b.size]||0)+1;});
+    var _bySize={};_allBoxes.forEach(function(b){var k=_boxName(b.code)||b.size||'ไม่ระบุ';_bySize[k]=(_bySize[k]||0)+1;});
     boxHtml+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">'
       +Object.keys(_bySize).sort(function(a,b){return _bySize[b]-_bySize[a];}).map(function(s){
         return '<span style="padding:5px 12px;background:var(--tb);color:var(--teal);border:1px solid var(--tbr);border-radius:20px;font-size:12px;font-weight:700">'+escHtml(s)+': '+_bySize[s]+'</span>';
