@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-45</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-46</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1400,7 +1400,7 @@ function goPage(p){
   if(p==='reserved'){ if(FB_URL)loadReservedFromFB(true); renderReserved(); }
   if(p==='truck'){ renderTruckLoad(); }
   if(p==='audit'){ renderAudit(); }
-  if(p==='settings'){ renderBoxTypesSettings(); renderBoxCodeNames(); if(FB_URL){loadBoxTypesFB();loadBoxCodeNamesFB();} if(window.QCVID){QCVID.updateSettingsUI();renderVidDashboard();} try{renderStock();renderReserved();}catch(e){} }
+  if(p==='settings'){ _makeSettingsCollapsible(); renderBoxTypesSettings(); renderBoxCodeNames(); if(FB_URL){loadBoxTypesFB();loadBoxCodeNamesFB();} if(window.QCVID){QCVID.updateSettingsUI();renderVidDashboard();} try{renderStock();renderReserved();}catch(e){} }
   // ออกจากหน้า QC ระหว่างอัด → หยุด+finalize วิดีโอ (ไม่กระทบ QC)
   if(p!=='qcscan'&&window.QCVID&&QCVID.session){ QCVID.stop('leave-page'); }
   // update mobile nav highlight
@@ -4363,6 +4363,27 @@ function setBoxScanOn(on){
 var _BOXCODE_DEFAULTS={BOX00001:'DreamsTown Size S',BOX00002:'DreamsTown Size M',BOX00003:'DreamsTown Size L',BOX00004:'DreamsTown Size L1',BOX00005:'DreamsTown Size L2',BOX00006:'DreamsTown Size L3',BOX00007:'DreamsTown Size XL',BOX00008:'DreamsTown Size XL1'};
 var BOX_CODE_NAMES=(function(){try{var s=JSON.parse(localStorage.getItem('WMS_BOXCODENAMES')||'null');if(s&&typeof s==='object'&&Object.keys(s).length)return s;}catch(e){}return Object.assign({},_BOXCODE_DEFAULTS);})();
 function _boxName(code){if(!code)return '';var c=String(code).trim();return BOX_CODE_NAMES[c]||BOX_CODE_NAMES[c.toUpperCase()]||'';}
+// ทำการ์ดในหน้าตั้งค่าให้ยุบ/กางได้ (คลิกหัวข้อ) — เริ่มยุบไว้ทั้งหมด
+function _makeSettingsCollapsible(){
+  var pg=document.getElementById('page-settings');if(!pg||pg._collapsibleDone)return;pg._collapsibleDone=true;
+  pg.querySelectorAll(':scope > .card').forEach(function(card){
+    var t=card.querySelector('.card-t');if(!t)return;
+    var body=document.createElement('div');body.className='set-body';
+    var n=t.nextSibling;var nodes=[];while(n){nodes.push(n);n=n.nextSibling;}
+    nodes.forEach(function(x){body.appendChild(x);});
+    card.appendChild(body);
+    body.style.display='none';
+    t.style.cursor='pointer';t.style.userSelect='none';t.style.marginBottom='0';t.style.display='flex';t.style.alignItems='center';t.style.justifyContent='space-between';
+    var chev=document.createElement('span');chev.className='set-chev';chev.textContent='▸';chev.style.cssText='transition:transform .15s;font-size:14px;color:var(--text3)';
+    t.appendChild(chev);
+    t.addEventListener('click',function(){
+      var open=body.style.display!=='none';
+      body.style.display=open?'none':'';
+      body.style.marginTop=open?'':'12px';
+      chev.style.transform=open?'rotate(0deg)':'rotate(90deg)';
+    });
+  });
+}
 function renderBoxCodeNames(){var ta=document.getElementById('boxcode-names');if(!ta)return;ta.value=Object.keys(BOX_CODE_NAMES).map(function(k){return k+':'+BOX_CODE_NAMES[k];}).join('\n');}
 function saveBoxCodeNames(){
   var ta=document.getElementById('boxcode-names');if(!ta)return;
