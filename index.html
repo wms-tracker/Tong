@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-47</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-48</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -2144,8 +2144,7 @@ function passQCConfirm(){
     });
   }
   let pid=curQCOid;
-  // finalize วิดีโอของออเดอร์นี้ (ถ้ากำลังอัด)
-  if(window.QCVID&&QCVID.session){try{QCVID.stop('qc-pass');}catch(e){}}
+  // ★ ไม่หยุดวิดีโอตอน QC ผ่าน — อัดต่อจนกว่าจะยิงออเดอร์/แทร็คกิงใหม่ (startFor จะปิดไฟล์เดิม+เริ่มใหม่เอง)
   resetQCScan();  // ล้าง + โฟกัสช่องยิงออเดอร์ใหม่อัตโนมัติ
   document.getElementById('qc-hint1').className='hint hint-ok';
   document.getElementById('qc-hint1').textContent='✅ ผ่าน QC: '+pid+' → พร้อมยิงออเดอร์ถัดไป';
@@ -4682,8 +4681,8 @@ var QCVID={
   warn(msg){this.lastErr=msg;try{ulAlert('⚠️ วิดีโอ: '+msg,'warn');}catch(e){}this.updateStatusUI();},
   async startFor(oid,trk){
     if(!VDO_ON||!oid)return;
-    if(this.session&&this.session.oid===oid)return; // อัดออเดอร์นี้อยู่แล้ว
-    if(this.session){await this.stop('superseded');} // ยิงออเดอร์ใหม่ → ปิดไฟล์เดิมก่อน
+    if(this.session&&this.session.oid===oid&&this.session.tracking===(trk||''))return; // อัดออเดอร์/แทร็คกิงนี้อยู่แล้ว
+    if(this.session){await this.stop('superseded');} // ยิงออเดอร์/แทร็คกิงใหม่ → ปิดไฟล์เดิมก่อน
     if(!this.supported()){this.warn('เบราว์เซอร์ไม่รองรับ (ใช้ Chrome/Edge)');return;}
     if(!this.root){this.warn('ยังไม่ได้เลือกโฟลเดอร์เก็บวิดีโอ — ไปที่ ตั้งค่า');return;}
     // ถาม QC ซ้ำ ถ้าออเดอร์นี้เคยมีวิดีโอแล้ว
