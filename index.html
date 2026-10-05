@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-48</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-49</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -4503,8 +4503,9 @@ function _pushBoxesFB(oid){
   ORDERS[oid].boxesAt=_ts;
   if(!FB_URL)return;
   var boxes=ORDERS[oid].boxes||[];
-  fbPatch('/statuses/'+encodeId(oid),{boxes:boxes,boxesAt:_ts,updatedAt:_ts});
-  fbPatch('/orders/'+encodeId(oid),{boxes:boxes});
+  // เก็บ array กล่องไว้ที่ /orders เท่านั้น · /statuses เก็บแค่ boxesAt (เบา — ไม่ทำให้ sync ช้า)
+  fbPatch('/statuses/'+encodeId(oid),{boxesAt:_ts,updatedAt:_ts});
+  fbPatch('/orders/'+encodeId(oid),{boxes:boxes,boxesAt:_ts});
 }
 
 /* ===== 📦 BOX MODAL (PC — ใช้ในหน้า QC/Pack) ===== */
@@ -5208,11 +5209,10 @@ function syncStatusesNow(){
         var trkChanged=JSON.stringify(merged)!==JSON.stringify(ORDERS[oid].trkStatus||{});
         if(trkChanged){ORDERS[oid].trkStatus=merged;changed=true;}
       }
-      // sync กล่อง (last-write-wins ตาม boxesAt — รองรับทั้งเพิ่ม/ลบข้ามเครื่อง)
+      // sync กล่อง — /statuses บอกแค่ boxesAt เปลี่ยน แล้วดึงกล่องจริงจาก /orders เฉพาะออเดอร์นั้น (เบา)
       if(entry&&entry.boxesAt&&entry.boxesAt>(ORDERS[oid].boxesAt||'')){
-        ORDERS[oid].boxes=entry.boxes||[];
-        ORDERS[oid].boxesAt=entry.boxesAt;
-        changed=true;
+        ORDERS[oid].boxesAt=entry.boxesAt;changed=true;
+        (function(o){fbGet('/orders/'+encodeId(o),function(e,d){if(!e&&d&&ORDERS[o]){ORDERS[o].boxes=d.boxes||[];saveLocal();refreshAll();}});})(oid);
       }
     });
     if(changed){saveLocal();refreshAll();}
@@ -6944,10 +6944,8 @@ setTimeout(function(){
     _updateQueueBadge();  // แสดง badge ถ้ามีข้อมูลค้างจาก session ก่อน
     if(_fbQueue.length) setTimeout(_drainFbQueue,2000); // ลองส่งของค้างตอนเปิด
 
-    // Sync drafts from Firebase on startup
-    setTimeout(function(){syncDraftsFromFB();},2000);
-    // Sync drafts ทุก 10 วิ
-    setInterval(function(){syncDraftsFromFB();},10000);
+    // Sync drafts from Firebase on startup (ตัว interval 30 วิ อยู่ด้านล่างแล้ว)
+    setTimeout(function(){syncDraftsFromFB();},3000);
     // Auto-cleanup ประวัติเก่า วันละครั้ง
     setTimeout(function(){autoCleanupTick();},8000);
     // โหลดประเภทกล่อง + รหัสกล่องจาก Firebase
