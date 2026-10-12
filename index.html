@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-49</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-50</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -5996,6 +5996,7 @@ function miniBarChart(data,colorFn){
 }
 
 // ===== DAILY REPORT =====
+var _boxRptOid=''; // ออเดอร์ที่เลือกในรายงานกล่อง ('' = ทุกออเดอร์)
 function renderDailyReport(){
   var now=new Date();
   initRptPickers();
@@ -6147,16 +6148,26 @@ function renderDailyReport(){
     });
   });
   _allBoxes.sort(function(a,b){return (a.at?a.at.getTime():0)-(b.at?b.at.getTime():0);});
+  // ตัวเลือกออเดอร์ + กรองตามที่เลือก
+  var _boxOidList=Object.keys(_boxOids).sort();
+  if(_boxRptOid&&_boxOids[_boxRptOid]===undefined)_boxRptOid=''; // ออเดอร์ที่เลือกไม่มีในวันนี้ → รีเซ็ต
+  var _shown=_boxRptOid?_allBoxes.filter(function(b){return b.oid===_boxRptOid;}):_allBoxes;
+  var _shownOids={};_shown.forEach(function(b){_shownOids[b.oid]=1;});
+  var _oidSel='<select onchange="_boxRptOid=this.value;renderDailyReport()" style="padding:4px 8px;font-size:12px;border:1.5px solid var(--border2);border-radius:8px;background:var(--bg2);color:var(--text);max-width:220px">'
+    +'<option value=""'+(_boxRptOid===''?' selected':'')+'>ทุกออเดอร์ ('+_boxOidList.length+')</option>'
+    +_boxOidList.map(function(oid){return '<option value="'+escHtml(oid)+'"'+(_boxRptOid===oid?' selected':'')+'>'+escHtml(_dispOid(oid))+'</option>';}).join('')
+    +'</select>';
   var boxHtml='<div style="padding:4px 14px 8px">'
     +'<div style="display:flex;align-items:center;gap:8px;margin:6px 0 8px;flex-wrap:wrap"><span style="font-size:14px;font-weight:800">📦 รายงานบรรจุภัณฑ์</span>'
-    +'<span style="font-size:12px;color:var(--text2)">'+selDate+' · รวม <b style="color:var(--teal)">'+_allBoxes.length+'</b> กล่อง จาก '+Object.keys(_boxOids).length+' ออเดอร์</span>'
-    +(_allBoxes.length?'<button onclick="exportBoxCSV()" style="margin-left:auto;padding:5px 12px;background:var(--teal);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">⬇ ดาวน์โหลด CSV</button>':'')
+    +(_allBoxes.length?_oidSel:'')
+    +'<span style="font-size:12px;color:var(--text2)">'+selDate+' · <b style="color:var(--teal)">'+_shown.length+'</b> กล่อง จาก '+Object.keys(_shownOids).length+' ออเดอร์</span>'
+    +(_shown.length?'<button onclick="exportBoxCSV()" style="margin-left:auto;padding:5px 12px;background:var(--teal);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">⬇ ดาวน์โหลด CSV</button>':'')
     +'</div>';
-  if(!_allBoxes.length){
+  if(!_shown.length){
     boxHtml+='<div class="empty" style="padding:14px;font-size:12px">— ยังไม่มีการยิงกล่องในวันนี้ —</div></div>';
   }else{
     // สรุปตามขนาด
-    var _bySize={};_allBoxes.forEach(function(b){var k=_boxName(b.code)||b.size||'ไม่ระบุ';_bySize[k]=(_bySize[k]||0)+1;});
+    var _bySize={};_shown.forEach(function(b){var k=_boxName(b.code)||b.size||'ไม่ระบุ';_bySize[k]=(_bySize[k]||0)+1;});
     boxHtml+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">'
       +Object.keys(_bySize).sort(function(a,b){return _bySize[b]-_bySize[a];}).map(function(s){
         return '<span style="padding:5px 12px;background:var(--tb);color:var(--teal);border:1px solid var(--tbr);border-radius:20px;font-size:12px;font-weight:700">'+escHtml(s)+': '+_bySize[s]+'</span>';
@@ -6166,7 +6177,7 @@ function renderDailyReport(){
       +'<thead><tr style="background:var(--bg3)">'
       +['เวลายิง','Order ID','ขนส่ง','บาร์โค้ดกล่อง','ชื่อบรรจุภัณฑ์','ขนาด','คนแพ็ค'].map(function(h){return '<th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">'+h+'</th>';}).join('')
       +'</tr></thead><tbody>';
-    _allBoxes.forEach(function(b,n){
+    _shown.forEach(function(b,n){
       var _tm=b.at?b.at.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—';
       boxHtml+='<tr style="background:'+(n%2===0?'var(--bg)':'var(--bg3)')+';border-bottom:1px solid var(--border)">'
         +'<td style="padding:6px 10px;font-size:11px;color:var(--text2);font-family:monospace;white-space:nowrap">'+_tm+'</td>'
@@ -6327,10 +6338,11 @@ function exportBoxCSV(){
   if(!selDate){alert('เลือกวันที่ก่อน');return;}
   var rows=[];
   Object.values(ORDERS).forEach(function(o){
+    if(_boxRptOid&&o.id!==_boxRptOid)return; // กรองตามออเดอร์ที่เลือก
     (o.boxes||[]).forEach(function(b){var d=_boxScanDate(o,b);if(d&&_ymdOf(d)===selDate)rows.push(_boxRow(o,b));});
   });
   if(!rows.length){alert('ไม่มีข้อมูลกล่องในวันที่ '+selDate);return;}
-  _downloadBoxCsv(rows,'box_report_'+selDate+'.csv');
+  _downloadBoxCsv(rows,'box_report_'+selDate+(_boxRptOid?('_'+_dispOid(_boxRptOid)):'')+'.csv');
 }
 // รายงานกล่องตามช่วงที่เลือกในหน้ารีพอร์ต (today/week/month/custom/all) — กรองตามเวลายิงกล่องจริง
 function exportBoxCSVReport(){
