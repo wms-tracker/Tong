@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-51</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-52</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -615,10 +615,10 @@ tbody tr:hover td{background:var(--pl)}
     </div>
 
     <!-- 🎥 สถานะบันทึกวิดีโอ QC อัตโนมัติ -->
-    <div id="qcvid-bar" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <div id="qcvid-bar" onclick="QCVID.barClick()" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <span id="qcvid-dot" style="font-size:14px">🔴</span>
       <div style="flex:1;min-width:120px"><div id="qcvid-state" style="font-size:13px;font-weight:800">VIDEO: OFF</div><div id="qcvid-sub" style="font-size:11px;color:var(--text2)"></div></div>
-      <button id="qcvid-stop" onclick="QCVID.stop('manual')" style="display:none;padding:8px 14px;background:var(--red);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">⏹ หยุดบันทึก</button>
+      <button id="qcvid-stop" onclick="event.stopPropagation();QCVID.stop('manual')" style="display:none;padding:8px 14px;background:var(--red);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">⏹ หยุดบันทึก</button>
     </div>
 
     <div class="scan-card" id="qc-sku-card">
@@ -4686,12 +4686,14 @@ var QCVID={
     if(this.session){await this.stop('superseded');} // ยิงออเดอร์/แทร็คกิงใหม่ → ปิดไฟล์เดิมก่อน
     if(!this.supported()){this.warn('เบราว์เซอร์ไม่รองรับ (ใช้ Chrome/Edge)');return;}
     if(!this.root){this.warn('ยังไม่ได้เลือกโฟลเดอร์เก็บวิดีโอ — ไปที่ ตั้งค่า');return;}
-    // ถาม QC ซ้ำ ถ้าออเดอร์นี้เคยมีวิดีโอแล้ว
-    var o=ORDERS[oid];
-    if(o&&o.videoSessions&&o.videoSessions.length){
-      if(!confirm('Order '+_dispOid(oid)+' มีวิดีโอ QC แล้ว\nต้องการเริ่มบันทึกวิดีโอใหม่หรือไม่? (ไฟล์เดิมไม่ถูกเขียนทับ)'))return;
+    // (ไฟล์ตั้งชื่อตามเวลา ไม่เขียนทับอยู่แล้ว — ไม่ต้องถาม confirm กันขัดจังหวะ auto-record)
+    if(!(await this.ensurePerm())){
+      // สิทธิ์โฟลเดอร์ยังไม่ได้ (Chrome ต้องกดยืนยันหลังรีโหลด) → รอให้ผู้ใช้แตะแถบวิดีโอเพื่อยืนยัน
+      this._pendingOid=oid;this._pendingTrk=trk||'';
+      this.lastErr='need-grant';this.updateStatusUI();
+      return;
     }
-    if(!(await this.ensurePerm())){this.warn('ไม่ได้รับสิทธิ์เขียนโฟลเดอร์');return;}
+    this._pendingOid='';
     try{
       if(!this.stream||!this.stream.active){
         var vc={};if(this.cfg.res)vc.height={ideal:this.cfg.res};if(this.cfg.fps)vc.frameRate={ideal:this.cfg.fps};
@@ -4762,12 +4764,27 @@ var QCVID={
       var pt=document.getElementById('qcvid-pip-time');if(pt)pt.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
       bar.style.borderColor='var(--gbr)';bar.style.background='var(--gb)';
       if(stopB)stopB.style.display='';
+    }else if(this.lastErr==='need-grant'){
+      // ต้องกดยืนยันสิทธิ์โฟลเดอร์ (แตะแถบเพื่อเริ่มอัด)
+      dot.textContent='🔓';st.textContent='แตะเพื่อเริ่มอัดวิดีโอ';
+      sub.textContent='ยืนยันสิทธิ์โฟลเดอร์ "'+(this.root?this.root.name:'')+'" (คลิกที่แถบนี้ 1 ครั้ง)';
+      bar.style.borderColor='var(--obr)';bar.style.background='var(--ob)';bar.style.cursor='pointer';
+      if(stopB)stopB.style.display='none';
     }else{
       dot.textContent=this.lastErr?'⚠️':'🔴';st.textContent=this.lastErr?'VIDEO: ERROR':'VIDEO: OFF';
-      sub.textContent=this.lastErr||(this.root?('พร้อมบันทึก · โฟลเดอร์: '+this.root.name):'ยังไม่ได้เลือกโฟลเดอร์ (ไปตั้งค่า)');
-      bar.style.borderColor='var(--border)';bar.style.background='var(--bg2)';
+      sub.textContent=this.lastErr||(this.root?('พร้อมบันทึก · โฟลเดอร์: '+this.root.name+(curQCOid?' · แตะเพื่อเริ่มอัด':'')):'ยังไม่ได้เลือกโฟลเดอร์ (ไปตั้งค่า)');
+      bar.style.borderColor='var(--border)';bar.style.background='var(--bg2)';bar.style.cursor=curQCOid?'pointer':'default';
       if(stopB)stopB.style.display='none';
     }
+  },
+  // เริ่มอัดด้วยการแตะแถบ (เป็น user-gesture → ขอสิทธิ์โฟลเดอร์ได้)
+  async barClick(){
+    if(this.session)return; // กำลังอัดอยู่
+    var oid=this._pendingOid||curQCOid;var trk=this._pendingTrk!==undefined&&this._pendingOid?this._pendingTrk:(curQCTracking||'');
+    if(!oid)return;
+    if(this.root&&(await this.root.requestPermission({mode:'readwrite'}))!=='granted'){this.warn('ยังไม่ได้รับสิทธิ์ — เลือกโฟลเดอร์ใหม่ที่ตั้งค่า');return;}
+    this.lastErr='';this._pendingOid='';
+    this.startFor(oid,trk);
   },
   updateSettingsUI(){
     var el=document.getElementById('vid-folder-name');if(el)el.textContent=this.root?('📁 '+this.root.name):'— ยังไม่ได้เลือก —';
