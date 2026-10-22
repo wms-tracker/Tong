@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-57</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-58</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -6033,6 +6033,9 @@ function miniBarChart(data,colorFn){
 
 // ===== DAILY REPORT =====
 var _boxRptOids=[]; // ออเดอร์ที่เลือกในรายงานกล่อง (ว่าง = ทุกออเดอร์)
+var _boxRptFrom='',_boxRptTo=''; // ช่วงวันที่รายงานกล่อง (ว่าง = ใช้วันเดียวตามตัวเลือกด้านบน)
+function _setBoxRptRange(which,val){if(which==='from')_boxRptFrom=val;else _boxRptTo=val;_boxRptOids=[];renderDailyReport();}
+function _clearBoxRptRange(){_boxRptFrom='';_boxRptTo='';_boxRptOids=[];renderDailyReport();}
 function _toggleBoxOid(i){var oid=(window._boxOidListCache||[])[i];if(oid===undefined)return;var k=_boxRptOids.indexOf(oid);if(k>=0)_boxRptOids.splice(k,1);else _boxRptOids.push(oid);renderDailyReport();}
 function renderDailyReport(){
   var now=new Date();
@@ -6173,13 +6176,16 @@ function renderDailyReport(){
   mtxHtml+='</tbody></table></div>';
 
   // ===== 📦 รายงานบรรจุภัณฑ์ (กล่อง) — กรองตาม "เวลาที่ยิงกล่องจริง" (b.at) =====
+  // ช่วงวันที่: ถ้าตั้ง from/to ใช้ช่วงนั้น ไม่งั้นใช้วันเดียว (selDate)
+  var _bFrom=_boxRptFrom||'', _bTo=_boxRptTo||'';
   var _allBoxes=[];var _boxOids={};
   Object.values(ORDERS).forEach(function(o){
     (o.boxes||[]).forEach(function(b){
       var bd=b.at?new Date(b.at):null;
       var bymd=(bd&&!isNaN(bd.getTime()))?_ymdOf(bd):null;
       if(!bymd){var od=_getOrderDate(o);bymd=od?_ymdOf(od):null;} // ข้อมูลเก่าที่ไม่มีเวลายิง → ใช้วันจัดส่ง
-      if(bymd!==selDate)return;
+      if(_bFrom||_bTo){ if(_bFrom&&bymd<_bFrom)return; if(_bTo&&bymd>_bTo)return; }
+      else if(bymd!==selDate)return;
       _boxOids[o.id]=1;
       _allBoxes.push({oid:o.id,carrier:_courierGroup(o),code:b.code||'',size:b.size||'ไม่ระบุ',by:b.by||'',at:bd});
     });
@@ -6197,9 +6203,17 @@ function renderDailyReport(){
     +'<button onclick="_boxRptOids=[];renderDailyReport()" style="'+_chipSty+';background:'+(!_boxRptOids.length?'var(--primary);color:#fff;border-color:var(--primary)':'var(--bg2);color:var(--text2)')+'">ทั้งหมด ('+_boxOidList.length+')</button>'
     +_boxOidList.map(function(oid,i){var on=_boxRptOids.indexOf(oid)>=0;return '<button onclick="_toggleBoxOid('+i+')" style="'+_chipSty+';background:'+(on?'var(--teal);color:#fff;border-color:var(--teal)':'var(--bg2);color:var(--text2)')+'">'+escHtml(_dispOid(oid))+'</button>';}).join('')
     +'</div>';
+  var _dInSty='padding:3px 6px;font-size:11px;border:1.5px solid var(--border2);border-radius:6px;background:var(--bg2);color:var(--text)';
+  var _rangeUI='<span style="font-size:11px;color:var(--text3);font-weight:700;margin-left:6px">ช่วง:</span>'
+    +'<input type="date" value="'+(_bFrom||'')+'" onchange="_setBoxRptRange(\'from\',this.value)" style="'+_dInSty+'">'
+    +'<span style="font-size:11px;color:var(--text3)">–</span>'
+    +'<input type="date" value="'+(_bTo||'')+'" onchange="_setBoxRptRange(\'to\',this.value)" style="'+_dInSty+'">'
+    +((_bFrom||_bTo)?'<button onclick="_clearBoxRptRange()" title="ล้างช่วง — กลับไปวันเดียว" style="padding:2px 8px;font-size:11px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text2);cursor:pointer">✕</button>':'');
+  var _dateLbl=(_bFrom||_bTo)?((_bFrom||'…')+' ถึง '+(_bTo||'…')):selDate;
   var boxHtml='<div style="padding:4px 14px 8px">'
-    +'<div style="display:flex;align-items:center;gap:8px;margin:6px 0 4px;flex-wrap:wrap"><span style="font-size:14px;font-weight:800">📦 รายงานบรรจุภัณฑ์</span>'
-    +'<span style="font-size:12px;color:var(--text2)">'+selDate+' · <b style="color:var(--teal)">'+_shown.length+'</b> กล่อง จาก '+Object.keys(_shownOids).length+' ออเดอร์'+(_boxRptOids.length?' (เลือก '+_boxRptOids.length+')':'')+'</span>'
+    +'<div style="display:flex;align-items:center;gap:6px;margin:6px 0 4px;flex-wrap:wrap"><span style="font-size:14px;font-weight:800">📦 รายงานบรรจุภัณฑ์</span>'
+    +_rangeUI
+    +'<span style="font-size:12px;color:var(--text2);margin-left:4px">'+_dateLbl+' · <b style="color:var(--teal)">'+_shown.length+'</b> กล่อง จาก '+Object.keys(_shownOids).length+' ออเดอร์'+(_boxRptOids.length?' (เลือก '+_boxRptOids.length+')':'')+'</span>'
     +(_shown.length?'<button onclick="exportBoxCSV()" style="margin-left:auto;padding:5px 12px;background:var(--teal);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">⬇ ดาวน์โหลด CSV</button>':'')
     +'</div>'
     +(_allBoxes.length?_oidChips:'');
@@ -6375,14 +6389,17 @@ function _boxRow(o,b){
 }
 function exportBoxCSV(){
   var selDate=document.getElementById('daily-date')?document.getElementById('daily-date').value:'';
-  if(!selDate){alert('เลือกวันที่ก่อน');return;}
+  var useRange=!!(_boxRptFrom||_boxRptTo);
+  if(!useRange&&!selDate){alert('เลือกวันที่ก่อน');return;}
+  function _inRange(ymd){ if(useRange){ if(_boxRptFrom&&ymd<_boxRptFrom)return false; if(_boxRptTo&&ymd>_boxRptTo)return false; return true; } return ymd===selDate; }
   var rows=[];
   Object.values(ORDERS).forEach(function(o){
     if(_boxRptOids.length&&_boxRptOids.indexOf(o.id)<0)return; // กรองตามออเดอร์ที่เลือก
-    (o.boxes||[]).forEach(function(b){var d=_boxScanDate(o,b);if(d&&_ymdOf(d)===selDate)rows.push(_boxRow(o,b));});
+    (o.boxes||[]).forEach(function(b){var d=_boxScanDate(o,b);if(d&&_inRange(_ymdOf(d)))rows.push(_boxRow(o,b));});
   });
-  if(!rows.length){alert('ไม่มีข้อมูลกล่องในวันที่ '+selDate);return;}
-  _downloadBoxCsv(rows,'box_report_'+selDate+(_boxRptOids.length===1?('_'+_dispOid(_boxRptOids[0])):(_boxRptOids.length>1?('_'+_boxRptOids.length+'orders'):''))+'.csv');
+  var tag=useRange?((_boxRptFrom||'')+'_'+(_boxRptTo||'')):selDate;
+  if(!rows.length){alert('ไม่มีข้อมูลกล่องในช่วงที่เลือก');return;}
+  _downloadBoxCsv(rows,'box_report_'+tag+(_boxRptOids.length===1?('_'+_dispOid(_boxRptOids[0])):(_boxRptOids.length>1?('_'+_boxRptOids.length+'orders'):''))+'.csv');
 }
 // รายงานกล่องตามช่วงที่เลือกในหน้ารีพอร์ต (today/week/month/custom/all) — กรองตามเวลายิงกล่องจริง
 function exportBoxCSVReport(){
