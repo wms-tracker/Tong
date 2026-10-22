@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-56</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-57</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -508,7 +508,7 @@ tbody tr:hover td{background:var(--pl)}
     <div class="brow">
       <div style="position:relative;flex:1;min-width:180px">
         <span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text3)">🔍</span>
-        <input type="search" id="ord-q" placeholder="ค้นหา Order, SKU, Consign..." oninput="_ORD_Q=this.value;filterOrders()" style="padding-left:32px">
+        <input type="search" id="ord-q" placeholder="ค้นหา Order, SKU, Consign..." oninput="_ORD_Q=this.value;_debounce('ord',filterOrders,250)" style="padding-left:32px">
       </div>
       <select id="ord-f" onchange="filterOrders()" style="width:140px">
         <option value="">ทุกสถานะ</option>
@@ -923,7 +923,7 @@ tbody tr:hover td{background:var(--pl)}
           <option value="done">✔ Done</option>
           <option value="cancel">🚫 Cancel</option>
         </select>
-        <input type="text" id="rpt-search" placeholder="ค้นหา Order ID..." oninput="renderReport()" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text);width:150px">
+        <input type="text" id="rpt-search" placeholder="ค้นหา Order ID..." oninput="_debounce('rpt',renderReport,300)" style="padding:6px 10px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text);width:150px">
         <button onclick="confirmExportCSV()" style="padding:6px 12px;background:var(--primary);color:#fff;border:none;border-radius:var(--rx);font-size:13px;font-weight:700;cursor:pointer">⬇ Export CSV</button>
         <button onclick="exportBoxCSVReport()" style="padding:6px 12px;background:var(--teal);color:#fff;border:none;border-radius:var(--rx);font-size:13px;font-weight:700;cursor:pointer">📦 รายงานกล่อง CSV</button>
         <div id="rpt-custom" style="display:none;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px">
@@ -2908,6 +2908,9 @@ function quickCancel(oid){
   if(!confirm('🚫 ยืนยันยกเลิก Order "'+oid+'" ?'))return;
   setStatus(oid,'cancel');renderOrders();
 }
+// debounce กลาง — กัน re-render ทุกคีย์ (หน้า Orders/รีพอร์ตเบา+เสถียรขึ้น)
+var _debTimers={};
+function _debounce(key,fn,ms){clearTimeout(_debTimers[key]);_debTimers[key]=setTimeout(fn,ms||250);}
 function filterOrders(){renderOrders();}
 function forceSyncFirebase(){
   if(!FB_URL){alert('ไม่พบ Firebase URL — ไปที่ ตั้งค่า เพื่อใส่ URL');return;}
@@ -6875,6 +6878,10 @@ function renderReport(){
     return true;
   });
 
+  // PERF: เรียงล่าสุดก่อน + จำกัด 300 ออเดอร์ (กันหน้าค้างตอนมีหลายพัน) — ใช้ตัวกรอง/ค้นหาเพื่อเจาะ
+  filtered.sort(function(a,b){return String(b.updatedAt||b.date||'').localeCompare(String(a.updatedAt||a.date||''));});
+  var _rptTotal=filtered.length;var _RPT_LIMIT=300;var _rptCapped=_rptTotal>_RPT_LIMIT;
+  if(_rptCapped) filtered=filtered.slice(0,_RPT_LIMIT);
   var rows=[];
   filtered.forEach(function(o){
     var sup=getOrderSUP(o)||'—';
@@ -6940,6 +6947,7 @@ function renderReport(){
     });
   });
 
+  if(_rptCapped) rows.unshift('<tr><td colspan="10" style="background:#FEF3C7;color:#92400E;font-size:12px;font-weight:700;padding:8px;text-align:center">⚡ แสดง '+_RPT_LIMIT+' จาก '+_rptTotal+' ออเดอร์ — ใช้ช่องค้นหา/ตัวกรอง/เลือกช่วงวันที่ เพื่อเจาะข้อมูล</td></tr>');
   tbody.innerHTML=rows.length?rows.join(''):'<tr><td colspan="10" class="empty">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>';
 }
 
