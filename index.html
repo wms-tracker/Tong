@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-52</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-53</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -2789,7 +2789,7 @@ function pullReserved(){
   localStorage.setItem('WMS_RESERVED_URL',rawUrl);
   var url=_sheetCsvUrl(rawUrl);
   function _ci(id,dflt){return _colToIdx((document.getElementById(id)||{}).value||dflt);}
-  var map={pid:_ci('rc-pid','A'),desc:_ci('rc-desc','B'),order:_ci('rc-order','C'),qty:_ci('rc-qty','D'),status:_ci('rc-status','E'),bookDate:_ci('rc-bookdate','F'),shipDate:_ci('rc-shipdate','G'),by:_ci('rc-by','H')};
+  var map={pid:_ci('rc-pid','K'),desc:_ci('rc-desc','L'),order:_ci('rc-order','M'),qty:_ci('rc-qty','N'),status:_ci('rc-status','O'),bookDate:_ci('rc-bookdate','P'),shipDate:_ci('rc-shipdate','Q'),by:_ci('rc-by','R')};
   try{localStorage.setItem('WMS_RESERVED_MAP',JSON.stringify({_v:'kr',pid:(document.getElementById('rc-pid')||{}).value,desc:(document.getElementById('rc-desc')||{}).value,order:(document.getElementById('rc-order')||{}).value,qty:(document.getElementById('rc-qty')||{}).value,status:(document.getElementById('rc-status')||{}).value,bookDate:(document.getElementById('rc-bookdate')||{}).value,shipDate:(document.getElementById('rc-shipdate')||{}).value,by:(document.getElementById('rc-by')||{}).value}));}catch(_){}
   document.getElementById('reserved-info').textContent='⏳ กำลังดึงสินค้าจอง...';
   var xhr=new XMLHttpRequest();
@@ -2822,9 +2822,10 @@ function setReservedFilter(f){_reservedFilter=f;try{localStorage.setItem('WMS_RE
 function _resvBucket(row,today,tmr){
   var d=_parseResvDate(row.shipDate,'mdy'); if(!d)return null;
   var dt=d.getTime();
-  if(dt===today)return 'today';
-  if(dt===tmr)return 'tomorrow';
-  if(dt<today&&_resvStatusPending(row.status))return 'overdue';
+  var pending=_resvStatusPending(row.status); // ยังไม่ส่ง/ยกเลิก
+  if(dt===today)return pending?'today':'other';     // ส่งแล้ววันนี้ → ไม่นับใน "ส่งวันนี้"
+  if(dt===tmr)return pending?'tomorrow':'other';
+  if(dt<today&&pending)return 'overdue';
   return 'other';
 }
 function renderReserved(){
@@ -5228,8 +5229,8 @@ function syncStatusesNow(){
       }
       // sync กล่อง — /statuses บอกแค่ boxesAt เปลี่ยน แล้วดึงกล่องจริงจาก /orders เฉพาะออเดอร์นั้น (เบา)
       if(entry&&entry.boxesAt&&entry.boxesAt>(ORDERS[oid].boxesAt||'')){
-        ORDERS[oid].boxesAt=entry.boxesAt;changed=true;
-        (function(o){fbGet('/orders/'+encodeId(o),function(e,d){if(!e&&d&&ORDERS[o]){ORDERS[o].boxes=d.boxes||[];saveLocal();refreshAll();}});})(oid);
+        // อัป boxesAt เฉพาะเมื่อ fetch สำเร็จ ไม่งั้นถ้า fetch fail จะไม่ลองใหม่
+        (function(o,ba){fbGet('/orders/'+encodeId(o),function(e,d){if(!e&&d&&ORDERS[o]){ORDERS[o].boxes=d.boxes||[];ORDERS[o].boxesAt=ba;saveLocal();refreshAll();}});})(oid,entry.boxesAt);
       }
     });
     if(changed){saveLocal();refreshAll();}

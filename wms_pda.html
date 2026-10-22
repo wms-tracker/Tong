@@ -173,7 +173,7 @@ input:focus{outline:none;border-color:var(--primary)}
     <div style="display:flex;flex-direction:column;gap:8px">
       <button class="btn btn-fb" onclick="syncOrdersFromFirebase()">🔥 ดึงออเดอร์จาก Firebase</button>
       <button class="btn" style="background:#DC2626;color:#fff;font-weight:700" onclick="clearSyncOrders()">🗑 ล้างและ Sync ใหม่ทั้งหมด</button>
-      <div style="text-align:center"><span style="background:#16A34A;color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:6px">PDA BUILD 20260731-12</span></div>
+      <div style="text-align:center"><span style="background:#16A34A;color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:6px">PDA BUILD 20260731-13</span></div>
       <div id="sync-debug" style="font-size:11px;color:var(--text2);padding:6px;background:var(--bg3);border-radius:6px;word-break:break-all"></div>
     </div>
   </div>
@@ -1228,8 +1228,7 @@ function startStatusSSE(){
             changed=true;
           }
           if(entry&&entry.boxesAt&&entry.boxesAt>(ORDERS[oid].boxesAt||'')){
-            ORDERS[oid].boxesAt=entry.boxesAt;changed=true;
-            (function(o){fbGet('/orders/'+encId(o),function(e,d){if(!e&&d&&ORDERS[o]){ORDERS[o].boxes=d.boxes||[];save();}});})(oid);
+            (function(o,ba){fbGet('/orders/'+encId(o),function(e,d){if(!e&&d&&ORDERS[o]){ORDERS[o].boxes=d.boxes||[];ORDERS[o].boxesAt=ba;save();}});})(oid,entry.boxesAt);
           }
         }
         if(path==='/'||path===''){
@@ -1302,8 +1301,7 @@ function syncFBStatuses(){
         }
       }
       if(entry&&entry.boxesAt&&entry.boxesAt>(ORDERS[oid].boxesAt||'')){
-        ORDERS[oid].boxesAt=entry.boxesAt;changed=true;
-        (function(o){fbGet('/orders/'+encId(o),function(e,d){if(!e&&d&&ORDERS[o]){ORDERS[o].boxes=d.boxes||[];save();}});})(oid);
+        (function(o,ba){fbGet('/orders/'+encId(o),function(e,d){if(!e&&d&&ORDERS[o]){ORDERS[o].boxes=d.boxes||[];ORDERS[o].boxesAt=ba;save();}});})(oid,entry.boxesAt);
       }
     });
     if(changed){save();refreshStats();renderDashboard();}
