@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-54</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-55</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -4573,7 +4573,7 @@ function openVdoModalPC(oid){
   navigator.mediaDevices.getUserMedia({video:true,audio:true}).then(function(stream){
     _pcvStream=stream;var vp=document.getElementById('pcv-preview');vp.srcObject=stream;vp.muted=true;vp.play();
     document.getElementById('pcv-hint').textContent='พร้อมอัด — กด "เริ่มอัด"';
-  }).catch(function(e){document.getElementById('pcv-hint').textContent='เปิดกล้องไม่ได้: '+(e&&e.message||e);});
+  }).catch(function(e){var m=(e&&e.name==='NotAllowedError')?'ไม่ได้อนุญาตกล้อง — คลิกไอคอน 🎥/🔒 ข้าง URL → อนุญาต → รีเฟรช':(e&&e.message||e);document.getElementById('pcv-hint').textContent='เปิดกล้องไม่ได้: '+m;});
 }
 function toggleRecPC(){
   if(_pcvRec&&_pcvRec.state==='recording'){stopRecPC();return;}
@@ -4700,7 +4700,13 @@ var QCVID={
         var vc={};if(this.cfg.res)vc.height={ideal:this.cfg.res};if(this.cfg.fps)vc.frameRate={ideal:this.cfg.fps};
         this.stream=await navigator.mediaDevices.getUserMedia({video:vc,audio:!!this.cfg.audio});
       }
-    }catch(e){this.warn('เปิดกล้องไม่ได้: '+(e&&e.message||e));return;}
+    }catch(e){
+      var _em=(e&&e.name==='NotAllowedError')?'ไม่ได้อนุญาตกล้อง — คลิกไอคอน 🎥/🔒 ข้างช่อง URL → เลือก "อนุญาต/Allow" → รีเฟรช':
+              (e&&e.name==='NotFoundError')?'ไม่พบกล้อง (ไม่มีเว็บแคม หรือถูกใช้งานโดยแอปอื่น)':
+              (e&&e.name==='NotReadableError')?'กล้องถูกใช้งานโดยแอปอื่นอยู่ (ปิดแอปที่ใช้กล้องก่อน)':
+              (e&&e.message||e);
+      this.warn('เปิดกล้องไม่ได้: '+_em);return;
+    }
     var mime=this.pickMime();var ext=mime.indexOf('mp4')>=0?'mp4':'webm';
     var base=this.fname(oid,trk);var name=base+'.'+ext;
     var dd;try{dd=await this.dayDir();}catch(e){this.warn('สร้างโฟลเดอร์ไม่ได้: '+(e&&e.message||e));return;}
