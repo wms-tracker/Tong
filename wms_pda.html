@@ -173,7 +173,7 @@ input:focus{outline:none;border-color:var(--primary)}
     <div style="display:flex;flex-direction:column;gap:8px">
       <button class="btn btn-fb" onclick="syncOrdersFromFirebase()">🔥 ดึงออเดอร์จาก Firebase</button>
       <button class="btn" style="background:#DC2626;color:#fff;font-weight:700" onclick="clearSyncOrders()">🗑 ล้างและ Sync ใหม่ทั้งหมด</button>
-      <div style="text-align:center"><span style="background:#16A34A;color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:6px">PDA BUILD 20260731-13</span></div>
+      <div style="text-align:center"><span style="background:#16A34A;color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:6px">PDA BUILD 20260731-14</span></div>
       <div id="sync-debug" style="font-size:11px;color:var(--text2);padding:6px;background:var(--bg3);border-radius:6px;word-break:break-all"></div>
     </div>
   </div>
@@ -817,6 +817,15 @@ function _pushBoxesFBpda(oid){
   var boxes=ORDERS[oid].boxes||[];var _ts=ORDERS[oid].boxesAt||new Date().toISOString();
   fbPatch('/statuses/'+encId(oid),{boxesAt:_ts,updatedAt:_ts});
   fbPatch('/orders/'+encId(oid),{boxes:boxes,boxesAt:_ts});
+  _syncBoxLogPda(oid,_ts);
+}
+// box log ถาวร (ให้หน้ารีพอร์ตบน PC ดึงได้ครบ)
+function _syncBoxLogPda(oid,ts){
+  if(!FB)return; var o=ORDERS[oid]; if(!o)return;
+  var boxes=o.boxes||[];
+  if(!boxes.length){ fbDel&&fbDel('/boxlog/'+encId(oid)); return; }
+  fbPut('/boxlog/'+encId(oid),{oid:oid,sup:o.sup||'',consign:o.consign||'',ts:ts||new Date().toISOString(),
+    boxes:boxes.map(function(b){return {code:b.code||'',size:b.size||'',by:b.by||'',at:b.at||''};})});
 }
 
 /* ===== 🎥 VIDEO RECORD (PDA — เซฟลงเครื่อง) ===== */
@@ -947,6 +956,7 @@ window.addEventListener('online',function(){if(typeof showAl==='function')showAl
 setInterval(function(){if(_fbQ.length)_drainQ();},12000);
 function fbPut(path,data){ _fbWrite('PUT',path,data); }
 function fbPatch(path,data){ _fbWrite('PATCH',path,data); }
+function fbDel(path){ _fbWrite('DELETE',path,null); }
 
 /* ===== SYNC ORDERS (BATCH) ===== */
 var _ACTIVE_ST={new:1,pick:1,qc:1,pack:1,ship:1,draft:1,postponed:1};

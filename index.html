@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-59</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-60</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -967,6 +967,38 @@ tbody tr:hover td{background:var(--pl)}
     </div>
   </div>
 
+  <!-- 📦 BOX REPORT (อ่านจาก box log บน Firebase — ครบทุกออเดอร์ ไม่ขึ้นกับที่โหลดในเครื่อง) -->
+  <div class="card" style="padding:12px;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:13px;font-weight:700">📦 รายงานกล่อง (ตามวันที่ยิงกล่อง · ครบทุกออเดอร์)</div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--text2)">วันที่</span>
+        <input type="date" id="brp-from" onchange="renderBoxReport()" style="padding:6px 8px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
+        <span style="color:var(--text2);font-size:12px">ถึง</span>
+        <input type="date" id="brp-to" onchange="renderBoxReport()" style="padding:6px 8px;font-size:13px;border:1.5px solid var(--border);border-radius:var(--rx);background:var(--bg2);color:var(--text)">
+        <button onclick="loadBoxReport()" style="padding:6px 12px;background:var(--primary);color:#fff;border:none;border-radius:var(--rx);font-size:13px;font-weight:700;cursor:pointer">🔄 ดึงรายงาน</button>
+        <button onclick="exportBoxReportCSV()" style="padding:6px 12px;background:var(--teal);color:#fff;border:none;border-radius:var(--rx);font-size:13px;font-weight:700;cursor:pointer">⬇ CSV</button>
+      </div>
+    </div>
+    <div id="brp-info" style="font-size:12px;color:var(--text2);margin-bottom:6px">กดปุ่ม "🔄 ดึงรายงาน" เพื่อโหลดข้อมูลกล่องจากเซิร์ฟเวอร์ (เลือกช่วงวันแล้วกดดึง)</div>
+    <div class="tw" style="overflow-x:auto;max-height:60vh;overflow-y:auto">
+      <table>
+        <thead>
+          <tr style="border-bottom:2px solid var(--border);background:var(--bg3)">
+            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left;white-space:nowrap">เวลายิง</th>
+            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">Order ID</th>
+            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">ขนส่ง</th>
+            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">บาร์โค้ดกล่อง</th>
+            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">ชื่อบรรจุภัณฑ์</th>
+            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">ขนาด</th>
+            <th style="padding:8px 6px;color:var(--text2);font-weight:700;font-size:11px;text-align:left">คนแพ็ค</th>
+          </tr>
+        </thead>
+        <tbody id="brp-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="card" style="padding:12px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
       <div style="font-size:13px;font-weight:700">📋 รายละเอียด</div>
@@ -1231,6 +1263,7 @@ function init(){
   _pruneOldOrders();   // PERF: เก็บประวัติเก่าให้เบา เริ่มเร็ว
   updateConn();refreshAll();
   checkLogin();
+  setTimeout(_backfillBoxLog,6000); // ดันกล่องที่มีในเครื่องขึ้น box log (ครั้งเดียว)
 }
 
 // prune ออเดอร์ประวัติเก่า (done/cancel เกิน 7 วัน) ออกจาก memory เพื่อให้เปิดเร็ว
@@ -3607,6 +3640,7 @@ setInterval(function(){if(_fbQueue.length)_drainFbQueue();},15000);
 
 function fbPut(path,data){ _fbWrite('PUT',path,data); }
 function fbPatch(path,data){ _fbWrite('PATCH',path,data); }
+function fbDel(path){ _fbWrite('DELETE',path,null); }
 
 /* ========= PERF-02: BATCH MULTI-PATH WRITE =========
    เขียนหลาย order ใน PATCH ครั้งเดียว (multi-path update ของ Firebase)
@@ -4516,6 +4550,24 @@ function _pushBoxesFB(oid){
   // เก็บ array กล่องไว้ที่ /orders เท่านั้น · /statuses เก็บแค่ boxesAt (เบา — ไม่ทำให้ sync ช้า)
   fbPatch('/statuses/'+encodeId(oid),{boxesAt:_ts,updatedAt:_ts});
   fbPatch('/orders/'+encodeId(oid),{boxes:boxes,boxesAt:_ts});
+  _syncBoxLog(oid,_ts);
+}
+/* ===== 📦 BOX LOG (ประวัติกล่องถาวรบน Firebase — ครบเสมอ ไม่โดน prune ตามออเดอร์) ===== */
+function _syncBoxLog(oid,ts){
+  if(!FB_URL)return; var o=ORDERS[oid]; if(!o)return;
+  var boxes=o.boxes||[];
+  if(!boxes.length){ fbDel&&fbDel('/boxlog/'+encodeId(oid)); return; }
+  var rec={oid:oid,sup:getOrderSUP(o)||'',consign:o.consign||'',ts:ts||new Date().toISOString(),
+    boxes:boxes.map(function(b){return {code:b.code||'',size:b.size||'',by:b.by||'',at:b.at||''};})};
+  fbPut('/boxlog/'+encodeId(oid),rec);
+}
+// backfill ครั้งเดียว: ดันกล่องที่มีในเครื่องขึ้น /boxlog (idempotent)
+function _backfillBoxLog(){
+  try{ if(localStorage.getItem('WMS_BOXLOG_BF')==='1')return; }catch(e){}
+  if(!FB_URL)return; var n=0;
+  Object.keys(ORDERS).forEach(function(oid){var o=ORDERS[oid];if(o&&o.boxes&&o.boxes.length){_syncBoxLog(oid,o.boxesAt);n++;}});
+  try{ localStorage.setItem('WMS_BOXLOG_BF','1'); }catch(e){}
+  if(n)console.log('[boxlog] backfill',n,'orders');
 }
 
 /* ===== 📦 BOX MODAL (PC — ใช้ในหน้า QC/Pack) ===== */
@@ -5973,6 +6025,9 @@ function initRptPickers(){
   }
   var moEl=document.getElementById('monthly-month');
   if(moEl&&!moEl.value) moEl.value=String(now.getMonth()+1).padStart(2,'0');
+  var bf=document.getElementById('brp-from'), bt=document.getElementById('brp-to'), ty=_ymdOf(now);
+  if(bf&&!bf.value) bf.value=ty;
+  if(bt&&!bt.value) bt.value=ty;
 }
 
 function switchRptTab(mode){
@@ -6402,6 +6457,67 @@ function exportBoxCSV(){
   var tag=useRange?((_boxRptFrom||'')+'_'+(_boxRptTo||'')):selDate;
   if(!rows.length){alert('ไม่มีข้อมูลกล่องในช่วงที่เลือก');return;}
   _downloadBoxCsv(rows,'box_report_'+tag+(_boxRptOids.length===1?('_'+_dispOid(_boxRptOids[0])):(_boxRptOids.length>1?('_'+_boxRptOids.length+'orders'):''))+'.csv');
+}
+/* ===== 📦 BOX REPORT บนหน้ารีพอร์ต (อ่านจาก /boxlog — ครบทุกออเดอร์ ไม่ขึ้นกับที่โหลดในเครื่อง) ===== */
+var _BOXLOG=null;
+function loadBoxReport(){
+  var info=document.getElementById('brp-info');
+  if(!FB_URL){ if(info)info.textContent='⚠ ยังไม่ได้ตั้งค่า Firebase ที่หน้าตั้งค่า'; return; }
+  if(info)info.textContent='⏳ กำลังโหลดข้อมูลกล่อง...';
+  fbGet('/boxlog',function(err,data){
+    if(err){ if(info)info.textContent='❌ โหลดไม่สำเร็จ: '+err; return; }
+    _BOXLOG=data||{}; renderBoxReport();
+  });
+}
+function _boxRptRange(){
+  return { from:(document.getElementById('brp-from')||{}).value||'', to:(document.getElementById('brp-to')||{}).value||'' };
+}
+function _boxReportRows(){
+  if(!_BOXLOG)return [];
+  var r=_boxRptRange(), rows=[];
+  Object.keys(_BOXLOG).forEach(function(k){
+    var rec=_BOXLOG[k]; if(!rec||!rec.boxes)return;
+    rec.boxes.forEach(function(b){
+      var at=b.at||rec.ts||''; var ymd=String(at).slice(0,10);
+      if(r.from&&ymd&&ymd<r.from)return;
+      if(r.to&&ymd&&ymd>r.to)return;
+      if((r.from||r.to)&&!ymd)return;
+      rows.push({at:at,oid:rec.oid||'',sup:rec.sup||'',code:b.code||'',size:b.size||'',by:b.by||''});
+    });
+  });
+  rows.sort(function(a,b){return String(b.at).localeCompare(String(a.at));});
+  return rows;
+}
+function renderBoxReport(){
+  var tb=document.getElementById('brp-tbody'); if(!tb)return;
+  if(!_BOXLOG){ tb.innerHTML=''; return; }
+  var rows=_boxReportRows(), r=_boxRptRange();
+  var info=document.getElementById('brp-info');
+  if(info)info.textContent='รวม '+rows.length+' กล่อง'+((r.from||r.to)?(' · '+(r.from||'…')+' ถึง '+(r.to||'…')):' · ทุกวัน');
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="7" style="padding:12px;text-align:center;color:var(--text3)">— ไม่มีข้อมูลกล่องในช่วงนี้ —</td></tr>'; return; }
+  var CAP=2000, show=rows.slice(0,CAP);
+  tb.innerHTML=show.map(function(x){
+    var t=x.at?new Date(x.at).toLocaleString('th-TH',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—';
+    return '<tr style="border-bottom:1px solid var(--border)">'
+      +'<td style="padding:6px;white-space:nowrap;font-size:12px">'+t+'</td>'
+      +'<td style="padding:6px;font-family:monospace;font-size:11px;color:var(--primary)">'+_dispOid(x.oid)+'</td>'
+      +'<td style="padding:6px;font-size:12px">'+(x.sup||'—')+'</td>'
+      +'<td style="padding:6px;font-family:monospace;font-size:12px">'+x.code+'</td>'
+      +'<td style="padding:6px;font-size:12px">'+(_boxName(x.code)||'—')+'</td>'
+      +'<td style="padding:6px;font-size:12px">'+(x.size||'—')+'</td>'
+      +'<td style="padding:6px;font-size:12px;color:var(--text2)">'+(x.by||'—')+'</td></tr>';
+  }).join('');
+  if(rows.length>CAP&&info)info.textContent+=' · แสดง '+CAP+' แถวแรก (export CSV เพื่อดูครบ)';
+}
+function exportBoxReportCSV(){
+  if(!_BOXLOG){ ulAlert('กด "ดึงรายงาน" ก่อน','warn'); return; }
+  var rows=_boxReportRows();
+  if(!rows.length){ alert('ไม่มีข้อมูลกล่องในช่วงที่เลือก'); return; }
+  var r=_boxRptRange();
+  var out=rows.map(function(x){
+    return [String(x.at).slice(0,10),_dispOid(x.oid),x.sup||'',x.code||'',_boxName(x.code)||'',x.size||'',x.by||'',(x.at?new Date(x.at).toLocaleString('th-TH'):'')];
+  });
+  _downloadBoxCsv(out,'box_report_'+((r.from||'')+'_'+(r.to||'all'))+'.csv');
 }
 // รายงานกล่องตามช่วงที่เลือกในหน้ารีพอร์ต (today/week/month/custom/all) — กรองตามเวลายิงกล่องจริง
 function exportBoxCSVReport(){
