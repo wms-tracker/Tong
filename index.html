@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-61</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-62</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -1756,6 +1756,10 @@ function confirmUpload(mode){
       var _at=new Date().toISOString();
       _pcMyUploadAt=_at;   // กันไม่ให้เครื่องนี้ดึงซ้ำจาก event ของตัวเอง
       fbPut('/lastUpload',{at:_at,by:_usr,count:_fbTotal});
+      // อัปเดตดัชนี active ทีเดียว (active=true, done/cancel=null)
+      var _idxPatch={};
+      _gOids.forEach(function(k){ if(ORDERS[k]) _idxPatch[encodeId(k)]=_ACTIVE_LOAD[ORDERS[k].status]?true:null; });
+      if(Object.keys(_idxPatch).length) fbPatch('/activeIdx',_idxPatch);
     });
   }
   document.getElementById('prev-card').style.display='none';
@@ -2963,6 +2967,9 @@ function forceSyncFirebase(){
     var _at=new Date().toISOString();
     _pcMyUploadAt=_at;
     fbPut('/lastUpload',{at:_at,by:usr,count:total});
+    // rebuild ดัชนี active ทั้งชุด
+    var _ip={}; oids.forEach(function(k){ if(ORDERS[k]) _ip[encodeId(k)]=_ACTIVE_LOAD[ORDERS[k].status]?true:null; });
+    if(Object.keys(_ip).length) fbPatch('/activeIdx',_ip);
     if(btn){btn.textContent='✅ Sync แล้ว ('+total+')';btn.disabled=false;setTimeout(function(){btn.textContent='🔥 Sync Firebase';},3000);}
     ulAlert('🔥 Sync '+total+' ออเดอร์ขึ้น Firebase แล้ว — PDA กำลัง sync...','ok');
   });
@@ -3783,6 +3790,7 @@ function fbPushStatus(oid,status){
   fbPatch('/statuses/'+encodeId(oid),{status:status,updatedAt:_ts,device:_dev,user:_usr});
   fbPatch('/orders/'+encodeId(oid),{status:status,updatedAt:_ts,updatedBy:_usr,device:_dev,
     timeline:ORDERS[oid]?ORDERS[oid].timeline||[]:[]});
+  _idxActive(oid,!!_ACTIVE_LOAD[status]); // อัปเดตดัชนี active
 }
 
 function doRefresh(){
@@ -3803,8 +3811,30 @@ function doRefresh(){
 // Pull all orders from Firebase (synced from PDA)
 // โหลดเฉพาะออเดอร์ที่ยัง active (เร็ว — ข้าม done/cancel ของเก่า)
 var _ACTIVE_LOAD={new:1,pick:1,qc:1,pack:1,ship:1,postponed:1,draft:1};
+// ดัชนี active บน Firebase — อัปเดตเมื่อเปลี่ยนสถานะ (เปิดแอปครั้งแรกจะเร็วขึ้นมาก)
+function _idxActive(oid,isActive){
+  if(!FB_URL||!oid)return;
+  if(isActive) fbPut('/activeIdx/'+encodeId(oid),true);
+  else fbDel('/activeIdx/'+encodeId(oid));
+}
 function loadActiveOrders(){
   if(!FB_URL){alert('กรุณาใส่ Firebase URL ในตั้งค่าก่อนครับ');return;}
+  showLov('⚡ โหลด active orders...');
+  // 1) ลองอ่านดัชนี /activeIdx ก่อน (ก้อนเล็ก — เร็วมาก)
+  var xi=new XMLHttpRequest();
+  xi.open('GET',FB_URL+'/activeIdx.json');
+  xi.timeout=15000;
+  xi.onload=function(){
+    var idx=null; try{idx=JSON.parse(xi.responseText);}catch(e){}
+    var keys=idx?Object.keys(idx):[];
+    if(keys.length){ showLov('⚡ ดึง '+keys.length+' active orders...'); fetchOrdersBatch(keys,0,50,0,keys.length); return; }
+    _loadActiveFromStatuses(); // ไม่มีดัชนี → สแกนแบบเดิม + สร้างดัชนีให้
+  };
+  xi.onerror=xi.ontimeout=function(){ _loadActiveFromStatuses(); };
+  xi.send();
+}
+// fallback: สแกน /statuses ทั้งก้อน แล้วสร้างดัชนี /activeIdx ให้อัตโนมัติ (ครั้งเดียว)
+function _loadActiveFromStatuses(){
   showLov('⚡ กรอง active orders...');
   var xSt=new XMLHttpRequest();
   xSt.open('GET',FB_URL+'/statuses.json');
@@ -3816,6 +3846,8 @@ function loadActiveOrders(){
         var s=typeof st[k]==='string'?st[k]:(st[k]&&st[k].status||'new');
         return _ACTIVE_LOAD[s];
       });
+      // สร้างดัชนีให้ครั้งเดียว (ทีเดียวทั้งก้อน) — เปิดครั้งต่อไปจะไม่ต้องโหลด /statuses อีก
+      var _p={}; keys.forEach(function(k){_p[k]=true;}); if(Object.keys(_p).length) fbPatch('/activeIdx',_p);
       if(!keys.length){hideLov();ulAlert('ไม่มี active orders — กดโหลดทั้งหมดถ้าต้องการประวัติ','warn');return;}
       showLov('⚡ ดึง '+keys.length+' active orders...');
       fetchOrdersBatch(keys,0,50,0,keys.length);
@@ -5344,7 +5376,9 @@ function cancelOrderFromEdit(){
   if(FB_URL){
     fbPut('/orders/'+encodeId(_editOid)+'/status','cancel');
     fbPut('/orders/'+encodeId(_editOid)+'/updatedAt',o.updatedAt);
+    fbPatch('/statuses/'+encodeId(_editOid),{status:'cancel',updatedAt:o.updatedAt});
     fbPut('/cancels/'+encodeId(_editOid),{cancelledAt:o.updatedAt,by:localStorage.getItem('WMS_USR')||'PC'});
+    _idxActive(_editOid,false);
   }
   saveLocal(); refreshAll();
   document.getElementById('edit-order-modal').style.display='none';

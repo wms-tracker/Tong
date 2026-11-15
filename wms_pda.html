@@ -173,7 +173,7 @@ input:focus{outline:none;border-color:var(--primary)}
     <div style="display:flex;flex-direction:column;gap:8px">
       <button class="btn btn-fb" onclick="syncOrdersFromFirebase()">🔥 ดึงออเดอร์จาก Firebase</button>
       <button class="btn" style="background:#DC2626;color:#fff;font-weight:700" onclick="clearSyncOrders()">🗑 ล้างและ Sync ใหม่ทั้งหมด</button>
-      <div style="text-align:center"><span style="background:#16A34A;color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:6px">PDA BUILD 20260731-14</span></div>
+      <div style="text-align:center"><span style="background:#16A34A;color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:6px">PDA BUILD 20260731-15</span></div>
       <div id="sync-debug" style="font-size:11px;color:var(--text2);padding:6px;background:var(--bg3);border-radius:6px;word-break:break-all"></div>
     </div>
   </div>
@@ -1334,6 +1334,7 @@ function pushStatus(oid,status){
   var tl=ORDERS[oid]?ORDERS[oid].timeline||[]:[];
   if(FB) fbPatch('/statuses/'+encId(oid),{status:status,updatedAt:ts,device:DEV,user:USR});
   if(FB) fbPatch('/orders/'+encId(oid),{status:status,updatedAt:ts,updatedBy:USR,device:DEV,timeline:tl});
+  if(FB){ var _av={new:1,pick:1,qc:1,pack:1,ship:1,postponed:1,draft:1}; if(_av[status]) fbPut('/activeIdx/'+encId(oid),true); else fbDel('/activeIdx/'+encId(oid)); }
   if(API) jFetch(API+'?action=setStatus&orderId='+encodeURIComponent(oid)+'&status='+encodeURIComponent(status)).catch(function(){});
 }
 function pushScanLog(oid,items){
