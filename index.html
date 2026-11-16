@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-62</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-63</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -2521,7 +2521,8 @@ function importHRZPickup(){
   if(!confirm('ดึงออเดอร์ "รับที่คลัง" จากชีท HRZ เข้าระบบ?\n(SKU + ของแถมจะถูกแยกเป็นรายการ)'))return;
   ulAlert('⏳ กำลังดึงข้อมูลจาก HRZ...','warn');
   var xhr=new XMLHttpRequest();
-  xhr.open('GET',HRZ_PICKUP_URL);
+  var _hu=HRZ_PICKUP_URL+(HRZ_PICKUP_URL.indexOf('?')>=0?'&':'?')+'_cb='+Date.now(); // กัน Google cache ค้าง
+  xhr.open('GET',_hu);
   xhr.timeout=30000;
   xhr.onload=function(){
     try{
