@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-63</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-64</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -2104,14 +2104,15 @@ function doQCScan(){
     playErr();return;
   }
   let k=getQCKey(curQCOid,sku,f.tracking||'');
+  // 🚫 ยิงเกิน: ไม่นับเพิ่มเด็ดขาด — ค้างที่ครบพอดี + เตือนทันที
+  if((SC[k]||0)+1>f.qty){
+    qcAlert('🚫 เกินจำนวน! '+sku+' ครบแล้ว '+f.qty+'/'+f.qty+' — ไม่นับเพิ่ม','err');playErr();
+    document.getElementById('qc-in-sku').value='';document.getElementById('qc-sku-hint').textContent='';
+    document.getElementById('qc-in-sku').focus();
+    return;
+  }
   SC[k]=(SC[k]||0)+1;
   let s=SC[k];
-  if(s>f.qty){
-    qcAlert('⚠ สแกนเกิน '+s+'/'+f.qty,'err');playErr();
-    document.getElementById('qc-over-box').style.display='block';
-    document.getElementById('qc-over-box').dataset.sku=sku;
-    renderQCProdList();updateQCProgress();saveLocal();return;
-  }
   if(s===f.qty){qcAlert('✓ ครบแล้ว '+s+'/'+f.qty,'ok');playOk();}
   else{qcAlert('สแกนแล้ว '+s+'/'+f.qty+' ขาด '+(f.qty-s),'warn');}
   document.getElementById('qc-in-sku').value='';document.getElementById('qc-sku-hint').textContent='';
