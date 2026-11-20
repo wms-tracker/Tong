@@ -485,7 +485,7 @@ tbody tr:hover td{background:var(--pl)}
     <input type="file" id="fi" style="display:none" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
     <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--rx);font-size:12px;color:var(--text2)">
       คอลัมน์: <b>Order ID · SKU · แบรนด์ · ขนาด · Qty · Consign · Tracking · Status</b>
-      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-64</span>
+      <span style="float:right;background:#16A34A;color:#fff;padding:1px 8px;border-radius:6px;font-weight:700;font-size:11px">BUILD 20260731-65</span>
     </div>
     <div id="ul-alert" style="margin-top:10px"></div>
   </div>
@@ -4812,11 +4812,17 @@ var QCVID={
     catch(e){this.warn('เขียนไฟล์ไม่ได้ (ดิสก์เต็ม/สิทธิ์?): '+(e&&e.message||e));return;}
     this.writable=writable;
     var sess={id:'VID-'+base,oid:oid,tracking:trk||'',start:new Date().toISOString(),file:name,path:dd.path+'/'+name,user:localStorage.getItem('WMS_USR')||'PC',device:localStorage.getItem('WMS_DEV')||'WMS-PC',status:'recording',bytes:0,t0:Date.now()};
+    sess._wq=Promise.resolve(); // คิวเขียนไฟล์ serialize — กันก้อนข้อมูลเขียนสลับลำดับ (ftyp/moov ต้องมาก่อน)
     this.session=sess;
     try{localStorage.setItem('WMS_VID_OPEN',JSON.stringify({file:name,path:sess.path,oid:oid,start:sess.start}));}catch(e){}
     try{this.rec=new MediaRecorder(this.stream,{mimeType:mime});}catch(e){try{this.rec=new MediaRecorder(this.stream);}catch(e2){this.warn('อัดไม่ได้: '+(e2&&e2.message||e2));return;}}
     var self=this;
-    this.rec.ondataavailable=async function(ev){if(ev.data&&ev.data.size&&self.writable){try{await self.writable.write(ev.data);sess.bytes+=ev.data.size;}catch(er){self.warn('เขียนดิสก์ล้มเหลว: '+(er&&er.message||er));}}};
+    var _w=writable; // ผูกกับไฟล์ของ session นี้โดยเฉพาะ — recorder ตัวเก่าที่ยังค้าง จะเขียนได้แต่ไฟล์ตัวเอง ไม่ปนไฟล์ใหม่
+    this.rec.ondataavailable=function(ev){
+      if(!ev.data||!ev.data.size)return;
+      var d=ev.data;
+      sess._wq=sess._wq.then(function(){return _w.write(d);}).then(function(){sess.bytes+=d.size;}).catch(function(er){self.warn('เขียนดิสก์ล้มเหลว: '+(er&&er.message||er));});
+    };
     this.rec.onerror=function(ev){self.warn('กล้อง/อัดผิดพลาด');};
     try{this.rec.start(1000);}catch(e){this.warn('เริ่มอัดไม่ได้');return;}
     this.stream.getVideoTracks().forEach(function(t){t.onended=function(){self.warn('กล้องถูกถอด/หลุด');};});
@@ -4835,7 +4841,8 @@ var QCVID={
     if(!sess)return Promise.resolve(null);
     return new Promise(function(res){
       function fin(){
-        (async function(){try{if(self.writable)await self.writable.close();}catch(e){}
+        (async function(){try{if(sess._wq)await sess._wq;}catch(e){} // รอก้อนข้อมูลที่ค้างเขียนให้จบก่อน แล้วค่อยปิด (กันไฟล์ขาดท้าย)
+          try{if(self.writable)await self.writable.close();}catch(e){}
           sess.end=new Date().toISOString();sess.duration=Math.round((Date.now()-sess.t0)/1000);sess.status='completed';
           self.saveSession(sess);
           clearInterval(self.timer);try{localStorage.removeItem('WMS_VID_OPEN');}catch(e){}
